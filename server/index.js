@@ -14,6 +14,7 @@ const kakaoAdminKey = process.env.KAKAO_ADMIN_KEY;
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const PREMIUM_PRICE = 9900;
+const PORT = process.env.PORT || 3000;
 
 const supabaseAdmin = (supabaseUrl && supabaseServiceRoleKey)
   ? createClient(supabaseUrl, supabaseServiceRoleKey, {
@@ -192,6 +193,6 @@ app.post('/api/payments/kakao/create-checkout', async (req, res) => {
   }
 });
 
-app.listen(3000, () => {
-  console.log('Payment backend running on http://localhost:3000');
+app.listen(PORT, () => {
+  console.log(`Payment backend running on port ${PORT}`);
 });
