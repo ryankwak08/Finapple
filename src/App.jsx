@@ -15,6 +15,7 @@ import GlossaryQuizPlay from './pages/GlossaryQuizPlay';
 import Glossary from './pages/Glossary';
 import Profile from './pages/Profile';
 import Premium from './pages/Premium';
+import PremiumResult from './pages/PremiumResult';
 import Shop from './pages/Shop';
 import Login from './pages/Login';
 
@@ -38,6 +39,9 @@ const AppRoutes = () => (
       <Route path="/profile" element={<Profile />} />
     </Route>
     <Route path="/premium" element={<Premium />} />
+    <Route path="/premium/success" element={<PremiumResult status="success" />} />
+    <Route path="/premium/fail" element={<PremiumResult status="fail" />} />
+    <Route path="/premium/cancel" element={<PremiumResult status="cancel" />} />
     <Route path="/login" element={<Login />} />
     <Route path="*" element={<PageNotFound />} />
   </Routes>

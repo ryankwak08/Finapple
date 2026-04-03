@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/lib/AuthContext';
 import { ArrowLeft, Camera, Star, Clock, Crown, Check, Edit2, Loader2, Trash2 } from 'lucide-react';
 import { getCurrentUser, updateUserProfile, setPremiumStatus, signOut } from '@/services/authService';
+import { getIsPremium } from '@/lib/premium';
+import PremiumBadge from '@/components/PremiumBadge';
 import useProgress from '../lib/useProgress';
 
 function formatTime(seconds) {
@@ -35,7 +37,7 @@ export default function Profile() {
       setUser(u);
       setNameInput(u?.user_metadata?.full_name || '');
       setNicknameInput(u?.user_metadata?.nickname || '');
-      setIsPremium(u?.user_metadata?.is_premium || false);
+      setIsPremium(getIsPremium(u));
     }).catch(() => {
       setUser(null);
       setIsPremium(false);
@@ -127,7 +129,11 @@ export default function Profile() {
     // 실제 업로드 API 통합 필요
     const fileUrl = URL.createObjectURL(file);
     await updateUserProfile({ profile_picture: fileUrl });
-    setUser(prev => ({ ...prev, profile_picture: fileUrl }));
+    setUser(prev => ({
+      ...prev,
+      profile_picture: fileUrl,
+      user_metadata: { ...(prev?.user_metadata || {}), profile_picture: fileUrl },
+    }));
     window.dispatchEvent(new CustomEvent('profilePictureUpdated', { detail: { profile_picture: fileUrl } }));
     setUploadingPhoto(false);
   };
@@ -139,7 +145,7 @@ export default function Profile() {
       price: '₩0',
       period: '영구',
       features: ['기본 학습 콘텐츠', '하루 5개 하트', '경제 용어 사전'],
-      current: true,
+      current: !isPremium,
       color: 'border-border bg-card',
       badge: null,
     },
@@ -149,7 +155,7 @@ export default function Profile() {
       price: '₩9,900',
       period: '/ 월',
       features: ['모든 학습 콘텐츠', '무제한 하트', '오프라인 학습', 'PDF 원문 무제한', '광고 없음'],
-      current: false,
+      current: isPremium,
       color: 'border-primary bg-primary/5',
       badge: '인기',
     },
@@ -177,11 +183,15 @@ export default function Profile() {
               >
                 {uploadingPhoto ? (
                   <Loader2 className="w-6 h-6 text-primary animate-spin" />
-                ) : user?.profile_picture ? (
-                  <img src={user.profile_picture} alt="profile" className="w-full h-full object-cover" />
+                ) : (user?.user_metadata?.profile_picture || user?.profile_picture) ? (
+                  <img
+                    src={user?.user_metadata?.profile_picture || user?.profile_picture}
+                    alt="profile"
+                    className="w-full h-full object-cover"
+                  />
                 ) : (
                   <span className="text-3xl font-extrabold text-primary">
-                    {user?.full_name?.[0] || '?'}
+                    {(user?.user_metadata?.full_name || user?.user_metadata?.nickname || user?.email || '?')[0] || '?'}
                   </span>
                 )}
               </div>
@@ -224,7 +234,10 @@ export default function Profile() {
                 <div className="space-y-2 flex-1">
                   <div className="flex items-center gap-2">
                     <div className="flex-1 min-w-0">
-                      <p className="font-bold text-foreground text-[14px]">{user?.user_metadata?.full_name || user?.user_metadata?.nickname || '이름 없음'}</p>
+                      <div className="flex items-center gap-2">
+                        <p className="font-bold text-foreground text-[14px]">{user?.user_metadata?.full_name || user?.user_metadata?.nickname || '이름 없음'}</p>
+                        {isPremium && <PremiumBadge compact />}
+                      </div>
                     </div>
                     <button onClick={() => setEditingName(true)} className="p-1.5 hover:bg-muted rounded-lg transition-colors flex-shrink-0">
                       <Edit2 className="w-3.5 h-3.5 text-muted-foreground" />
@@ -343,7 +356,6 @@ export default function Profile() {
         {/* Logout */}
         <button
           onClick={async () => {
-            await setPremiumStatus(false);
             await logout();
           }}
           className="w-full py-3 rounded-2xl border border-destructive/30 text-destructive text-[14px] font-semibold animate-slide-up"
@@ -363,12 +375,20 @@ export default function Profile() {
         </button>
 
         {/* Cancel subscription */}
-        {user?.is_premium && (
+        {isPremium && (
           <button
             onClick={async () => {
               if (confirm('정말로 프리미엄 구독을 취소하시겠습니까?')) {
                 await setPremiumStatus(false);
-                setUser(prev => prev ? { ...prev, is_premium: false } : null);
+                setIsPremium(false);
+                setUser(prev => (
+                  prev
+                    ? {
+                        ...prev,
+                        user_metadata: { ...(prev.user_metadata || {}), is_premium: false },
+                      }
+                    : null
+                ));
                 // Refresh page to update premium-gated features
                 setTimeout(() => window.location.reload(), 300);
               }

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { getCurrentUser } from '@/services/authService';
+import { getIsPremium } from '@/lib/premium';
 
 const TODAY = () => new Date().toISOString().split('T')[0];
 
@@ -21,11 +22,15 @@ export default function useProgress() {
     try {
       const me = await getCurrentUser().catch(() => null);
       setUser(me);
+      const premiumUser = getIsPremium(me);
 
       const savedProgress = JSON.parse(localStorage.getItem('finapple_progress') || 'null');
       if (savedProgress && savedProgress.user_email === me?.email) {
         let p = savedProgress;
-        if (shouldResetHearts(p.hearts_last_reset)) {
+        if (premiumUser) {
+          p = { ...p, hearts: 5, hearts_last_reset: TODAY() };
+          localStorage.setItem('finapple_progress', JSON.stringify(p));
+        } else if (shouldResetHearts(p.hearts_last_reset)) {
           p = { ...p, hearts: 5, hearts_last_reset: TODAY() };
           localStorage.setItem('finapple_progress', JSON.stringify(p));
         }
@@ -52,6 +57,7 @@ export default function useProgress() {
   useEffect(() => { loadProgress(); }, [loadProgress]);
 
   const loseHeart = useCallback(async () => {
+    if (getIsPremium(user)) return progress?.hearts ?? 5;
     if (!progress || progress.hearts <= 0) return 0;
     const newHearts = progress.hearts - 1;
     // Optimistic update
@@ -130,6 +136,7 @@ export default function useProgress() {
     progress,
     loading,
     user,
+    isPremium: getIsPremium(user),
     loseHeart,
     completeQuiz,
     isUnitLocked,

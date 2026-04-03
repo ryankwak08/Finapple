@@ -1,7 +1,7 @@
 import { Star, Heart, ArrowLeft } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
-export default function QuizResult({ score, total, xpEarned, isNewCompletion, hearts, backUrl = '/quiz' }) {
+export default function QuizResult({ score, total, xpEarned, isNewCompletion, hearts, isUnlimitedHearts = false, backUrl = '/quiz' }) {
   const percentage = Math.round((score / total) * 100);
   const passed = score >= 3;
   const stars = score >= 5 ? 3 : score >= 4 ? 2 : score >= 3 ? 1 : 0;
@@ -48,7 +48,9 @@ export default function QuizResult({ score, total, xpEarned, isNewCompletion, he
         )}
         <div className="flex items-center gap-2">
           <Heart className="w-5 h-5 text-red-400 fill-red-400" />
-          <span className="text-[14px] font-semibold text-foreground">{hearts} 남음</span>
+          <span className="text-[14px] font-semibold text-foreground">
+            {isUnlimitedHearts ? '무제한' : `${hearts} 남음`}
+          </span>
         </div>
       </div>
 

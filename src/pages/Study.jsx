@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { studyTopics } from '../lib/studyData';
 import TopicCard from '../components/study/TopicCard';
 import useProgress from '../lib/useProgress';
@@ -7,11 +8,28 @@ import PullToRefresh from '../components/PullToRefresh';
 import { Star, ChevronRight } from 'lucide-react';
 
 export default function Study() {
+  const location = useLocation();
   const { progress, loading, user } = useProgress();
   const [selectedCourse, setSelectedCourse] = useState(() => {
     const params = new URLSearchParams(window.location.search);
     return params.get('course') || null;
   });
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    setSelectedCourse(params.get('course') || null);
+  }, [location.search]);
+
+  useEffect(() => {
+    const handleTabReset = (event) => {
+      if (event.detail?.tabRoot !== '/') return;
+      setSelectedCourse(null);
+      window.history.replaceState({}, '', '/');
+    };
+
+    window.addEventListener('bottomNavReset', handleTabReset);
+    return () => window.removeEventListener('bottomNavReset', handleTabReset);
+  }, []);
 
   const handleSelectCourse = (course) => {
     setSelectedCourse(course);

@@ -1,14 +1,19 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, CreditCard } from "lucide-react";
-import { createTossCheckoutSession, createKakaoCheckoutSession, getBankTransferInstructions } from '@/api/paymentClient';
-import { setPremiumStatus } from '@/services/authService';
+import { ArrowLeft } from "lucide-react";
+import { useAuth } from '@/lib/AuthContext';
+import {
+  PREMIUM_MONTHLY_PRICE,
+  createPremiumOrderId,
+  createTossCheckoutSession,
+  getBankTransferInstructions,
+} from '@/api/paymentClient';
 
 const isRunningInIframe = () => { try { return window.self !== window.top; } catch { return true; } };
 
-const PRICE_ID = "premium_monthly";
 export default function Premium() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState('toss'); // 'toss' | 'kakao' | 'bank'
 
@@ -28,34 +33,32 @@ export default function Premium() {
 
     setLoading(true);
     try {
-      let response;
-      const customerName = 'Finapple User'; // 실제로는 로그인한 사용자 정보 사용
-      
+      const customerName = user?.user_metadata?.full_name || user?.user_metadata?.nickname || user?.email || 'Finapple User';
+
       if (paymentMethod === 'toss') {
-        response = await createTossCheckoutSession({
-          amount: 9900,
-          orderId: `order_${Date.now()}`,
+        const response = await createTossCheckoutSession({
+          amount: PREMIUM_MONTHLY_PRICE,
+          orderId: createPremiumOrderId(),
           orderName: 'Finapple 프리미엄',
           customerName,
+          customerEmail: user?.email || undefined,
         });
-      } else if (paymentMethod === 'kakao') {
-        response = await createKakaoCheckoutSession({
-          itemName: 'Finapple 프리미엄 (월간)',
-          quantity: 1,
-          totalAmount: 9900,
-          customerName,
-        });
+
+        if (response.success && response.url) {
+          window.location.href = response.url;
+          return;
+        }
+
+        throw new Error(response.error || '결제 세션 생성 실패');
       }
 
-      if (response.success && response.url) {
-        // 결제 페이지로 이동
-        window.location.href = response.url;
-      } else {
-        throw new Error(response.error || '결제 세션 생성 실패');
+      if (paymentMethod === 'kakao') {
+        alert('카카오페이는 아직 승인 단계가 연결되지 않아, 지금은 토스 결제만 테스트할 수 있어요.');
+        return;
       }
     } catch (error) {
       console.error("Checkout error:", error);
-      alert("결제 중 오류가 발생했습니다. 다시 시도해주세요.");
+      alert(error.message || "결제 중 오류가 발생했습니다. 다시 시도해주세요.");
     } finally {
       setLoading(false);
     }
@@ -116,7 +119,7 @@ export default function Premium() {
                     : 'bg-card border-2 border-border text-foreground hover:border-primary/50'
                 }`}
               >
-                👜 카카오 페이
+                👜 카카오 페이 (준비 중)
               </button>
               <button
                 onClick={() => setPaymentMethod('bank')}
@@ -140,6 +143,8 @@ export default function Premium() {
               ? "계좌이체 안내 보기" 
               : loading 
               ? "처리 중..." 
+              : paymentMethod === 'kakao'
+              ? "카카오페이 준비 중"
               : "지금 구독하기"}
           </button>
 

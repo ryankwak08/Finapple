@@ -1,3 +1,9 @@
+const SUPABASE_PROJECT_URL = "https://eluwjbpgqnyoohtxrufd.supabase.co";
+const PDF_BUCKET = "KDI Textbooks (Youth)";
+
+const buildPdfUrl = (unitNumber) =>
+  `${SUPABASE_PROJECT_URL}/storage/v1/object/public/${encodeURIComponent(PDF_BUCKET)}/U${unitNumber}.pdf`;
+
 export const studyTopics = [
   {
     id: "rational-consumption",
@@ -60,7 +66,7 @@ export const studyTopics = [
         content: "충동소비 방지:\n• 구매 결정을 2~3일 미루기\n• 필요한 물건 목록 미리 작성하기\n\n예산 관리:\n• 예산은 항목별로 (총액 X, 항목별 O)\n• 여유자금 포함 (너무 빠듯하면 포기하기 쉬움)\n• 예산 달성 시 소확행으로 자기 보상하기\n\n\"돈이란 벌기 힘들며, 가지고 있긴 더욱 힘들고, 현명하게 쓰기는 정말로 힘들다.\" — 세네카"
       }
     ],
-    pdfUrl: "https://media.example.com/files/public/69cda87abec75246d54be70d/4b0b2d935_consumption.pdf"
+    pdfUrl: buildPdfUrl(1)
   },
   {
     id: "credit-card",
@@ -123,7 +129,7 @@ export const studyTopics = [
         content: "사전 예방:\n• 결제알림 서비스 등록 (분실 즉시 인지)\n• 카드 뒷면 서명 + 사진으로 보관\n\n분실 시:\n① 즉시 카드사에 도난 신고\n② 부정사용 피해는 신고 후 60일 이내 보상 청구\n\n⚠️ 서명 없으면 피해 금액의 절반만 보상, 또는 보상 불가!\n\n기억할 것: 신고를 늦출수록 피해가 커집니다."
       }
     ],
-    pdfUrl: "https://media.example.com/files/public/69cda87abec75246d54be70d/961ebdcc0_credit-card.pdf"
+    pdfUrl: buildPdfUrl(2)
   },
   {
     id: "credit-management",
@@ -186,7 +192,7 @@ export const studyTopics = [
         content: "Q1. 신용정보를 조회하면 신용등급이 하락한다? → ❌ 거짓\n2011년 10월부터 신용조회는 점수에 영향 없음\n\nQ2. 대출·카드 없이 현금만 쓰면 신용점수가 높다? → ❌ 거짓\n신용거래 기록이 없으면 평가할 근거가 없어 높은 점수 불가\n자신의 능력 범위 안에서 적절한 신용거래를 해야 유리\n\nQ3. 소득이나 자산이 많으면 신용점수가 높다? → ❌ 거짓\n소득·자산은 신용 평가 요소가 아님\n(단, 소득이 높으면 부채 상환에 유리한 간접 효과는 있음)"
       }
     ],
-    pdfUrl: "https://media.example.com/files/public/69cda87abec75246d54be70d/45aeb471b_3.pdf"
+    pdfUrl: buildPdfUrl(3)
   },
   {
     id: "financial-recipe",
@@ -254,7 +260,7 @@ export const studyTopics = [
         content: "예일대학교 연구(1953년):\n졸업생에게 인생 목표가 있는지 조사 → 목표를 구체적으로 적은 사람은 3%\n20년 후 재조사 → 그 3%가 나머지 97%보다 재무 측면에서 훨씬 뛰어난 성과\n\n→ 목표를 설정하고 직접 적어보는 것만으로도 큰 효과!\n\n💡 지금 바로 나만의 재무레시피를 만들어보세요:\n1. 재무목표 정하기 (결혼·출산·양육·주택·노후)\n2. SMART 기준으로 구체화\n3. 준비 기간과 총 소요 금액 계산\n4. 매달 필요한 저축액 산출\n5. 6개월~1년마다 목표 점검 및 수정"
       }
     ],
-    pdfUrl: "https://media.example.com/files/public/69cda87abec75246d54be70d/656257db6_43.pdf"
+    pdfUrl: buildPdfUrl(4)
   },
   {
     id: "financial-products",
@@ -326,7 +332,7 @@ export const studyTopics = [
         content: "6가지 항목으로 투자성향 점수를 계산해보세요:\n\n① 나이 (29세 이하 8점 ~ 50세 이상 3점)\n② 소득 안정성 (정기 소득·유지 예상 17점 ~ 소득 없음 3점)\n③ 금융 지식 수준 (모든 투자상품 이해 18점 ~ 예적금만 앎 3점)\n④ 투자 경험 (파생상품 17점 ~ 예적금 3점)\n⑤ 투자 기간 (3년 이상 8점 ~ 6개월 미만 2점)\n⑥ 손실 감수 수준 (위험 높아도 무관 32점 ~ 원금 보전 필수 6점)\n\n합산 점수:\n• 40점 이하: 안전형 → 예·적금 권장\n• 41~55점: 안전추구형\n• 56~68점: 위험중립형\n• 69~80점: 적극투자형\n• 81점 이상: 공격투자형"
       }
     ],
-    pdfUrl: "https://media.example.com/files/public/69cda87abec75246d54be70d/ae662c6ea_5.pdf"
+    pdfUrl: buildPdfUrl(5)
   },
   {
     id: "debt-management",
@@ -398,7 +404,7 @@ export const studyTopics = [
         content: "① 한국장학재단 (학자금):\n• 취업 후 상환 학자금: 취업 후 소득에 따라 상환 (소득 8분위 이하, 연 2.2%)\n• 농촌출신 대학생 대출: 무이자\n\n② 서민금융진흥원 (생활비):\n• 대학생·청년 햇살론: 만 19~29세, 신용등급 6등급 이하, 최대 1,200만원, 연 4.5%\n\n③ 신용회복위원회 (생활비·고금리 전환):\n• 생활자금 대출: 연소득 3,000만원 이하 29세 이하 청년, 연 5.4%\n\n④ 금융위원회 (무주택 청년 전·월세):\n• 만 19~34세 무주택 청년, 보증금 7천만원 한도, 연 2.8%"
       }
     ],
-    pdfUrl: "https://media.example.com/files/public/69cda87abec75246d54be70d/8025f7bd0_6.pdf"
+    pdfUrl: buildPdfUrl(6)
   },
   {
     id: "insurance-pension",
@@ -461,7 +467,7 @@ export const studyTopics = [
         content: "보험 확인:\n'내보험찾아줌(cont.insure.or.kr)'\n→ 가입한 보험 내역, 미청구보험금, 휴면보험금 확인\n\n연금 확인:\n'통합연금포털(100lifeplan.fss.or.kr)'\n→ 공적연금·사적연금 모든 가입 내역 확인\n\n퇴직연금의 특징:\n• 재원을 회사 외부 금융회사에서 관리 → 회사 부도 시에도 안전\n• IRP를 통해 회사를 옮기더라도 퇴직급여 계속 적립 가능\n• 55세 이후 연금으로 수령하여 다양한 노후설계 가능\n\n'위험은 언제 어디서 다가올지 예측하기 쉽지 않다.\n보험과 연금으로 갑작스러운 위험의 충격을 완화하는 것이 중요하다.'"
       }
     ],
-    pdfUrl: "https://media.example.com/files/public/69cda87abec75246d54be70d/619c9f5f9_7.pdf"
+    pdfUrl: buildPdfUrl(7)
   },
   {
     id: "tax-knowledge",
@@ -524,7 +530,7 @@ export const studyTopics = [
         content: "인별 합산방식 적용 → 세금 기준 금액이 절반!\n\n양도소득세 예시:\n10억 아파트 보유 후 1억 시세차익 발생 시\n• 단독명의: 1억 → 35% 세율 구간\n• 부부공동명의: 각 5천만원 → 24% 세율 구간 (세금 대폭 절약!)\n\n종합부동산세:\n9억 원 초과 주택 보유 시 부과\n• 10억 단독명의 → 과세 대상\n• 10억 부부공동명의 → 각 5억으로 인정 → 과세 대상 아님!\n\n→ 주택 구매 시 부부 공동명의로만 연간 수백만 원 절세 가능!"
       }
     ],
-    pdfUrl: "https://media.example.com/files/public/69cda87abec75246d54be70d/99fbf7000_8.pdf"
+    pdfUrl: buildPdfUrl(8)
   },
   {
     id: "career",
@@ -587,7 +593,7 @@ export const studyTopics = [
         content: "다양한 지업 정보 두통\n• 커리어넷 (www.career.go.kr) — 직업적성검사·직업가치관검사·직업 정보\n• NCS (www.ncs.go.kr) — 직업별 직무수행능력 표준 정보\n• 직업훈련포털 (www.hrd.go.kr) — 관련 자격증·훈련 정보\n• 사업마다 척척 (www.work.go.kr) — 취업 정보\n\n인턴·빅데이터·샘플링 등을 통해 직접 경험해보는 것도 매우 효과적\n\n나의 네트워크를 적점 왕성해나가면 진로의 관문은 어떤 곳에든 열립니다!"
       }
     ],
-    pdfUrl: "https://media.example.com/files/public/69cda87abec75246d54be70d/1bc75789c_9.pdf"
+    pdfUrl: buildPdfUrl(9)
   },
   {
     id: "labor-rights",
@@ -650,7 +656,7 @@ export const studyTopics = [
         content: "산재보험이란?\n일터에서 일하다 다치거나 병에 걸렸을 때 치료와 각종 급여를 지원받는 보험.\n\n핵심 사항:\n• 원칙적으로 모든 사업장에 적용\n• 사업주가 산재보험에 미가입해도 근로복지공단에 직접 청구 가능\n• 문의: 고용노동부 고객상담센터 또는 근로복지공단(☎1588-0075)\n\n정리 - 도움받을 수 있는 곳:\n• 고용노동부 고객상담센터: ☎1350\n• 근로복지공단: ☎1588-0075\n• 대한법률구조공단: 체불임금 무료 법률상담\n• 지방고용노동관서: 가까운 곳 방문\n\n우리의 소중한 노동권, 모르면 못 지킵니다. 알고 적극적으로 행사하세요!"
       }
     ],
-    pdfUrl: "https://media.example.com/files/public/69cda87abec75246d54be70d/17fc51b03_10.pdf"
+    pdfUrl: buildPdfUrl(10)
   },
   {
     id: "independent-living",
@@ -713,7 +719,7 @@ export const studyTopics = [
         content: "1️⃣ 주민세:\n• 전입신고 후 해당 지역 주민이 되면서 발생\n• 급여명세서의 '주민세' = 지방소득세 (다른 세금!)\n• 만 18세 이하 미성년자·만 30세 미만 미혼 세대주 → 면제\n  (부과된 경우 지방자치단체에 문의)\n\n2️⃣ 국민건강보험:\n• 전입신고 시 지역가입자로 등록 → 보험료 청구\n• 계약한 전·월세 금액이 재산 기준 적용\n• 절약 방법: 부모님의 피부양자로 등록\n  피부양자 인정 기준: 연소득 3,400만원 이하, 재산 5.4억 이하, 미혼\n\n3️⃣ 기타 의무:\n• 전기·수도·가스 요금\n• 관리비\n• 대출 원금과 이자 상환"
       }
     ],
-    pdfUrl: "https://media.example.com/files/public/69cda87abec75246d54be70d/8d6d205c4_11.pdf"
+    pdfUrl: buildPdfUrl(11)
   },
   {
     id: "economic-indicators",
@@ -740,7 +746,7 @@ export const studyTopics = [
       { emoji: "🏦", title: "금리의 변화", content: "금리 인상 → 저축 증가, 대출 감소, 물가 하락. 금리 인하 → 소비 증가, 투자 증가, 물가 상승. 한국은행이 기준금리 결정." },
       { emoji: "💱", title: "환율 변동의 영향", content: "원화 강세 → 해외여행 저렴, 수입품 저렴, 물가 안정. 원화 약세 → 수출 증가, 수입품 비쌈, 물가 상승 압력." }
     ],
-    pdfUrl: "https://media.example.com/files/public/69cda87abec75246d54be70d/ed7889372_12.pdf"
+    pdfUrl: buildPdfUrl(12)
   },
   {
     id: "government-policy",
@@ -767,7 +773,7 @@ export const studyTopics = [
       { emoji: "🏢", title: "경제정책 관장 부처", content: "기획재정부(거시경제 안정·경제정책 총괄), 고용노동부(일자리·임금), 국토교통부(교통·주택), 보건복지부(복지), 금융위원회(금융 안정)." },
       { emoji: "🌍", title: "우리 삶과 직결되는 경제정책", content: "개인마다 처한 상황이 다르므로 같은 정책이 누구에게는 유리하고 누구에게는 불리할 수 있음. 자신의 여건을 고려해 정책이 미칠 영향을 판단해야 함." }
     ],
-    pdfUrl: "https://media.example.com/files/public/69cda87abec75246d54be70d/568036df1_13.pdf"
+    pdfUrl: buildPdfUrl(13)
   },
   {
     id: "economic-information",
@@ -793,7 +799,7 @@ export const studyTopics = [
       { emoji: "🔍", title: "허위 정보 판별 가이드", content: "스무고개 체크리스트: 정보의 출처, 신뢰성, 웹사이트 정확성, 콘텐츠 출처, 하이퍼링크 정확성, SNS 정보원, 언론사 게재 여부, 철자/맞춤법 등을 확인." },
       { emoji: "💡", title: "신뢰할 수 있는 정보 출처", content: "온라인청년센터(youthcenter.go.kr): 청년 정책 종합 제공. SNU FactCheck(factcheck.snu.ac.kr): 언론사 팩트체크 서비스. 서울청년포털(youth.seoul.go.kr): 서울시 청년정책. 청년주거포털(housing.seoul.kr): 청년 주거정책." }
     ],
-    pdfUrl: "https://media.example.com/files/public/69cda87abec75246d54be70d/855f2c823_14.pdf"
+    pdfUrl: buildPdfUrl(14)
   },
   {
     id: "fintech",
@@ -823,7 +829,7 @@ export const studyTopics = [
       { emoji: "🤝", title: "P2P금융과 크라우드펀딩", content: "P2P금융: 개인 간 직접 자금 연결, 대출자 저금리·투자자 고수익 제공(단, 손실 위험 있음). 크라우드펀딩: 온라인 소액 투자 모집(후원/기부형·대출형·증권형)." },
       { emoji: "⚠️", title: "핀테크의 위험 요소", content: "편리함 이면에 사이버 보안 위협 증가, 개인정보 유출 위험 존재. '금융규제 샌드박스'를 통해 정부가 핀테크 혁신을 지원하면서도 소비자 보호 제도를 강화하고 있음." }
     ],
-    pdfUrl: "https://media.example.com/files/public/69cda87abec75246d54be70d/3b77192b6_15.pdf"
+    pdfUrl: buildPdfUrl(15)
   },
   {
     id: "retirement-pension",
@@ -851,6 +857,6 @@ export const studyTopics = [
       { emoji: "\ud83d\udcb0", title: "\uc5f0\uae08\uc0c1\ud488\uc758 3\uac00\uc9c0 \ud61c\ud0dd", content: "\u2460 \uc138\uc561\uacf5\uc81c: IRP+\uc5f0\uae08\uc800\ucd95 \ud569\uc0b0 700\ub9cc \uc6d4 \ud55c\ub3c4. \u2461 \uacfc\uc138\uc774\uc5f0: \uc5f0\uae08 \uac1c\uc2dc \uc2dc\uc810\uae4c\uc9c0 \uc218\uc775\uc5d0 \uc138\uae08 \uc5c6\uc74c. \u2462 \uc800\uc728\uacfc\uc138: \uc5f0\uae08\uc18c\ub4dd\uc138\uc728 3.3~5.5%(\uc77c\ubc18 15.4% \ub300\ube44 \uc800\ub834)." },
       { emoji: "\u26a0\ufe0f", title: "\uc911\ub3c4 \ud574\uc9c0 \uc8fc\uc758", content: "IRP/\uac1c\uc778\uc5f0\uae08\uc800\ucd95 \uc911\ub3c4 \ud574\uc9c0 \uc2dc \uae30\ud0c0\uc18c\ub4dd\uc138(16.5%) \ub098\uac00. \ubd80\ub2f4\ub418\uc9c0 \uc54a\ub294 \uae08\uc561\uc73c\ub85c \uc2dc\uc791\ud558\uac70\ub098, \uc5f0\uae08\uc800\ucd95 \uacc4\uc88c\uc774\uccb4 \uc81c\ub3c4\ub97c \ud65c\uc6a9\ud574 \ud574\uc9c0 \uc5c6\uc774 \uc0c1\ud488 \ubcc0\uacbd \uac00\ub2a5." }
     ],
-    pdfUrl: "https://media.example.com/files/public/69cda87abec75246d54be70d/b4f28c654_163.pdf"
+    pdfUrl: buildPdfUrl(16)
   }
 ];

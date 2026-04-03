@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { ArrowLeft, BookOpen, Check, X, Star, Heart } from 'lucide-react';
+import { ArrowLeft, BookOpen, Star } from 'lucide-react';
 import { allGlossaryTerms } from '../lib/allGlossaryTerms';
 import useProgress from '../lib/useProgress';
 import HeartDisplay from '../components/quiz/HeartDisplay';
@@ -58,7 +58,7 @@ export default function GlossaryQuizPlay() {
   const { unitId } = useParams();
   const course = new URLSearchParams(window.location.search).get('course') || 'youth';
   const backUrl = `/quiz?course=${course}`;
-  const { progress, loseHeart, completeQuiz, isQuizCompleted } = useProgress();
+  const { progress, isPremium, loseHeart, completeQuiz, isQuizCompleted } = useProgress();
 
   const quizId = `${unitId}-glossary`;
   const [terms] = useState(() => pickTerms(unitId));
@@ -83,7 +83,7 @@ export default function GlossaryQuizPlay() {
     );
   }
 
-  if (progress.hearts <= 0 && !finished) {
+  if (!isPremium && progress.hearts <= 0 && !finished) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen px-6">
         <div className="text-5xl mb-4">💔</div>
@@ -175,7 +175,7 @@ export default function GlossaryQuizPlay() {
           <BookOpen className="w-4 h-4 text-primary" />
           <span className="text-[14px] font-bold text-foreground">시사 용어 10개 외우기</span>
         </div>
-        <HeartDisplay hearts={progress.hearts} />
+        <HeartDisplay hearts={progress.hearts} unlimited={isPremium} />
       </div>
 
       {/* Progress */}

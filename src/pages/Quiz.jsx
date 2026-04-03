@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { Star, ChevronRight } from 'lucide-react';
 import CourseSelector from '../components/CourseSelector';
 import useProgress from '../lib/useProgress';
@@ -8,16 +8,27 @@ import QuizRoadmap from '../components/quiz/QuizRoadmap';
 
 export default function Quiz() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [selectedCourse, setSelectedCourse] = useState(() => {
     const params = new URLSearchParams(window.location.search);
     return params.get('course') || null;
   });
-  const [isPremium, setIsPremium] = useState(false);
-  const [checkingPremium, setCheckingPremium] = useState(true);
-  const { progress, loading, isUnitLocked, isQuizCompleted, getQuizScore } = useProgress();
+  const { progress, loading, isPremium, isUnitLocked, isQuizCompleted, getQuizScore } = useProgress();
 
   useEffect(() => {
-    setCheckingPremium(false);
+    const params = new URLSearchParams(location.search);
+    setSelectedCourse(params.get('course') || null);
+  }, [location.search]);
+
+  useEffect(() => {
+    const handleTabReset = (event) => {
+      if (event.detail?.tabRoot !== '/quiz') return;
+      setSelectedCourse(null);
+      window.history.replaceState({}, '', '/quiz');
+    };
+
+    window.addEventListener('bottomNavReset', handleTabReset);
+    return () => window.removeEventListener('bottomNavReset', handleTabReset);
   }, []);
 
   const handleSelectCourse = (course) => {
@@ -29,14 +40,6 @@ export default function Quiz() {
     return <CourseSelector type="quiz" onSelect={handleSelectCourse} />;
   }
 
-  if (checkingPremium) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
-      </div>
-    );
-  }
-
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -46,7 +49,7 @@ export default function Quiz() {
   }
 
   const handleQuizSelect = (quizId) => {
-    if (progress.hearts <= 0) return;
+    if (!isPremium && progress.hearts <= 0) return;
     navigate(`/quiz/${quizId}?course=${selectedCourse}`);
   };
 
@@ -76,22 +79,35 @@ export default function Quiz() {
         <div>
           <p className="text-[13px] font-semibold text-foreground">오늘의 하트</p>
           <p className="text-[11px] text-muted-foreground mt-0.5">
-            {progress.hearts > 0
-              ? `틀리면 하트가 줄어요`
+            {isPremium
+              ? '프리미엄 혜택으로 하트가 무제한이에요'
+              : progress.hearts > 0
+              ? '틀리면 하트가 줄어요'
               : '내일 다시 충전돼요 😴'}
           </p>
         </div>
-        <HeartDisplay hearts={progress?.hearts || 0} />
+        <HeartDisplay hearts={progress?.hearts || 0} unlimited={isPremium} />
       </div>
 
       {/* No hearts warning */}
-      {progress.hearts <= 0 && (
+      {!isPremium && progress.hearts <= 0 && (
         <div className="bg-destructive/10 rounded-2xl p-4 mb-6 border border-destructive/20 animate-scale-in">
           <p className="text-[14px] font-bold text-destructive text-center">
             💔 하트를 모두 사용했어요
           </p>
           <p className="text-[12px] text-destructive/70 text-center mt-1">
             내일 자정에 5개로 다시 충전됩니다
+          </p>
+        </div>
+      )}
+
+      {isPremium && (
+        <div className="bg-primary/10 rounded-2xl p-4 mb-6 border border-primary/20 animate-scale-in">
+          <p className="text-[14px] font-bold text-primary text-center">
+            ♾ 프리미엄 무제한 하트
+          </p>
+          <p className="text-[12px] text-primary/80 text-center mt-1">
+            오답이 나와도 하트가 차감되지 않습니다
           </p>
         </div>
       )}

@@ -1,5 +1,4 @@
 import { useLocation, useNavigate } from 'react-router-dom';
-import { useEffect } from 'react';
 import { BookOpen, Trophy, BookMarked, ShoppingBag } from 'lucide-react';
 
 const tabs = [
@@ -21,20 +20,9 @@ export default function BottomNav() {
   const navigate = useNavigate();
   const activeTab = getActiveTab(pathname);
 
-  // Save current path for active tab whenever it changes
-  useEffect(() => {
-    sessionStorage.setItem(`tab:${activeTab}`, pathname);
-  }, [pathname, activeTab]);
-
   const handleTabPress = (tabRoot) => {
-    if (tabRoot === activeTab) {
-      // Re-tap active tab → reset to root
-      navigate(tabRoot);
-    } else {
-      // Switch to last known path for that tab
-      const lastPath = sessionStorage.getItem(`tab:${tabRoot}`) || tabRoot;
-      navigate(lastPath);
-    }
+    window.dispatchEvent(new CustomEvent('bottomNavReset', { detail: { tabRoot } }));
+    navigate(tabRoot);
   };
 
   return (

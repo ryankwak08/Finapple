@@ -1,6 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { ShoppingBag, Zap, CheckCircle2 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
 import useProgress from '../lib/useProgress';
 
 
@@ -16,17 +15,10 @@ const ITEMS = [
 ];
 
 export default function Shop() {
-  const navigate = useNavigate();
   const { progress, reload } = useProgress();
   const [purchasing, setPurchasing] = useState(null);
   const [purchased, setPurchased] = useState([]);
   const [error, setError] = useState(null);
-  const [isPremium, setIsPremium] = useState(false);
-  const [checkingPremium, setCheckingPremium] = useState(true);
-
-  useEffect(() => {
-    setCheckingPremium(false);
-  }, []);
 
   const xp = progress?.xp || 0;
 

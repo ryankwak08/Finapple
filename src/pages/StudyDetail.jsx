@@ -1,9 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { ArrowLeft, BookOpen, FileText, Lock } from 'lucide-react';
+import { ArrowLeft, BookOpen, ExternalLink, FileText, Lock } from 'lucide-react';
 import { getCurrentUser } from '@/services/authService';
+import { getIsPremium } from '@/lib/premium';
 import { studyTopics } from '../lib/studyData';
+import PremiumBadge from '@/components/PremiumBadge';
 import ConceptTag from '../components/study/ConceptTag';
+
+const isPlaceholderPdfUrl = (pdfUrl) => !pdfUrl || pdfUrl.includes('media.example.com');
 
 export default function StudyDetail() {
   const navigate = useNavigate();
@@ -15,7 +19,7 @@ export default function StudyDetail() {
   useEffect(() => {
     const checkPremium = async () => {
       const user = await getCurrentUser().catch(() => null);
-      setIsPremium(user?.is_premium || false);
+      setIsPremium(getIsPremium(user));
     };
     checkPremium();
   }, []);
@@ -41,9 +45,12 @@ export default function StudyDetail() {
       <div className="mb-5">
         <div className="text-3xl mb-2">{topic.icon}</div>
         <p className="text-[11px] font-semibold text-primary uppercase tracking-widest mb-1">{topic.subtitle}</p>
-        <h1 className="text-xl font-extrabold text-foreground leading-snug">
-          {topic.title}
-        </h1>
+        <div className="flex items-center gap-2">
+          <h1 className="text-xl font-extrabold text-foreground leading-snug">
+            {topic.title}
+          </h1>
+          {isPremium && <PremiumBadge compact />}
+        </div>
       </div>
 
       {/* Tab toggle */}
@@ -136,19 +143,35 @@ export default function StudyDetail() {
           </div>
         </div>
       ) : (
-        <div className="rounded-2xl border border-border overflow-hidden" style={{ height: '80vh' }}>
-          {topic.pdfUrl ? (
-            <iframe
-              src={topic.pdfUrl}
-              className="w-full h-full"
-              title={topic.title + ' PDF'}
-            />
-          ) : (
-            <div className="flex flex-col items-center justify-center h-full p-8">
-              <FileText className="w-12 h-12 text-muted-foreground/30 mb-4" />
-              <p className="text-muted-foreground text-[14px] text-center font-medium">
-                원문 PDF가 아직 등록되지 않았습니다
+        <div className="rounded-2xl border border-border overflow-hidden bg-card" style={{ height: '80vh' }}>
+          {!topic.pdfUrl || isPlaceholderPdfUrl(topic.pdfUrl) ? (
+            <div className="flex h-full flex-col items-center justify-center p-8 text-center">
+              <FileText className="mb-4 h-12 w-12 text-muted-foreground/30" />
+              <p className="text-[16px] font-bold text-foreground">원문 PDF 링크를 아직 실제 파일로 연결하지 않았어요</p>
+              <p className="mt-2 max-w-sm text-[14px] leading-relaxed text-muted-foreground">
+                현재 학습 데이터의 `pdfUrl`이 예시 주소(`media.example.com`)로 들어가 있어서, 프리미엄이어도 PDF가 열리지 않습니다.
+                실제 공개 PDF URL이나 Supabase Storage 공개 링크로 교체하면 바로 표시됩니다.
               </p>
+            </div>
+          ) : (
+            <div className="h-full">
+              <div className="flex items-center justify-between border-b border-border bg-muted/30 px-4 py-3">
+                <p className="text-[12px] font-semibold text-foreground">프리미엄 원문 PDF</p>
+                <a
+                  href={topic.pdfUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-1 rounded-lg border border-border bg-background px-3 py-1.5 text-[12px] font-semibold text-foreground"
+                >
+                  새 탭에서 열기
+                  <ExternalLink className="h-3.5 w-3.5" />
+                </a>
+              </div>
+              <iframe
+                src={topic.pdfUrl}
+                className="h-[calc(80vh-49px)] w-full"
+                title={topic.title + ' PDF'}
+              />
             </div>
           )}
         </div>

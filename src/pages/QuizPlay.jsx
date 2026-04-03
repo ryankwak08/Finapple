@@ -12,7 +12,7 @@ export default function QuizPlay() {
   const { quizId } = useParams();
   const course = new URLSearchParams(window.location.search).get('course') || 'youth';
   const backUrl = `/quiz?course=${course}`;
-  const { progress, loseHeart, completeQuiz, isQuizCompleted } = useProgress();
+  const { progress, isPremium, loseHeart, completeQuiz, isQuizCompleted } = useProgress();
   const [questions, setQuestions] = useState(null);
   const [loading, setLoading] = useState(true);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -117,12 +117,13 @@ export default function QuizPlay() {
         xpEarned={xpEarned}
         isNewCompletion={isNew || xpEarned > 0}
         hearts={progress.hearts}
+        isUnlimitedHearts={isPremium}
         backUrl={backUrl}
       />
     );
   }
 
-  if (progress.hearts <= 0) {
+  if (!isPremium && progress.hearts <= 0) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen px-6">
         <div className="text-5xl mb-4">💔</div>
@@ -183,7 +184,7 @@ export default function QuizPlay() {
           <ArrowLeft className="w-5 h-5" />
         </button>
         <span className="text-[14px] font-bold text-foreground">{quizData.title}</span>
-        <HeartDisplay hearts={progress.hearts} />
+        <HeartDisplay hearts={progress.hearts} unlimited={isPremium} />
       </div>
 
       <QuestionCard

@@ -1,6 +1,5 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Search, X, ChevronRight, List } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
 import PullToRefresh from '../components/PullToRefresh';
 import { getTermsByConsonant, searchTerms, koreanLetters, getInitialConsonant, allGlossaryTerms } from '../lib/glossaryData';
 
@@ -13,17 +12,24 @@ const getEnglishInitial = (str) => {
 };
 
 export default function Glossary() {
-  const navigate = useNavigate();
   const [mode, setMode] = useState('korean'); // 'korean' | 'english' | 'all'
   const [selectedLetter, setSelectedLetter] = useState('ㄱ');
   const [selectedEnglishLetter, setSelectedEnglishLetter] = useState('B');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTerm, setSelectedTerm] = useState(null);
-  const [isPremium, setIsPremium] = useState(false);
-  const [checkingPremium, setCheckingPremium] = useState(true);
 
   useEffect(() => {
-    setCheckingPremium(false);
+    const handleTabReset = (event) => {
+      if (event.detail?.tabRoot !== '/glossary') return;
+      setMode('korean');
+      setSelectedLetter('ㄱ');
+      setSelectedEnglishLetter('B');
+      setSearchQuery('');
+      setSelectedTerm(null);
+    };
+
+    window.addEventListener('bottomNavReset', handleTabReset);
+    return () => window.removeEventListener('bottomNavReset', handleTabReset);
   }, []);
 
   const englishTerms = allGlossaryTerms.filter(t => /^[A-Za-z]/.test(t.term));

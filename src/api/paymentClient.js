@@ -1,9 +1,18 @@
-// 토스페이 및 카카오페이 결제 클라이언트
-// 백엔드가 http://localhost:3000 에서 실행 중이어야 함
+import { supabase } from '@/lib/supabase';
 
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000';
+const BACKEND_URL = import.meta.env.DEV
+  ? ''
+  : (import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000');
+export const PREMIUM_MONTHLY_PRICE = 9900;
 
-export const createTossCheckoutSession = async ({ amount, orderId, orderName, customerName }) => {
+const getAppBaseUrl = () => import.meta.env.VITE_APP_BASE_URL || window.location.origin;
+
+export const createPremiumOrderId = () => {
+  const randomPart = Math.random().toString(36).slice(2, 12);
+  return `premium_monthly_${Date.now()}_${randomPart}`;
+};
+
+export const createTossCheckoutSession = async ({ amount, orderId, orderName, customerName, customerEmail }) => {
   try {
     const response = await fetch(`${BACKEND_URL}/api/payments/toss/create-checkout`, {
       method: 'POST',
@@ -13,19 +22,52 @@ export const createTossCheckoutSession = async ({ amount, orderId, orderName, cu
         orderId,
         orderName,
         customerName,
-        successUrl: `${window.location.origin}/premium/success?paymentKey={paymentKey}&orderId={orderId}`,
-        failUrl: `${window.location.origin}/premium/fail`,
+        customerEmail,
+        successUrl: `${getAppBaseUrl()}/premium/success?provider=toss`,
+        failUrl: `${getAppBaseUrl()}/premium/fail?provider=toss`,
       }),
     });
+
     const data = await response.json();
-    if (data.nextRedirectUrl) {
-      return { success: true, url: data.nextRedirectUrl };
+
+    if (!response.ok) {
+      throw new Error(data.error || '결제창 생성 실패');
     }
-    return data;
+
+    if (data.checkoutUrl) {
+      return { success: true, url: data.checkoutUrl };
+    }
+
+    throw new Error('토스 결제창 URL을 받지 못했습니다.');
   } catch (error) {
     console.error('Toss checkout error:', error);
     return { success: false, error: error.message };
   }
+};
+
+export const confirmTossPayment = async ({ paymentKey, orderId, amount }) => {
+  const { data, error } = await supabase.auth.getSession();
+  if (error || !data?.session?.access_token) {
+    throw new Error('로그인 세션을 찾지 못했습니다. 다시 로그인해주세요.');
+  }
+
+  const response = await fetch(`${BACKEND_URL}/api/payments/toss/confirm`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      paymentKey,
+      orderId,
+      amount: Number(amount),
+      accessToken: data.session.access_token,
+    }),
+  });
+
+  const result = await response.json();
+  if (!response.ok) {
+    throw new Error(result.error || '결제 승인에 실패했습니다.');
+  }
+
+  return result;
 };
 
 export const createKakaoCheckoutSession = async ({ itemName, quantity, totalAmount, customerName }) => {
@@ -41,9 +83,9 @@ export const createKakaoCheckoutSession = async ({ itemName, quantity, totalAmou
         quantity,
         total_amount: totalAmount,
         tax_free_amount: 0,
-        approval_url: `${window.location.origin}/premium/success`,
-        fail_url: `${window.location.origin}/premium/fail`,
-        cancel_url: `${window.location.origin}/premium`,
+        approval_url: `${window.location.origin}/premium/success?provider=kakao`,
+        fail_url: `${window.location.origin}/premium/fail?provider=kakao`,
+        cancel_url: `${window.location.origin}/premium/cancel?provider=kakao`,
       }),
     });
     const data = await response.json();
@@ -61,7 +103,6 @@ export const getBankTransferInstructions = () => ({
   bankName: '국민은행',
   accountNumber: '123456-01-234567',
   accountHolder: '파인애플 학습센터',
-  amount: 9900,
+  amount: PREMIUM_MONTHLY_PRICE,
   message: 'FINAPPLE_PREMIUM',
 });
-
