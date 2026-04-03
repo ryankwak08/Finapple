@@ -1,0 +1,41 @@
+{
+  "name": "UserProgress",
+  "type": "object",
+  "properties": {
+    "user_email": {
+      "type": "string",
+      "description": "User email as identifier"
+    },
+    "xp": {
+      "type": "number",
+      "default": 0,
+      "description": "Total XP earned"
+    },
+    "hearts": {
+      "type": "number",
+      "default": 5,
+      "description": "Current hearts remaining"
+    },
+    "hearts_last_reset": {
+      "type": "string",
+      "description": "ISO date string of last heart reset"
+    },
+    "completed_quizzes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Array of completed quiz IDs like 'unit1-quiz1'"
+    },
+    "quiz_scores": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "number"
+      },
+      "description": "Map of quiz ID to best score"
+    }
+  },
+  "required": [
+    "user_email"
+  ]
+}

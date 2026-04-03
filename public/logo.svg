@@ -1,0 +1,28 @@
+<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#FF6B6B;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#FFD93D;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- 배경 원 -->
+  <circle cx="100" cy="100" r="95" fill="url(#grad1)" opacity="0.1" stroke="url(#grad1)" stroke-width="2"/>
+  
+  <!-- 사과 모양 -->
+  <g transform="translate(50, 50)">
+    <!-- 사과 몸통 -->
+    <path d="M 50 20 Q 70 25 75 45 Q 78 60 75 75 Q 70 90 50 95 Q 30 90 25 75 Q 22 60 25 45 Q 30 25 50 20" 
+          fill="#FF6B6B" stroke="#FF4444" stroke-width="2"/>
+    
+    <!-- 잎 -->
+    <ellipse cx="55" cy="18" rx="12" ry="8" fill="#4CAF50" transform="rotate(-30 55 18)"/>
+    
+    <!-- 하이라이트 -->
+    <ellipse cx="35" cy="40" rx="12" ry="18" fill="white" opacity="0.3"/>
+  </g>
+  
+  <!-- Finapple 텍스트 -->
+  <text x="100" y="160" font-family="Arial, sans-serif" font-size="18" font-weight="bold" 
+        text-anchor="middle" fill="#FF6B6B">Finapple</text>
+</svg>
