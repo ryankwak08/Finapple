@@ -16,6 +16,24 @@ const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const PREMIUM_PRICE = 9900;
 const PORT = process.env.PORT || 3000;
 
+const allowedOrigins = new Set([
+  FRONTEND_URL,
+  'http://localhost:5173',
+  'http://127.0.0.1:5173',
+]);
+
+const isAllowedOrigin = (origin) => {
+  if (!origin) return true;
+  if (allowedOrigins.has(origin)) return true;
+
+  try {
+    const { hostname } = new URL(origin);
+    return hostname.endsWith('.vercel.app');
+  } catch {
+    return false;
+  }
+};
+
 const supabaseAdmin = (supabaseUrl && supabaseServiceRoleKey)
   ? createClient(supabaseUrl, supabaseServiceRoleKey, {
       auth: { autoRefreshToken: false, persistSession: false },
@@ -23,7 +41,13 @@ const supabaseAdmin = (supabaseUrl && supabaseServiceRoleKey)
   : null;
 
 app.use(cors({
-  origin: [FRONTEND_URL, 'http://localhost:5173', 'http://127.0.0.1:5173'],
+  origin(origin, callback) {
+    if (isAllowedOrigin(origin)) {
+      return callback(null, true);
+    }
+
+    return callback(new Error(`Origin not allowed by CORS: ${origin}`));
+  },
   credentials: true,
 }));
 app.use(express.json());
