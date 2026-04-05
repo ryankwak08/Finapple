@@ -5,7 +5,39 @@ const BACKEND_URL = import.meta.env.DEV
   : (import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000');
 export const PREMIUM_MONTHLY_PRICE = 9900;
 
-const getAppBaseUrl = () => import.meta.env.VITE_APP_BASE_URL || window.location.origin;
+const normalizeAbsoluteUrl = (value) => {
+  if (!value || typeof value !== 'string') {
+    return '';
+  }
+
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return '';
+  }
+
+  if (/^https?:\/\//i.test(trimmed)) {
+    return trimmed;
+  }
+
+  // Support env values like "my-app.vercel.app" by defaulting to HTTPS.
+  return `https://${trimmed.replace(/^\/+/, '')}`;
+};
+
+const getAppBaseUrl = () => normalizeAbsoluteUrl(import.meta.env.VITE_APP_BASE_URL) || window.location.origin;
+
+const parseJsonResponse = async (response) => {
+  const rawText = await response.text();
+  if (!rawText) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(rawText);
+  } catch (error) {
+    const preview = rawText.slice(0, 160);
+    throw new Error(preview ? `서버 응답을 해석하지 못했습니다: ${preview}` : '서버 응답을 해석하지 못했습니다.');
+  }
+};
 
 export const createPremiumOrderId = () => {
   const randomPart = Math.random().toString(36).slice(2, 12);
@@ -28,13 +60,13 @@ export const createTossCheckoutSession = async ({ amount, orderId, orderName, cu
       }),
     });
 
-    const data = await response.json();
+    const data = await parseJsonResponse(response);
 
     if (!response.ok) {
-      throw new Error(data.error || '결제창 생성 실패');
+      throw new Error(data?.error || `결제창 생성 실패 (${response.status})`);
     }
 
-    if (data.checkoutUrl) {
+    if (data?.checkoutUrl) {
       return { success: true, url: data.checkoutUrl };
     }
 
@@ -62,9 +94,9 @@ export const confirmTossPayment = async ({ paymentKey, orderId, amount }) => {
     }),
   });
 
-  const result = await response.json();
+  const result = await parseJsonResponse(response);
   if (!response.ok) {
-    throw new Error(result.error || '결제 승인에 실패했습니다.');
+    throw new Error(result?.error || `결제 승인에 실패했습니다. (${response.status})`);
   }
 
   return result;
@@ -88,10 +120,16 @@ export const createKakaoCheckoutSession = async ({ itemName, quantity, totalAmou
         cancel_url: `${window.location.origin}/premium/cancel?provider=kakao`,
       }),
     });
-    const data = await response.json();
-    if (data.next_redirect_pc_url) {
+    const data = await parseJsonResponse(response);
+
+    if (!response.ok) {
+      throw new Error(data?.error || `카카오 결제창 생성 실패 (${response.status})`);
+    }
+
+    if (data?.next_redirect_pc_url) {
       return { success: true, url: data.next_redirect_pc_url };
     }
+
     return data;
   } catch (error) {
     console.error('Kakao checkout error:', error);
