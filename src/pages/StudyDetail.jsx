@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { ArrowLeft, BookOpen, ExternalLink, FileText, Lock } from 'lucide-react';
+import { ArrowLeft, BookOpen, ExternalLink, FileText, Lock, PlayCircle } from 'lucide-react';
 import { getCurrentUser } from '@/services/authService';
 import { getIsPremium } from '@/lib/premium';
-import { studyTopics } from '../lib/studyData';
+import { getStudyTopicById } from '../lib/studyData';
+import { getUnitByStudyTopicId } from '../lib/quizData';
 import PremiumBadge from '@/components/PremiumBadge';
 import ConceptTag from '../components/study/ConceptTag';
 
@@ -14,7 +15,9 @@ export default function StudyDetail() {
   const { topicId } = useParams();
   const [tab, setTab] = useState('summary');
   const [isPremium, setIsPremium] = useState(false);
-  const topic = studyTopics.find(t => t.id === topicId);
+  const topic = getStudyTopicById(topicId);
+  const linkedUnit = getUnitByStudyTopicId(topicId);
+  const hasPdfTab = Boolean(topic?.pdfUrl) && !isPlaceholderPdfUrl(topic?.pdfUrl);
 
   useEffect(() => {
     const checkPremium = async () => {
@@ -66,21 +69,23 @@ export default function StudyDetail() {
           <BookOpen className="w-3.5 h-3.5" />
           요약 정리
         </button>
-        <button
-          onClick={() => !isPremium ? null : setTab('pdf')}
-          disabled={!isPremium}
-          className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-lg text-[13px] font-semibold transition-all duration-200 ${
-            tab === 'pdf'
-              ? 'bg-card text-foreground shadow-sm'
-              : !isPremium
-              ? 'text-muted-foreground/30 cursor-not-allowed'
-              : 'text-muted-foreground hover:text-foreground'
-          }`}
-        >
-          <FileText className="w-3.5 h-3.5" />
-          원문 PDF
-          {!isPremium && <Lock className="w-3 h-3" />}
-        </button>
+        {topic?.pdfUrl ? (
+          <button
+            onClick={() => !isPremium ? null : setTab('pdf')}
+            disabled={!isPremium}
+            className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-lg text-[13px] font-semibold transition-all duration-200 ${
+              tab === 'pdf'
+                ? 'bg-card text-foreground shadow-sm'
+                : !isPremium
+                ? 'text-muted-foreground/30 cursor-not-allowed'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            <FileText className="w-3.5 h-3.5" />
+            원문 PDF
+            {!isPremium && <Lock className="w-3 h-3" />}
+          </button>
+        ) : null}
       </div>
 
       {tab === 'summary' ? (
@@ -130,6 +135,33 @@ export default function StudyDetail() {
               ))}
             </div>
           </section>
+
+          {linkedUnit ? (
+            <section className="rounded-2xl border border-primary/15 bg-primary/5 p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <PlayCircle className="w-4 h-4 text-primary" />
+                <h2 className="text-[13px] font-bold text-primary uppercase tracking-wider">읽고 바로 퀴즈 풀기</h2>
+              </div>
+              <p className="text-[13px] text-foreground leading-relaxed mb-4">
+                이 주제는 퀴즈 유닛과 연결되어 있어요. 각 퀴즈에 들어가면 이 학습 내용을 잘게 나눈 뒤 바로 문제를 풀게 됩니다.
+              </p>
+              <div className="grid gap-2">
+                {linkedUnit.quizzes.map((quiz) => (
+                  <button
+                    key={quiz.id}
+                    onClick={() => navigate(`/quiz/${quiz.id}`)}
+                    className="flex items-center justify-between rounded-xl border border-border bg-background px-4 py-3 text-left"
+                  >
+                    <div>
+                      <p className="text-[13px] font-bold text-foreground">{quiz.title}</p>
+                      <p className="text-[12px] text-muted-foreground mt-0.5">{quiz.subtitle}</p>
+                    </div>
+                    <PlayCircle className="w-4 h-4 text-primary flex-shrink-0" />
+                  </button>
+                ))}
+              </div>
+            </section>
+          ) : null}
         </div>
       ) : !isPremium ? (
         <div className="rounded-2xl border border-border overflow-hidden bg-muted/50 flex items-center justify-center" style={{ height: '80vh' }}>
@@ -142,18 +174,16 @@ export default function StudyDetail() {
             </Link>
           </div>
         </div>
+      ) : !hasPdfTab ? (
+        <div className="rounded-2xl border border-border overflow-hidden bg-muted/50 flex items-center justify-center" style={{ height: '80vh' }}>
+          <div className="flex flex-col items-center justify-center p-8 text-center">
+            <FileText className="w-16 h-16 text-muted-foreground/30 mb-4" />
+            <h3 className="text-lg font-bold text-foreground mb-2">원문 PDF가 아직 없어요</h3>
+            <p className="text-muted-foreground text-[14px]">이 콘텐츠는 앱 안 요약으로 먼저 읽도록 구성했습니다.</p>
+          </div>
+        </div>
       ) : (
         <div className="rounded-2xl border border-border overflow-hidden bg-card" style={{ height: '80vh' }}>
-          {!topic.pdfUrl || isPlaceholderPdfUrl(topic.pdfUrl) ? (
-            <div className="flex h-full flex-col items-center justify-center p-8 text-center">
-              <FileText className="mb-4 h-12 w-12 text-muted-foreground/30" />
-              <p className="text-[16px] font-bold text-foreground">원문 PDF 링크를 아직 실제 파일로 연결하지 않았어요</p>
-              <p className="mt-2 max-w-sm text-[14px] leading-relaxed text-muted-foreground">
-                현재 학습 데이터의 `pdfUrl`이 예시 주소(`media.example.com`)로 들어가 있어서, 프리미엄이어도 PDF가 열리지 않습니다.
-                실제 공개 PDF URL이나 Supabase Storage 공개 링크로 교체하면 바로 표시됩니다.
-              </p>
-            </div>
-          ) : (
             <div className="h-full">
               <div className="flex items-center justify-between border-b border-border bg-muted/30 px-4 py-3">
                 <p className="text-[12px] font-semibold text-foreground">프리미엄 원문 PDF</p>
@@ -173,7 +203,6 @@ export default function StudyDetail() {
                 title={topic.title + ' PDF'}
               />
             </div>
-          )}
         </div>
       )}
     </div>

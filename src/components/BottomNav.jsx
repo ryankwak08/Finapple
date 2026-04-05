@@ -1,15 +1,17 @@
 import { useLocation, useNavigate } from 'react-router-dom';
-import { BookOpen, Trophy, BookMarked, ShoppingBag } from 'lucide-react';
+import { BookOpen, Trophy, BookMarked, ShoppingBag, Medal } from 'lucide-react';
 
 const tabs = [
   { root: '/', label: '학습', icon: BookOpen },
   { root: '/quiz', label: '퀴즈', icon: Trophy },
+  { root: '/leaderboard', label: '리그', icon: Medal },
   { root: '/glossary', label: '용어사전', icon: BookMarked },
   { root: '/shop', label: '상점', icon: ShoppingBag },
 ];
 
 function getActiveTab(pathname) {
   if (pathname.startsWith('/quiz')) return '/quiz';
+  if (pathname.startsWith('/leaderboard')) return '/leaderboard';
   if (pathname.startsWith('/glossary')) return '/glossary';
   if (pathname.startsWith('/shop')) return '/shop';
   return '/';

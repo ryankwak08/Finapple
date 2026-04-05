@@ -18,6 +18,8 @@ import Premium from './pages/Premium';
 import PremiumResult from './pages/PremiumResult';
 import Shop from './pages/Shop';
 import Login from './pages/Login';
+import ReviewNote from './pages/ReviewNote';
+import Leaderboard from './pages/Leaderboard';
 
 
 const FullScreenSpinner = () => (
@@ -35,8 +37,11 @@ const AppRoutes = () => (
       <Route path="/quiz/:quizId" element={<QuizPlay />} />
       <Route path="/glossary-quiz/:unitId" element={<GlossaryQuizPlay />} />
       <Route path="/glossary" element={<Glossary />} />
+      <Route path="/leaderboard" element={<Leaderboard />} />
       <Route path="/shop" element={<Shop />} />
       <Route path="/profile" element={<Profile />} />
+      <Route path="/review-note" element={<ReviewNote />} />
+      <Route path="/review-note/:reviewId" element={<ReviewNote />} />
     </Route>
     <Route path="/premium" element={<Premium />} />
     <Route path="/premium/success" element={<PremiumResult status="success" />} />
@@ -64,7 +69,7 @@ const AuthenticatedApp = () => {
   if (authError) {
     if (authError.type === 'user_not_registered') {
       return <UserNotRegisteredError />;
-    } else if (authError.type === 'auth_required') {
+    } else if (authError.type === 'auth_required' || authError.type === 'email_not_verified') {
       // If already on login page, let the route render.
       if (window.location.pathname === '/login') {
         return <AppRoutes />;

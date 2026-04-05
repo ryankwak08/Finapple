@@ -1,53 +1,22 @@
-import { useEffect, useState } from 'react';
-import { useLocation } from 'react-router-dom';
-import { studyTopics } from '../lib/studyData';
+import { lifeStudyTopics } from '../lib/studyData';
 import TopicCard from '../components/study/TopicCard';
 import useProgress from '../lib/useProgress';
-import CourseSelector from '../components/CourseSelector';
 import PullToRefresh from '../components/PullToRefresh';
-import { Star, ChevronRight } from 'lucide-react';
+import { Star, Flame, Snowflake } from 'lucide-react';
+import PremiumBadge from '@/components/PremiumBadge';
 
 export default function Study() {
-  const location = useLocation();
-  const { progress, loading, user } = useProgress();
-  const [selectedCourse, setSelectedCourse] = useState(() => {
-    const params = new URLSearchParams(window.location.search);
-    return params.get('course') || null;
-  });
-
-  useEffect(() => {
-    const params = new URLSearchParams(location.search);
-    setSelectedCourse(params.get('course') || null);
-  }, [location.search]);
-
-  useEffect(() => {
-    const handleTabReset = (event) => {
-      if (event.detail?.tabRoot !== '/') return;
-      setSelectedCourse(null);
-      window.history.replaceState({}, '', '/');
-    };
-
-    window.addEventListener('bottomNavReset', handleTabReset);
-    return () => window.removeEventListener('bottomNavReset', handleTabReset);
-  }, []);
-
-  const handleSelectCourse = (course) => {
-    setSelectedCourse(course);
-    window.history.replaceState({}, '', `/?course=${course}`);
-  };
-
-  const handleBack = () => {
-    setSelectedCourse(null);
-    window.history.replaceState({}, '', '/');
-  };
+  const { progress, loading, user, isPremium, getStreakStatus } = useProgress();
+  const streakStatus = getStreakStatus();
+  const displayName =
+    user?.user_metadata?.nickname?.trim() ||
+    user?.user_metadata?.full_name?.trim() ||
+    user?.email?.split('@')[0] ||
+    '학습자';
 
   const handleRefresh = async () => {
     await new Promise(r => setTimeout(r, 800));
   };
-
-  if (!selectedCourse) {
-    return <CourseSelector type="study" onSelect={handleSelectCourse} />;
-  }
 
   return (
     <PullToRefresh onRefresh={handleRefresh}>
@@ -55,12 +24,7 @@ export default function Study() {
       {/* Header */}
       <div className="mb-8">
         <div className="flex items-center justify-between mb-1">
-          <div className="flex items-center gap-2">
-            <button onClick={handleBack} className="p-1.5 rounded-xl hover:bg-muted transition-colors">
-              <ChevronRight className="w-4 h-4 rotate-180 text-muted-foreground" />
-            </button>
-            <h1 className="text-2xl font-extrabold text-foreground tracking-tight">청년기 편</h1>
-          </div>
+          <h1 className="text-2xl font-extrabold text-foreground tracking-tight">생활 금융 가이드</h1>
           {!loading && progress && (
             <div className="flex items-center gap-1.5 bg-accent/15 px-3 py-1.5 rounded-full">
               <Star className="w-4 h-4 text-accent fill-accent" />
@@ -69,26 +33,51 @@ export default function Study() {
           )}
         </div>
         <p className="text-muted-foreground text-[14px]">
-          KDI 경제교육 자료를 기반으로 학습해요
+          사회초년생이 실제로 자주 부딪히는 돈 문제를 먼저 정리해뒀어요
         </p>
       </div>
 
       {/* Greeting */}
       {!loading && user && (
         <div className="bg-primary/5 rounded-2xl p-5 mb-6 border border-primary/10 animate-slide-up">
-          <p className="text-[14px] text-foreground">
-            <span className="font-bold">{user.full_name || '학습자'}</span>님, 환영합니다! 👋
-          </p>
-          <p className="text-[12px] text-muted-foreground mt-1">
-            오늘도 경제 지식을 쌓아봐요
-          </p>
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-[14px] text-foreground">
+                <span className="font-bold">{displayName}</span>님, 환영합니다! 👋
+              </p>
+              <p className="text-[12px] text-muted-foreground mt-1">
+                오늘 하나만 읽어도 다음 선택이 훨씬 쉬워져요
+              </p>
+            </div>
+            {isPremium && <PremiumBadge compact />}
+          </div>
+          <div className="grid grid-cols-2 gap-3 mt-4">
+            <div className="rounded-xl bg-background/80 border border-border px-4 py-3">
+              <div className="flex items-center gap-2">
+                <Flame className="w-4 h-4 text-orange-500" />
+                <span className="text-[12px] font-semibold text-foreground">현재 스트릭</span>
+              </div>
+              <p className="mt-1 text-[20px] font-extrabold text-foreground">{streakStatus.streakCount}일</p>
+              <p className="text-[11px] text-muted-foreground">최고 {streakStatus.bestStreak}일</p>
+            </div>
+            <div className="rounded-xl bg-background/80 border border-border px-4 py-3">
+              <div className="flex items-center gap-2">
+                <Snowflake className="w-4 h-4 text-sky-500" />
+                <span className="text-[12px] font-semibold text-foreground">Freezer</span>
+              </div>
+              <p className="mt-1 text-[20px] font-extrabold text-foreground">{streakStatus.streakFreezers}개</p>
+              <p className="text-[11px] text-muted-foreground">
+                {isPremium ? '하루 놓쳐도 스트릭을 지켜줘요' : '프리미엄에서 이용 가능'}
+              </p>
+            </div>
+          </div>
         </div>
       )}
 
       {/* Topics */}
       <div className="space-y-4">
-        {studyTopics.map((topic, i) => (
-          <TopicCard key={topic.id} topic={topic} index={i} course={selectedCourse} />
+        {lifeStudyTopics.map((topic, i) => (
+          <TopicCard key={topic.id} topic={topic} index={i} />
         ))}
       </div>
     </div>

@@ -8,6 +8,38 @@ import HeartDisplay from '../components/quiz/HeartDisplay';
 const PASS_THRESHOLD = 9;
 const QUIZ_SIZE = 10;
 
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function buildHiddenLabels(term) {
+  const candidates = new Set();
+  const trimmedTerm = term.trim();
+  const baseTerm = trimmedTerm.replace(/\s*\([^)]*\)\s*/g, ' ').trim();
+
+  if (trimmedTerm) candidates.add(trimmedTerm);
+  if (baseTerm) candidates.add(baseTerm);
+
+  for (const match of trimmedTerm.matchAll(/\(([^)]+)\)/g)) {
+    const inner = match[1];
+    inner
+      .split(/[;,/]/)
+      .map((part) => part.trim())
+      .filter(Boolean)
+      .forEach((part) => candidates.add(part));
+  }
+
+  for (const candidate of [...candidates]) {
+    const upperTokens = candidate.match(/\b[A-Z][A-Z0-9-]{1,}\b/g) || [];
+    upperTokens.forEach((token) => candidates.add(token));
+  }
+
+  return [...candidates]
+    .map((label) => label.trim())
+    .filter((label) => label.length >= 2)
+    .sort((a, b) => b.length - a.length);
+}
+
 function pickTerms(unitId) {
   // Shuffle with unit-seeded offset so each unit gets different terms
   const unitOffsets = { unit1: 0, unit2: 50, unit3: 100, unit4: 150, unit5: 200, unit6: 250 };
@@ -25,10 +57,16 @@ function pickTerms(unitId) {
 }
 
 function maskTerm(definition, term) {
-  // Remove the term and common short forms from definition
-  const base = term.split('(')[0].trim(); // e.g. "기준금리" from "기준금리(Base Rate)"
-  const escaped = base.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  return definition.replace(new RegExp(escaped, 'g'), '___');
+  const hiddenLabels = buildHiddenLabels(term);
+
+  return hiddenLabels.reduce((maskedDefinition, label) => {
+    const escaped = escapeRegExp(label);
+    const regex = /[A-Za-z]/.test(label)
+      ? new RegExp(`\\b${escaped}\\b`, 'gi')
+      : new RegExp(escaped, 'g');
+
+    return maskedDefinition.replace(regex, '___');
+  }, definition);
 }
 
 function makeQuestion(terms, index) {

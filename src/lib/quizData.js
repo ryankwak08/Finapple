@@ -578,7 +578,7 @@ const _baseUnits = [
 export function getQuizById(quizId) {
   for (const unit of quizUnits) {
     const quiz = unit.quizzes.find(q => q.id === quizId);
-    if (quiz) return { ...quiz, unitId: unit.id, unitTitle: unit.title };
+    if (quiz) return { ...quiz, unitId: unit.id, unitTitle: unit.title, studyTopicId: unit.studyTopicId };
   }
   return null;
 }
@@ -1115,4 +1115,8 @@ export const quizUnits = [..._baseUnits, ...extraUnits, ...unit7to9, ...unit10to
 
 export function getUnitById(unitId) {
   return quizUnits.find(u => u.id === unitId) || null;
+}
+
+export function getUnitByStudyTopicId(studyTopicId) {
+  return quizUnits.find((unit) => unit.studyTopicId === studyTopicId) || null;
 }

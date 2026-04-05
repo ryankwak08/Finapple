@@ -1,7 +1,17 @@
-import { Star, Heart, ArrowLeft } from 'lucide-react';
+import { Star, Heart, ArrowLeft, NotebookPen } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
-export default function QuizResult({ score, total, xpEarned, isNewCompletion, hearts, isUnlimitedHearts = false, backUrl = '/quiz' }) {
+export default function QuizResult({
+  score,
+  total,
+  xpEarned,
+  isNewCompletion,
+  hearts,
+  isUnlimitedHearts = false,
+  backUrl = '/quiz',
+  canReview = false,
+  reviewCount = 0,
+}) {
   const percentage = Math.round((score / total) * 100);
   const passed = score >= 3;
   const stars = score >= 5 ? 3 : score >= 4 ? 2 : score >= 3 ? 1 : 0;
@@ -56,6 +66,15 @@ export default function QuizResult({ score, total, xpEarned, isNewCompletion, he
 
       {/* Actions */}
       <div className="w-full max-w-xs space-y-3">
+        {canReview && reviewCount > 0 && (
+          <Link
+            to="/review-note"
+            className="flex items-center justify-center gap-2 w-full py-4 rounded-2xl border border-primary/20 bg-primary/5 text-primary text-[15px] font-bold"
+          >
+            <NotebookPen className="w-4 h-4" />
+            오답노트 보기
+          </Link>
+        )}
         <Link
           to={backUrl}
           className="flex items-center justify-center gap-2 w-full py-4 rounded-2xl bg-primary text-primary-foreground text-[15px] font-bold shadow-lg shadow-primary/20 active:scale-[0.98] transition-all"

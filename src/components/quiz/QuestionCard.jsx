@@ -9,7 +9,10 @@ export default function QuestionCard({
   isCorrect,
   onSelect,
   onConfirm,
-  onNext
+  onNext,
+  showExplanation = true,
+  instantMode = false,
+  isAdvancing = false,
 }) {
   return (
     <div className="animate-slide-up">
@@ -93,7 +96,7 @@ export default function QuestionCard({
 
       {/* Action Button */}
       <div className="mt-6">
-        {!confirmed ? (
+        {!confirmed && !instantMode ? (
           <button
             onClick={onConfirm}
             disabled={selectedAnswer === null}
@@ -105,7 +108,7 @@ export default function QuestionCard({
           >
             확인하기
           </button>
-        ) : (
+        ) : confirmed ? (
           <div>
             <div className={`rounded-xl mb-3 overflow-hidden ${
               isCorrect ? 'bg-emerald-50 border border-emerald-200' : 'bg-red-50 border border-red-200'
@@ -117,7 +120,7 @@ export default function QuestionCard({
                   {isCorrect ? '🎉 정답입니다!' : '😢 틀렸어요'}
                 </span>
               </div>
-              {question.explanation && (
+              {showExplanation && question.explanation && (
                 <div className={`px-4 pb-4 text-[13px] leading-relaxed border-t ${
                   isCorrect ? 'border-emerald-200 text-emerald-800/80' : 'border-red-200 text-red-800/80'
                 }`}>
@@ -126,14 +129,20 @@ export default function QuestionCard({
                 </div>
               )}
             </div>
-            <button
-              onClick={onNext}
-              className="w-full py-4 rounded-2xl text-[15px] font-bold bg-primary text-primary-foreground shadow-lg shadow-primary/20 active:scale-[0.98] transition-all duration-200"
-            >
-              {questionIndex < totalQuestions - 1 ? '다음 문제' : '결과 보기'}
-            </button>
+            {instantMode ? (
+              <div className="w-full py-4 rounded-2xl text-[15px] font-bold bg-muted text-muted-foreground text-center">
+                {isAdvancing ? '다음 문제로 이동 중...' : '이동 준비 중...'}
+              </div>
+            ) : (
+              <button
+                onClick={onNext}
+                className="w-full py-4 rounded-2xl text-[15px] font-bold bg-primary text-primary-foreground shadow-lg shadow-primary/20 active:scale-[0.98] transition-all duration-200"
+              >
+                {questionIndex < totalQuestions - 1 ? '다음 문제' : '결과 보기'}
+              </button>
+            )}
           </div>
-        )}
+        ) : null}
       </div>
     </div>
   );

@@ -20,6 +20,75 @@
       "type": "string",
       "description": "ISO date string of last heart reset"
     },
+    "streak_count": {
+      "type": "number",
+      "default": 1,
+      "description": "Current daily streak count"
+    },
+    "best_streak": {
+      "type": "number",
+      "default": 1,
+      "description": "Best streak achieved"
+    },
+    "last_active_date": {
+      "type": "string",
+      "description": "ISO date string of last day the user studied"
+    },
+    "streak_freezers": {
+      "type": "number",
+      "default": 0,
+      "description": "Number of streak freezers available"
+    },
+    "ads_disabled": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether ads should be hidden for this user"
+    },
+    "inventory": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "number"
+      },
+      "description": "Map of shop item ID to owned quantity"
+    },
+    "leaderboard_season_key": {
+      "type": "string",
+      "description": "Current weekly leaderboard season key"
+    },
+    "leaderboard_season_label": {
+      "type": "string",
+      "description": "Weekly leaderboard season label"
+    },
+    "leaderboard_season_start_date": {
+      "type": "string",
+      "description": "Current leaderboard season start date"
+    },
+    "leaderboard_season_end_date": {
+      "type": "string",
+      "description": "Current leaderboard season end date"
+    },
+    "leaderboard_xp_baseline": {
+      "type": "number",
+      "default": 0,
+      "description": "XP snapshot at weekly leaderboard reset"
+    },
+    "leaderboard_completed_baseline": {
+      "type": "number",
+      "default": 0,
+      "description": "Completed quiz count snapshot at weekly leaderboard reset"
+    },
+    "leaderboard_resolved_review_baseline": {
+      "type": "number",
+      "default": 0,
+      "description": "Resolved review count snapshot at weekly leaderboard reset"
+    },
+    "review_notes": {
+      "type": "array",
+      "description": "Saved wrong or resolved review notes",
+      "items": {
+        "type": "object"
+      }
+    },
     "completed_quizzes": {
       "type": "array",
       "items": {

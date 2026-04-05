@@ -1,18 +1,28 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Loader2, Trophy, Star, Sparkles } from 'lucide-react';
-import { getQuizById, getUnitById } from '../lib/quizData';
+import { ArrowLeft, BookOpen, CheckCircle2, Loader2, Trophy, Star, Sparkles } from 'lucide-react';
+import { getQuizById } from '../lib/quizData';
 import useProgress from '../lib/useProgress';
 import HeartDisplay from '../components/quiz/HeartDisplay';
 import QuestionCard from '../components/quiz/QuestionCard';
 import QuizResult from '../components/quiz/QuizResult';
+import { generateAiQuiz } from '@/api/quizClient';
+import { getLessonChunkForQuiz } from '@/lib/studyData';
 
 export default function QuizPlay() {
   const navigate = useNavigate();
   const { quizId } = useParams();
   const course = new URLSearchParams(window.location.search).get('course') || 'youth';
   const backUrl = `/quiz?course=${course}`;
-  const { progress, isPremium, loseHeart, completeQuiz, isQuizCompleted } = useProgress();
+  const {
+    progress,
+    isPremium,
+    loseHeart,
+    recordWrongAnswer,
+    completeQuiz,
+    isQuizCompleted,
+    getReviewNotesForQuiz,
+  } = useProgress();
   const [questions, setQuestions] = useState(null);
   const [loading, setLoading] = useState(true);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -23,34 +33,76 @@ export default function QuizPlay() {
   const [finished, setFinished] = useState(false);
   const [xpEarned, setXpEarned] = useState(0);
   const [showCongrats, setShowCongrats] = useState(false);
+  const [isAdvancing, setIsAdvancing] = useState(false);
+  const autoNextTimerRef = useRef(null);
 
   const quizData = getQuizById(quizId);
+  const lessonChunk = getLessonChunkForQuiz(quizData?.studyTopicId, quizId);
+  const reviewCount = getReviewNotesForQuiz(quizId).length;
 
   useEffect(() => {
-    if (!quizData) { setLoading(false); return; }
-    generateQuestions();
+    let active = true;
+
+    if (!quizData) {
+      setLoading(false);
+      return undefined;
+    }
+
+    const loadQuestions = async () => {
+      setLoading(true);
+
+      try {
+        const generatedQuestions = await generateAiQuiz(quizId);
+        if (active) {
+          setQuestions(generatedQuestions);
+        }
+      } catch (error) {
+        console.error('AI quiz generation failed, using local fallback:', error);
+        if (active) {
+          setQuestions(quizData?.questions || []);
+        }
+      } finally {
+        if (active) {
+          setLoading(false);
+        }
+      }
+    };
+
+    loadQuestions();
+
+    return () => {
+      active = false;
+    };
   }, [quizId]);
 
-  const generateQuestions = async () => {
-    setLoading(true);
-    const unit = quizData ? getUnitById(quizData.unitId) : null;
-    const topicName = unit ? `${unit.title} - ${quizData.subtitle}` : quizData?.title || '금융 교육';
-    try {
-      // 로컬 퀴즈 데이터로 문제를 생성합니다.
-      // 향후 OpenAI / KoGPT 등과 연동하세요.
-      try {
-        if (quizData?.questions?.length > 0) {
-          setQuestions(quizData.questions);
-        } else {
-          setQuestions([]);
-        }
-      } catch (e) {
-        setQuestions([]);
+  useEffect(() => {
+    return () => {
+      if (autoNextTimerRef.current) {
+        window.clearTimeout(autoNextTimerRef.current);
       }
-    } catch (e) {
-      setQuestions(quizData.questions);
+    };
+  }, []);
+
+  const advanceToNextStep = async () => {
+    if (currentIndex < questions.length - 1) {
+      setCurrentIndex((prev) => prev + 1);
+      setSelectedAnswer(null);
+      setConfirmed(false);
+      setIsCorrect(false);
+      setIsAdvancing(false);
+      return;
     }
-    setLoading(false);
+
+    const finalScore = score;
+    const passed = finalScore >= 3;
+    const isNew = !isQuizCompleted(quizId);
+    const xp = (passed && isNew) ? quizData.xpReward : 0;
+    setXpEarned(xp);
+    if (passed) {
+      await completeQuiz(quizId, finalScore, quizData.xpReward);
+    }
+    setIsAdvancing(false);
+    setFinished(true);
   };
 
   if (!quizData) {
@@ -66,7 +118,80 @@ export default function QuizPlay() {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen gap-3">
         <Loader2 className="w-8 h-8 text-primary animate-spin" />
-        <p className="text-muted-foreground text-[13px]">AI가 새로운 문제를 생성 중...</p>
+        <p className="text-muted-foreground text-[13px]">AI가 퀴즈를 생성 중...</p>
+      </div>
+    );
+  }
+
+  if (lessonChunk && currentIndex === 0 && selectedAnswer === null && !confirmed && !finished) {
+    return (
+      <div className="px-5 pt-14 pb-8 min-h-screen">
+        <div className="flex items-center justify-between mb-8">
+          <button onClick={() => navigate(-1)} className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors outline-none">
+            <ArrowLeft className="w-5 h-5" />
+          </button>
+          <span className="text-[14px] font-bold text-foreground">{quizData.title}</span>
+          <HeartDisplay hearts={progress.hearts} unlimited={isPremium} />
+        </div>
+
+        <div className="rounded-3xl border border-primary/15 bg-primary/5 p-5 mb-5">
+          <div className="flex items-center gap-2 mb-2">
+            <BookOpen className="w-4 h-4 text-primary" />
+            <p className="text-[12px] font-bold text-primary">퀴즈 전에 1분 학습</p>
+          </div>
+          <h1 className="text-xl font-extrabold text-foreground leading-snug">{lessonChunk.title}</h1>
+          <p className="text-[13px] text-muted-foreground mt-2 leading-relaxed">{lessonChunk.summary}</p>
+        </div>
+
+        {lessonChunk.goals?.length ? (
+          <div className="rounded-2xl border border-border bg-card p-4 mb-4">
+            <p className="text-[12px] font-bold text-muted-foreground uppercase tracking-wider mb-3">이번 퀴즈 전에 잡을 포인트</p>
+            <div className="space-y-2">
+              {lessonChunk.goals.map((goal) => (
+                <div key={goal} className="flex items-start gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
+                  <p className="text-[13px] text-foreground leading-relaxed">{goal}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : null}
+
+        {lessonChunk.concepts?.length ? (
+          <div className="rounded-2xl border border-border bg-card p-4 mb-4">
+            <p className="text-[12px] font-bold text-muted-foreground uppercase tracking-wider mb-3">핵심 개념</p>
+            <div className="space-y-3">
+              {lessonChunk.concepts.map((concept) => (
+                <div key={concept.term} className="rounded-xl bg-muted/40 px-4 py-3">
+                  <p className="text-[13px] font-bold text-foreground">{concept.term}</p>
+                  <p className="text-[12px] text-muted-foreground mt-1 leading-relaxed whitespace-pre-line">{concept.definition}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : null}
+
+        <div className="space-y-3 mb-5">
+          {lessonChunk.learningPoints.map((point) => (
+            <div key={point.title} className="bg-card rounded-2xl border border-border overflow-hidden">
+              <div className="flex items-center gap-2.5 px-4 py-3 border-b border-border bg-muted/30">
+                <span className="text-lg">{point.emoji}</span>
+                <h3 className="font-bold text-[14px] text-foreground">{point.title}</h3>
+              </div>
+              <div className="px-4 py-3">
+                <p className="text-[13px] text-foreground/80 leading-relaxed whitespace-pre-line">{point.content}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <button
+          type="button"
+          onClick={() => setSelectedAnswer(-1)}
+          className="w-full rounded-2xl bg-primary text-primary-foreground py-3.5 text-[14px] font-bold"
+        >
+          이 내용으로 바로 퀴즈 풀기
+        </button>
       </div>
     );
   }
@@ -119,6 +244,8 @@ export default function QuizPlay() {
         hearts={progress.hearts}
         isUnlimitedHearts={isPremium}
         backUrl={backUrl}
+        canReview={isPremium}
+        reviewCount={reviewCount}
       />
     );
   }
@@ -142,38 +269,58 @@ export default function QuizPlay() {
   }
 
   const currentQuestion = questions[currentIndex];
+  const showPremiumControls = isPremium;
+  const effectiveSelectedAnswer = selectedAnswer === -1 ? null : selectedAnswer;
+
+  const registerWrongAnswer = async (answerIndex) => {
+    await recordWrongAnswer({
+      quizId,
+      quizTitle: quizData.title,
+      unitId: quizData.unitId,
+      unitTitle: quizData.unitTitle,
+      question: currentQuestion,
+      selectedAnswer: answerIndex,
+      questionType: 'quiz',
+    });
+  };
 
   const handleConfirm = async () => {
     if (selectedAnswer === null) return;
-    const correct = selectedAnswer === currentQuestion.answer;
+    const correct = effectiveSelectedAnswer === currentQuestion.answer;
     setIsCorrect(correct);
     setConfirmed(true);
 
     if (correct) {
-      setScore(prev => prev + 1);
+      setScore((prev) => prev + 1);
     } else {
+      await registerWrongAnswer(effectiveSelectedAnswer);
       await loseHeart();
     }
   };
 
-  const handleNext = async () => {
-    if (currentIndex < questions.length - 1) {
-      setCurrentIndex(prev => prev + 1);
-      setSelectedAnswer(null);
-      setConfirmed(false);
-      setIsCorrect(false);
+  const handleInstantSelect = async (answerIndex) => {
+    if (confirmed) return;
+
+    setSelectedAnswer(answerIndex);
+    const correct = answerIndex === currentQuestion.answer;
+    setIsCorrect(correct);
+    setConfirmed(true);
+    setIsAdvancing(true);
+
+    if (correct) {
+      setScore((prev) => prev + 1);
     } else {
-      // Quiz finished — score state is already updated by handleConfirm
-      const finalScore = score;
-      const passed = finalScore >= 3;
-      const isNew = !isQuizCompleted(quizId);
-      const xp = (passed && isNew) ? quizData.xpReward : 0;
-      setXpEarned(xp);
-      if (passed) {
-        await completeQuiz(quizId, finalScore, quizData.xpReward);
-      }
-      setFinished(true);
+      await registerWrongAnswer(answerIndex);
+      await loseHeart();
     }
+
+    autoNextTimerRef.current = window.setTimeout(() => {
+      advanceToNextStep();
+    }, 1100);
+  };
+
+  const handleNext = async () => {
+    await advanceToNextStep();
   };
 
   return (
@@ -191,12 +338,15 @@ export default function QuizPlay() {
         question={currentQuestion}
         questionIndex={currentIndex}
         totalQuestions={questions.length}
-        selectedAnswer={selectedAnswer}
+        selectedAnswer={effectiveSelectedAnswer}
         confirmed={confirmed}
         isCorrect={isCorrect}
-        onSelect={setSelectedAnswer}
+        onSelect={showPremiumControls ? setSelectedAnswer : handleInstantSelect}
         onConfirm={handleConfirm}
         onNext={handleNext}
+        showExplanation={showPremiumControls}
+        instantMode={!showPremiumControls}
+        isAdvancing={isAdvancing}
       />
     </div>
   );

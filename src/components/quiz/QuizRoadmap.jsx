@@ -1,6 +1,8 @@
+import { useEffect } from 'react';
 import { Lock, Check, Star, Play, BookOpen } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { quizUnits } from '../../lib/quizData';
+import { prefetchAiQuiz } from '@/api/quizClient';
 
 function QuizNode({ quiz, status, locked, onSelect, position }) {
   const { completed, score } = status;
@@ -14,6 +16,9 @@ function QuizNode({ quiz, status, locked, onSelect, position }) {
       <div className="flex flex-col items-center">
         <button
           onClick={() => !locked && onSelect(quiz.id)}
+          onMouseEnter={() => !locked && prefetchAiQuiz(quiz.id)}
+          onFocus={() => !locked && prefetchAiQuiz(quiz.id)}
+          onTouchStart={() => !locked && prefetchAiQuiz(quiz.id)}
           disabled={locked}
           className={`relative w-16 h-16 rounded-2xl flex items-center justify-center shadow-md transition-all duration-200 active:scale-[0.95] ${
             locked
@@ -93,6 +98,26 @@ function GlossaryNode({ unitId, locked, completed, position, course }) {
 }
 
 export default function QuizRoadmap({ isUnitLocked, isQuizCompleted, getQuizScore, onQuizSelect, course = 'youth' }) {
+  useEffect(() => {
+    const quizIdsToWarm = quizUnits
+      .flatMap((unit) => {
+        if (isUnitLocked(unit.id)) {
+          return [];
+        }
+
+        return unit.quizzes
+          .filter((quiz) => !isQuizCompleted(quiz.id))
+          .map((quiz) => quiz.id);
+      })
+      .slice(0, 3);
+
+    quizIdsToWarm.forEach((quizId, index) => {
+      window.setTimeout(() => {
+        prefetchAiQuiz(quizId);
+      }, index * 250);
+    });
+  }, [isQuizCompleted, isUnitLocked]);
+
   let globalIndex = 0;
 
   return (
@@ -111,6 +136,7 @@ export default function QuizRoadmap({ isUnitLocked, isQuizCompleted, getQuizScor
                   {unit.title}
                 </p>
                 <p className="text-[11px] text-muted-foreground">{unit.subtitle}</p>
+                {!unitLocked ? <p className="text-[10px] text-primary mt-0.5">학습 조각을 읽고 바로 퀴즈로 넘어가요</p> : null}
               </div>
               {unitLocked && <Lock className="w-4 h-4 text-muted-foreground ml-auto" />}
             </div>

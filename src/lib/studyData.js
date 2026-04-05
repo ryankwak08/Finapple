@@ -860,3 +860,246 @@ export const studyTopics = [
     pdfUrl: buildPdfUrl(16)
   }
 ];
+
+export const lifeStudyTopics = [
+  {
+    id: 'rental-fraud',
+    icon: '🏠',
+    title: '전세사기, 계약 전에 꼭 확인할 것',
+    subtitle: '주거 · 보증금 안전',
+    summary: '등기부등본, 선순위 권리, 전세보증보험, 특약 문구까지 사회초년생이 계약 전에 반드시 확인해야 할 포인트를 정리했습니다.',
+    goals: [
+      '전세사기 위험 신호를 구분한다',
+      '계약 전 확인 문서를 알고 직접 점검한다',
+      '보증금 보호 장치를 설명할 수 있다',
+    ],
+    concepts: [
+      { term: '등기부등본', definition: '집의 소유자, 근저당권, 압류 여부 등 권리관계를 확인하는 기본 문서입니다.' },
+      { term: '선순위 권리', definition: '내 보증금보다 먼저 변제받는 권리입니다. 근저당이 많으면 회수 위험이 커집니다.' },
+      { term: '전세보증보험', definition: '집주인이 보증금을 돌려주지 못할 때 보증기관이 대신 반환하는 제도입니다.' },
+    ],
+    learningPoints: [
+      {
+        emoji: '📄',
+        title: '계약 전에 꼭 떼봐야 할 서류',
+        content: '등기부등본, 건축물대장, 확정일자 가능 여부, 체납 사실 확인 가능 자료를 먼저 확인하세요. 집을 보러 간 날과 계약 직전에 한 번 더 확인하는 것이 안전합니다.',
+      },
+      {
+        emoji: '🚨',
+        title: '이런 집은 한 번 더 의심하기',
+        content: '시세보다 과하게 저렴하거나, 계약을 급하게 재촉하거나, 소유자와 계약 상대방이 다르다면 주의해야 합니다. 대리 계약이면 위임장과 인감증명서까지 확인하세요.',
+      },
+      {
+        emoji: '🛡️',
+        title: '보증금 지키는 3단계',
+        content: '계약 후 전입신고, 확정일자, 전세보증보험 가입까지 이어져야 보증금 보호가 강해집니다. 셋 중 하나만 해서는 부족할 수 있습니다.',
+      },
+    ],
+    pdfUrl: '',
+  },
+  {
+    id: 'loan-starter',
+    icon: '💸',
+    title: '처음 대출받을 때 순서대로 보는 가이드',
+    subtitle: '대출 · 금리 · 상환',
+    summary: '신용대출과 전월세대출의 차이, 금리 비교, 상환 방식, 중도상환수수료까지 대출 초보가 헷갈리는 내용을 실전 순서로 정리했습니다.',
+    goals: [
+      '대출 전 상환 가능 금액을 계산한다',
+      '금리와 총상환액을 함께 비교한다',
+      '대출 상품 설명서에서 핵심 항목을 찾을 수 있다',
+    ],
+    concepts: [
+      { term: '고정금리', definition: '대출 기간 동안 금리가 크게 바뀌지 않아 예산 계획이 쉽습니다.' },
+      { term: '변동금리', definition: '시장 금리에 따라 변해 초기 금리가 낮아 보여도 부담이 커질 수 있습니다.' },
+      { term: '원리금균등상환', definition: '매달 같은 금액을 내는 방식으로 초보자가 관리하기 편합니다.' },
+    ],
+    learningPoints: [
+      {
+        emoji: '🧮',
+        title: '대출 가능액보다 상환 가능액이 먼저',
+        content: '은행이 빌려준다고 해서 다 받아도 되는 것은 아닙니다. 월 소득에서 고정지출과 비상금 저축을 뺀 뒤, 매달 감당 가능한 상환액을 먼저 정해야 합니다.',
+      },
+      {
+        emoji: '📉',
+        title: '금리만 보지 말고 총비용 보기',
+        content: '같은 금리여도 기간, 상환 방식, 중도상환수수료에 따라 실제 부담이 달라집니다. 월 납입액과 총상환액을 함께 비교해야 합니다.',
+      },
+      {
+        emoji: '🧾',
+        title: '대출 설명서에서 꼭 볼 항목',
+        content: '금리 유형, 연체금리, 상환 방식, 중도상환수수료, 우대금리 조건, 만기 전환 조건은 반드시 확인하세요. 특히 우대금리는 조건 미충족 시 금방 사라질 수 있습니다.',
+      },
+    ],
+    pdfUrl: '',
+  },
+  {
+    id: 'investment-starter',
+    icon: '📊',
+    title: '투자 시작 전, 이것부터 정하고 들어가기',
+    subtitle: '투자 · ETF · 리스크 관리',
+    summary: '적금과 투자의 역할 차이, 비상금 분리, 분산투자, 장기 투자 원칙처럼 처음 투자할 때 꼭 필요한 최소 기준을 담았습니다.',
+    goals: [
+      '투자 전에 비상금과 생활비를 분리한다',
+      '위험자산 비중을 스스로 정한다',
+      '처음 투자할 때 피해야 할 행동을 말할 수 있다',
+    ],
+    concepts: [
+      { term: '분산투자', definition: '한 상품에 몰지 않고 여러 자산으로 나눠 위험을 줄이는 방식입니다.' },
+      { term: 'ETF', definition: '지수나 자산 묶음을 따라가는 상장지수펀드로 초보자가 분산 접근하기 쉽습니다.' },
+      { term: '비상금', definition: '갑작스러운 지출이나 실직 상황에 대비한 현금성 자금입니다.' },
+    ],
+    learningPoints: [
+      {
+        emoji: '🪙',
+        title: '투자 전 비상금부터 따로',
+        content: '병원비, 이직 공백, 갑작스러운 이사비처럼 예측 못한 지출은 꼭 생깁니다. 생활비 3~6개월치 정도는 투자금과 분리해 두는 것이 안전합니다.',
+      },
+      {
+        emoji: '📦',
+        title: '한 종목 몰빵 대신 묶음으로',
+        content: '처음부터 개별 종목에 큰돈을 넣기보다 시장 전체나 산업 묶음을 추종하는 ETF로 시작하면 변동성 스트레스를 줄일 수 있습니다.',
+      },
+      {
+        emoji: '⏳',
+        title: '단기 수익보다 오래 버티는 구조',
+        content: '수익률보다 먼저 봐야 할 것은 내가 하락장을 견딜 수 있는지입니다. 월 적립식, 분산, 장기 보유 원칙이 초보자에게 더 중요합니다.',
+      },
+    ],
+    pdfUrl: '',
+  },
+  {
+    id: 'salary-tax',
+    icon: '🧾',
+    title: '월급명세서와 연말정산, 처음 보는 사람용',
+    subtitle: '세금 · 4대보험',
+    summary: '실수령액이 왜 줄어드는지, 4대보험과 소득세가 무엇인지, 연말정산에서 자주 놓치는 포인트를 쉽게 풀었습니다.',
+    goals: [
+      '월급명세서 항목을 읽을 수 있다',
+      '실수령액이 줄어드는 이유를 설명한다',
+      '연말정산 준비 서류를 미리 체크할 수 있다',
+    ],
+    concepts: [
+      { term: '실수령액', definition: '세금과 4대보험 등을 제외하고 실제로 통장에 들어오는 금액입니다.' },
+      { term: '4대보험', definition: '국민연금, 건강보험, 고용보험, 산재보험으로 구성된 사회보장 제도입니다.' },
+      { term: '연말정산', definition: '한 해 동안 원천징수된 세금을 실제 부담액과 비교해 다시 계산하는 절차입니다.' },
+    ],
+    learningPoints: [
+      {
+        emoji: '📌',
+        title: '세전 연봉과 실수령액은 다르다',
+        content: '입사할 때 들은 연봉이 그대로 통장에 들어오지 않는 이유는 세금과 보험료가 먼저 빠지기 때문입니다. 월급명세서를 꼭 저장해두세요.',
+      },
+      {
+        emoji: '🏥',
+        title: '4대보험은 비용이면서 안전망',
+        content: '당장 빠져나가는 돈처럼 보여도 실업, 질병, 노후 상황에서 버팀목이 됩니다. 특히 고용보험은 이직기 안전망과 연결됩니다.',
+      },
+      {
+        emoji: '📁',
+        title: '연말정산은 미리 준비할수록 편하다',
+        content: '월세, 교육비, 기부금, 보험료, 카드 사용액처럼 공제와 관련된 자료는 평소 정리해두는 것이 좋습니다. 몰아서 하려면 빠뜨리기 쉽습니다.',
+      },
+    ],
+    pdfUrl: '',
+  },
+  {
+    id: 'insurance-basics',
+    icon: '🩺',
+    title: '보험, 많이 드는 것보다 맞게 드는 게 중요',
+    subtitle: '보험 · 보장 점검',
+    summary: '실손, 정기보험, 종신보험, 저축성보험의 차이와 불필요한 중복 가입을 피하는 기본 원칙을 정리했습니다.',
+    goals: [
+      '보장성 보험과 저축성 보험을 구분한다',
+      '내게 필요한 보장을 우선순위로 정한다',
+      '중복 가입 여부를 점검할 수 있다',
+    ],
+    concepts: [
+      { term: '보장성 보험', definition: '질병, 상해, 사망 등 위험에 대비하는 보험입니다.' },
+      { term: '저축성 보험', definition: '장기 저축 성격이 있지만 중도해지 불이익이 클 수 있습니다.' },
+      { term: '실손보험', definition: '실제로 발생한 의료비 중 일부를 보장하는 보험입니다.' },
+    ],
+    learningPoints: [
+      {
+        emoji: '🛟',
+        title: '보험은 불안을 사는 게 아니라 위험을 옮기는 것',
+        content: '보험의 핵심은 큰 위험을 감당 가능한 비용으로 이전하는 데 있습니다. 광고 문구보다 내가 감당하기 어려운 리스크가 무엇인지 먼저 생각해야 합니다.',
+      },
+      {
+        emoji: '🔁',
+        title: '중복 보장부터 줄이기',
+        content: '실손처럼 중복 보장이 제한되는 상품도 있고, 비슷한 특약이 여러 계약에 겹쳐 있을 수도 있습니다. 가입 전 기존 보험부터 확인하는 습관이 중요합니다.',
+      },
+      {
+        emoji: '📅',
+        title: '장기 납입 상품은 유지 가능성이 중요',
+        content: '보험은 오래 유지해야 하는 상품이 많습니다. 당장 낼 수 있는 금액보다, 3년 뒤에도 낼 수 있는지 기준으로 결정해야 중도 해지를 줄일 수 있습니다.',
+      },
+    ],
+    pdfUrl: '',
+  },
+  {
+    id: 'scam-prevention',
+    icon: '🚫',
+    title: '사회초년생이 자주 당하는 금융사기 패턴',
+    subtitle: '보이스피싱 · 투자사기 · 부업사기',
+    summary: '고수익 보장, 대출 알선, 원격 앱 설치 유도처럼 실제 피해가 많은 금융사기 문구를 유형별로 정리했습니다.',
+    goals: [
+      '대표적인 금융사기 패턴을 인식한다',
+      '피해 발생 시 즉시 취할 행동을 안다',
+      '의심 상황에서 확인할 기관을 안다',
+    ],
+    concepts: [
+      { term: '보이스피싱', definition: '기관 사칭, 대출 알선, 검찰·경찰 사칭 등으로 금전을 탈취하는 사기입니다.' },
+      { term: '원격제어 앱', definition: '피해자 휴대폰을 조작해 금융앱 정보를 탈취하는 데 악용됩니다.' },
+      { term: '고수익 보장 사기', definition: '원금 보장과 확정 수익을 동시에 내세워 투자를 유도하는 불법 수법입니다.' },
+    ],
+    learningPoints: [
+      {
+        emoji: '📞',
+        title: '기관은 앱 설치와 계좌이체를 요구하지 않는다',
+        content: '검찰, 경찰, 금감원, 은행은 전화로 원격 앱 설치나 특정 계좌 송금을 요구하지 않습니다. 이런 요구가 나오면 거의 사기라고 봐도 됩니다.',
+      },
+      {
+        emoji: '💣',
+        title: '원금 보장 + 고수익은 같이 오기 어렵다',
+        content: '단기간 고수익 확정, 지인 추천 수당, 폐쇄형 오픈채팅 투자방 같은 표현은 대표적인 위험 신호입니다. 정상 금융상품은 손실 가능성을 숨기지 않습니다.',
+      },
+      {
+        emoji: '🚓',
+        title: '당했을 때는 속도전',
+        content: '이체 직후라면 즉시 은행과 경찰, 금융감독원에 신고해야 합니다. 망설이는 시간이 길수록 자금 추적 가능성이 낮아집니다.',
+      },
+    ],
+    pdfUrl: '',
+  },
+];
+
+export const allStudyTopics = [...lifeStudyTopics, ...studyTopics];
+
+export function getStudyTopicById(topicId) {
+  return allStudyTopics.find((topic) => topic.id === topicId) || null;
+}
+
+export function getLessonChunkForQuiz(topicId, quizId) {
+  const topic = getStudyTopicById(topicId);
+  if (!topic) {
+    return null;
+  }
+
+  const quizMatch = String(quizId).match(/quiz(\d+)$/);
+  const quizOrder = Number(quizMatch?.[1] || 1);
+  const chunkSize = Math.max(1, Math.ceil((topic.learningPoints?.length || 0) / 3));
+  const startIndex = (quizOrder - 1) * chunkSize;
+  const selectedPoints = (topic.learningPoints || []).slice(startIndex, startIndex + chunkSize);
+  const concepts = (topic.concepts || []).slice(Math.max(0, quizOrder - 1), Math.max(0, quizOrder - 1) + 2);
+
+  return {
+    topic,
+    quizOrder,
+    title: `${topic.title} · 학습 ${quizOrder}`,
+    summary: topic.summary,
+    goals: (topic.goals || []).slice(0, 2),
+    concepts,
+    learningPoints: selectedPoints.length > 0 ? selectedPoints : (topic.learningPoints || []).slice(0, 2),
+  };
+}

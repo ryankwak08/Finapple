@@ -1,9 +1,11 @@
 import { createContext, useEffect, useState, useContext } from 'react';
 import { supabase } from '@/lib/supabase';
+import { syncUserProfileRecord } from '@/services/profileService';
 
 const AuthContext = createContext(null);
 
 const emptyUser = null;
+const getIsVerifiedEmailUser = (user) => Boolean(user?.email_confirmed_at || user?.confirmed_at);
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(emptyUser);
@@ -20,9 +22,22 @@ export const AuthProvider = ({ children }) => {
       if (error) throw error;
 
       if (data?.user) {
-        setUser(data.user);
-        setIsAuthenticated(true);
-        setAuthError(null);
+        if (getIsVerifiedEmailUser(data.user)) {
+          setUser(data.user);
+          setIsAuthenticated(true);
+          setAuthError(null);
+          syncUserProfileRecord(data.user).catch((syncError) => {
+            console.error('Profile sync failed:', syncError);
+          });
+        } else {
+          setUser(data.user);
+          setIsAuthenticated(false);
+          setAuthError({
+            type: 'email_not_verified',
+            message: '이메일 인증을 완료한 뒤 로그인해주세요.',
+            email: data.user.email,
+          });
+        }
       } else {
         setUser(emptyUser);
         setIsAuthenticated(false);
@@ -43,9 +58,22 @@ export const AuthProvider = ({ children }) => {
 
     const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_IN' && session?.user) {
-        setUser(session.user);
-        setIsAuthenticated(true);
-        setAuthError(null);
+        if (getIsVerifiedEmailUser(session.user)) {
+          setUser(session.user);
+          setIsAuthenticated(true);
+          setAuthError(null);
+          syncUserProfileRecord(session.user).catch((syncError) => {
+            console.error('Profile sync failed:', syncError);
+          });
+        } else {
+          setUser(session.user);
+          setIsAuthenticated(false);
+          setAuthError({
+            type: 'email_not_verified',
+            message: '이메일 인증을 완료한 뒤 로그인해주세요.',
+            email: session.user.email,
+          });
+        }
       } else if (event === 'SIGNED_OUT') {
         setUser(emptyUser);
         setIsAuthenticated(false);

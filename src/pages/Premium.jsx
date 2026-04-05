@@ -90,9 +90,10 @@ export default function Premium() {
             {[
               "✅ 모든 단원 학습 자료 무제한 열람",
               "✅ 800+ 경제 용어 사전 전체 이용",
-              "✅ 9개 단원 × 3개 퀴즈 무제한 도전",
-              "✅ 용어 퀴즈 및 XP 시스템",
-              "✅ 학습 진도 추적",
+              "✅ 무한 하트와 광고 제거",
+              "✅ 퀴즈 해설, 진도 확인, 오답노트",
+              "✅ Streak Freezer와 연속 학습 관리",
+              "✅ 틀린 문제 다시 풀기",
             ].map((item, i) => (
               <li key={i} className="text-foreground text-sm">{item}</li>
             ))}

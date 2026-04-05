@@ -1,9 +1,19 @@
 import { useState } from 'react';
-import { ShoppingBag, Zap, CheckCircle2 } from 'lucide-react';
+import { ShoppingBag, Zap, Snowflake, Gift } from 'lucide-react';
 import useProgress from '../lib/useProgress';
 
 
 const ITEMS = [
+  {
+    id: 'streak-freezer',
+    name: 'Streak Freezer',
+    description: '하루 놓쳐도 연속 학습 기록을 지켜주는 아이템',
+    emoji: '❄️',
+    price: 1200,
+    stock: 999,
+    rewardType: 'streak_freezer',
+    rewardValue: 1,
+  },
   {
     id: 'chupa-chups-1',
     name: '츄파춥스 교환권',
@@ -15,10 +25,10 @@ const ITEMS = [
 ];
 
 export default function Shop() {
-  const { progress, reload } = useProgress();
+  const { progress, purchaseShopItem, getInventoryCount } = useProgress();
   const [purchasing, setPurchasing] = useState(null);
-  const [purchased, setPurchased] = useState([]);
   const [error, setError] = useState(null);
+  const [success, setSuccess] = useState(null);
 
   const xp = progress?.xp || 0;
 
@@ -30,13 +40,11 @@ export default function Shop() {
     }
     setPurchasing(item.id);
     try {
-      const newXp = xp - item.price;
-      const updated = { ...progress, xp: newXp };
-      localStorage.setItem('finapple_progress', JSON.stringify(updated));
-      await reload();
-      setPurchased(prev => [...prev, item.id]);
+      await purchaseShopItem(item);
+      setSuccess(`${item.name} 구매 완료!`);
+      setTimeout(() => setSuccess(null), 2500);
     } catch (e) {
-      setError('구매 중 오류가 발생했습니다.');
+      setError(e.message || '구매 중 오류가 발생했습니다.');
       setTimeout(() => setError(null), 3000);
     } finally {
       setPurchasing(null);
@@ -71,13 +79,28 @@ export default function Shop() {
           {error}
         </div>
       )}
+      {success && (
+        <div className="bg-emerald-100 text-emerald-700 text-[13px] rounded-xl px-4 py-3 mb-4 font-medium">
+          {success}
+        </div>
+      )}
+
+      <div className="bg-sky-50 border border-sky-100 rounded-2xl px-4 py-3 mb-6 flex items-center gap-3">
+        <div className="w-10 h-10 rounded-xl bg-sky-100 flex items-center justify-center flex-shrink-0">
+          <Snowflake className="w-5 h-5 text-sky-600" />
+        </div>
+        <div>
+          <p className="text-[12px] text-sky-700 font-semibold">보유 Freezer</p>
+          <p className="text-[18px] font-extrabold text-sky-800">{progress?.streak_freezers || 0}개</p>
+        </div>
+      </div>
 
       {/* Items */}
       <div className="space-y-3">
         {ITEMS.map(item => {
           const canAfford = xp >= item.price;
-          const isBought = purchased.includes(item.id);
           const isBuying = purchasing === item.id;
+          const ownedCount = getInventoryCount(item.id);
 
           return (
             <div key={item.id} className="bg-card rounded-2xl border border-border p-4 flex items-center gap-4">
@@ -91,26 +114,25 @@ export default function Shop() {
                   <Zap className="w-3.5 h-3.5 text-primary" />
                   <span className="text-primary font-extrabold text-[13px]">{item.price.toLocaleString()} XP</span>
                 </div>
+                {ownedCount > 0 && (
+                  <div className="mt-2 inline-flex items-center gap-1 rounded-full bg-muted px-2.5 py-1">
+                    <Gift className="w-3 h-3 text-muted-foreground" />
+                    <span className="text-[11px] font-semibold text-foreground">보유 {ownedCount}개</span>
+                  </div>
+                )}
               </div>
               <div className="flex-shrink-0">
-                {isBought ? (
-                  <div className="flex flex-col items-center gap-1">
-                    <CheckCircle2 className="w-7 h-7 text-green-500" />
-                    <span className="text-[10px] text-green-600 font-semibold">구매완료</span>
-                  </div>
-                ) : (
-                  <button
-                    onClick={() => handleBuy(item)}
-                    disabled={!canAfford || isBuying}
-                    className={`px-4 py-2 rounded-xl text-[13px] font-bold transition-all ${
-                      canAfford
-                        ? 'bg-primary text-primary-foreground active:scale-95'
-                        : 'bg-muted text-muted-foreground cursor-not-allowed'
-                    }`}
-                  >
-                    {isBuying ? '처리중...' : '구매'}
-                  </button>
-                )}
+                <button
+                  onClick={() => handleBuy(item)}
+                  disabled={!canAfford || isBuying}
+                  className={`px-4 py-2 rounded-xl text-[13px] font-bold transition-all ${
+                    canAfford
+                      ? 'bg-primary text-primary-foreground active:scale-95'
+                      : 'bg-muted text-muted-foreground cursor-not-allowed'
+                  }`}
+                >
+                  {isBuying ? '처리중...' : '구매'}
+                </button>
               </div>
             </div>
           );
@@ -120,7 +142,7 @@ export default function Shop() {
       {/* Info */}
       <div className="mt-6 bg-muted/50 rounded-2xl px-4 py-3">
         <p className="text-[12px] text-muted-foreground leading-relaxed">
-          📌 교환권 구매 후 관리자에게 문의하면 실물 상품으로 교환해 드립니다.<br/>
+          📌 Streak Freezer는 하루를 놓쳤을 때 자동으로 1개 소모되어 스트릭을 지켜줘요.<br/>
           퀴즈를 통과할 때마다 XP를 획득할 수 있어요!
         </p>
       </div>
