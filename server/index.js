@@ -63,10 +63,29 @@ const quizResponseSchema = {
   },
 };
 
+const normalizeOrigin = (value) => {
+  if (!value || typeof value !== 'string') {
+    return '';
+  }
+
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return '';
+  }
+
+  if (/^https?:\/\//i.test(trimmed)) {
+    return trimmed.replace(/\/$/, '');
+  }
+
+  return `https://${trimmed.replace(/^\/+/, '').replace(/\/$/, '')}`;
+};
+
 const allowedOrigins = new Set([
-  FRONTEND_URL,
+  normalizeOrigin(FRONTEND_URL),
   'http://localhost:5173',
   'http://127.0.0.1:5173',
+  'https://finapple.xyz',
+  'https://www.finapple.xyz',
 ]);
 
 const isAllowedOrigin = (origin) => {
