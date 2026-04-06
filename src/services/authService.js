@@ -1,6 +1,7 @@
 import { supabase } from '@/lib/supabase';
 import { BACKEND_URL } from '@/lib/backendUrl';
 import { syncUserProfileRecord } from '@/services/profileService';
+import { getIsPremium, getUserRole } from '@/lib/premium';
 
 const getAuthRedirectUrl = () => {
   const rawBaseUrl = import.meta.env.VITE_APP_BASE_URL || window.location.origin;
@@ -14,7 +15,16 @@ const getAuthRedirectUrl = () => {
 export const getCurrentUser = async () => {
   const { data, error } = await supabase.auth.getUser();
   if (error) throw error;
-  return data.user;
+
+  if (!data.user) {
+    return null;
+  }
+
+  return {
+    ...data.user,
+    role: getUserRole(data.user),
+    is_premium: getIsPremium(data.user),
+  };
 };
 
 export const signOut = async () => {

@@ -4,8 +4,25 @@ const adminEmails = (import.meta.env.VITE_ADMIN_EMAILS || 'ryankwak08@gmail.com'
   .map((email) => email.trim().toLowerCase())
   .filter(Boolean);
 
+export function isAdminUser(user) {
+  const role = user?.user_metadata?.role || user?.role;
+  if (role === 'admin') {
+    return true;
+  }
+
+  return Boolean(user?.email && adminEmails.includes(user.email.toLowerCase()));
+}
+
+export function getUserRole(user) {
+  if (isAdminUser(user)) {
+    return 'admin';
+  }
+
+  return user?.user_metadata?.role || user?.role || 'user';
+}
+
 export function getIsPremium(user) {
-  if (user?.email && adminEmails.includes(user.email.toLowerCase())) {
+  if (isAdminUser(user)) {
     return true;
   }
 

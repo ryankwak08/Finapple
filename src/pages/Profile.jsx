@@ -171,7 +171,7 @@ export default function Profile() {
       name: '프리미엄',
       price: '₩9,900',
       period: '/ 월',
-      features: ['모든 학습 콘텐츠', '무제한 하트', 'Streak Freezer 3개 지급', '퀴즈 해설, 진도 확인, 오답노트', '연속 학습 관리', '광고 없음'],
+      features: ['모든 학습 콘텐츠', '무제한 하트', 'Streak Freezer 매월 3개 지급', '퀴즈 해설, 진도 확인, 오답노트', '연속 학습 관리', '광고 없음'],
       current: isPremium,
       color: 'border-primary bg-primary/5',
       badge: '인기',
