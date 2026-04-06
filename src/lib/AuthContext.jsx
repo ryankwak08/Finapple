@@ -6,6 +6,13 @@ const AuthContext = createContext(null);
 
 const emptyUser = null;
 const getIsVerifiedEmailUser = (user) => Boolean(user?.email_confirmed_at || user?.confirmed_at);
+const getAuthRequiredError = () => ({ type: 'auth_required', message: '로그인 필요' });
+
+const syncProfileSafely = (user) => {
+  syncUserProfileRecord(user).catch((syncError) => {
+    console.error('Profile sync failed:', syncError);
+  });
+};
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(emptyUser);
@@ -15,39 +22,44 @@ export const AuthProvider = ({ children }) => {
   const [authError, setAuthError] = useState(null);
   const [appPublicSettings, setAppPublicSettings] = useState(null);
 
+  const applyAuthenticatedUser = (nextUser) => {
+    if (getIsVerifiedEmailUser(nextUser)) {
+      setUser(nextUser);
+      setIsAuthenticated(true);
+      setAuthError(null);
+      syncProfileSafely(nextUser);
+      return;
+    }
+
+    setUser(nextUser);
+    setIsAuthenticated(false);
+    setAuthError({
+      type: 'email_not_verified',
+      message: '이메일 인증을 완료한 뒤 로그인해주세요.',
+      email: nextUser?.email,
+    });
+  };
+
+  const applySignedOutState = () => {
+    setUser(emptyUser);
+    setIsAuthenticated(false);
+    setAuthError(getAuthRequiredError());
+  };
+
   const refreshUser = async () => {
     setIsLoadingAuth(true);
     try {
-      const { data, error } = await supabase.auth.getUser();
+      const { data, error } = await supabase.auth.getSession();
       if (error) throw error;
 
-      if (data?.user) {
-        if (getIsVerifiedEmailUser(data.user)) {
-          setUser(data.user);
-          setIsAuthenticated(true);
-          setAuthError(null);
-          syncUserProfileRecord(data.user).catch((syncError) => {
-            console.error('Profile sync failed:', syncError);
-          });
-        } else {
-          setUser(data.user);
-          setIsAuthenticated(false);
-          setAuthError({
-            type: 'email_not_verified',
-            message: '이메일 인증을 완료한 뒤 로그인해주세요.',
-            email: data.user.email,
-          });
-        }
+      if (data?.session?.user) {
+        applyAuthenticatedUser(data.session.user);
       } else {
-        setUser(emptyUser);
-        setIsAuthenticated(false);
-        setAuthError({ type: 'auth_required', message: '로그인 필요' });
+        applySignedOutState();
       }
     } catch (error) {
       console.error('Auth check failed:', error);
-      setUser(emptyUser);
-      setIsAuthenticated(false);
-      setAuthError({ type: 'auth_required', message: '로그인 필요' });
+      applySignedOutState();
     } finally {
       setIsLoadingAuth(false);
     }
@@ -57,27 +69,18 @@ export const AuthProvider = ({ children }) => {
     refreshUser();
 
     const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'SIGNED_IN' && session?.user) {
-        if (getIsVerifiedEmailUser(session.user)) {
-          setUser(session.user);
-          setIsAuthenticated(true);
-          setAuthError(null);
-          syncUserProfileRecord(session.user).catch((syncError) => {
-            console.error('Profile sync failed:', syncError);
-          });
-        } else {
-          setUser(session.user);
-          setIsAuthenticated(false);
-          setAuthError({
-            type: 'email_not_verified',
-            message: '이메일 인증을 완료한 뒤 로그인해주세요.',
-            email: session.user.email,
-          });
-        }
+      if (
+        (event === 'INITIAL_SESSION' ||
+          event === 'SIGNED_IN' ||
+          event === 'TOKEN_REFRESHED' ||
+          event === 'USER_UPDATED') &&
+        session?.user
+      ) {
+        applyAuthenticatedUser(session.user);
+        setIsLoadingAuth(false);
       } else if (event === 'SIGNED_OUT') {
-        setUser(emptyUser);
-        setIsAuthenticated(false);
-        setAuthError({ type: 'auth_required', message: '로그인 필요' });
+        applySignedOutState();
+        setIsLoadingAuth(false);
       }
     });
 
@@ -96,9 +99,7 @@ export const AuthProvider = ({ children }) => {
     } catch (error) {
       console.error('Logout failed:', error);
     }
-    setUser(emptyUser);
-    setIsAuthenticated(false);
-    setAuthError({ type: 'auth_required', message: '로그인 필요' });
+    applySignedOutState();
     if (shouldRedirect) {
       window.location.href = '/login';
     }

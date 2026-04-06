@@ -13,17 +13,19 @@ const getAuthRedirectUrl = () => {
 };
 
 export const getCurrentUser = async () => {
-  const { data, error } = await supabase.auth.getUser();
+  const { data, error } = await supabase.auth.getSession();
   if (error) throw error;
 
-  if (!data.user) {
+  const currentUser = data?.session?.user;
+
+  if (!currentUser) {
     return null;
   }
 
   return {
-    ...data.user,
-    role: getUserRole(data.user),
-    is_premium: getIsPremium(data.user),
+    ...currentUser,
+    role: getUserRole(currentUser),
+    is_premium: getIsPremium(currentUser),
   };
 };
 
