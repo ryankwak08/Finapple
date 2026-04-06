@@ -1,21 +1,110 @@
+import { useEffect, useState } from 'react';
 import { lifeStudyTopics } from '../lib/studyData';
 import TopicCard from '../components/study/TopicCard';
 import useProgress from '../lib/useProgress';
 import PullToRefresh from '../components/PullToRefresh';
 import { Star, Flame, Snowflake } from 'lucide-react';
+import useSoundEffects from '@/hooks/useSoundEffects';
 import PremiumBadge from '@/components/PremiumBadge';
 
+function formatCountdown(targetTime, now) {
+  if (!targetTime) return '';
+  const remainingMs = new Date(targetTime).getTime() - now;
+  if (remainingMs <= 0) return '00:00:00';
+
+  const totalSeconds = Math.floor(remainingMs / 1000);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+
+  return [hours, minutes, seconds].map((value) => String(value).padStart(2, '0')).join(':');
+}
+
+function formatHistoryTime(value) {
+  if (!value) return '';
+
+  return new Intl.DateTimeFormat('ko-KR', {
+    month: 'numeric',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  }).format(new Date(value));
+}
+
+function buildLocalFreezerExpiryAt(activatedAt) {
+  return new Date(new Date(activatedAt).getTime() + (24 * 60 * 60 * 1000)).toISOString();
+}
+
+function getFreezerHistoryLabel(entry) {
+  if (entry.status === 'used') {
+    return {
+      title: '스트릭 보호 성공',
+      detail: entry.consumedAt ? `${formatHistoryTime(entry.consumedAt)}에 보호 완료` : '스트릭이 안전하게 유지됐어요',
+      className: 'border-emerald-200 bg-emerald-50 text-emerald-700',
+    };
+  }
+
+  if (entry.status === 'expired') {
+    return {
+      title: '보호 시간 만료',
+      detail: entry.expiredAt ? `${formatHistoryTime(entry.expiredAt)}에 만료` : '사용되지 않고 만료됐어요',
+      className: 'border-slate-200 bg-slate-50 text-slate-600',
+    };
+  }
+
+  return {
+    title: '보호막 활성화',
+    detail: entry.expiresAt ? `${formatHistoryTime(entry.expiresAt)}까지 대기 중` : '다음 1일 공백을 기다리는 중',
+    className: 'border-sky-200 bg-sky-50 text-sky-700',
+  };
+}
+
 export default function Study() {
-  const { progress, loading, user, isPremium, getStreakStatus } = useProgress();
+  const { progress, loading, user, isPremium, getStreakStatus, activateStreakFreezer } = useProgress();
+  const { playSuccessSound } = useSoundEffects();
+  const [now, setNow] = useState(() => Date.now());
   const streakStatus = getStreakStatus();
+  const canUseFreezer = streakStatus.streakFreezers > 0 && !streakStatus.freezerShieldActive;
+  const freezerHistory = streakStatus.freezerHistory.slice(0, 3);
+  const freezerCountdownTarget = streakStatus.freezerExpiresAt || (
+    streakStatus.freezerShieldActive && streakStatus.freezerActivatedAt
+      ? buildLocalFreezerExpiryAt(streakStatus.freezerActivatedAt)
+      : null
+  );
+  const remainingShieldTime = streakStatus.freezerShieldActive
+    ? formatCountdown(freezerCountdownTarget, now)
+    : '';
   const displayName =
     user?.user_metadata?.nickname?.trim() ||
     user?.user_metadata?.full_name?.trim() ||
     user?.email?.split('@')[0] ||
     '학습자';
 
+  useEffect(() => {
+    if (!streakStatus.freezerShieldActive) {
+      return;
+    }
+
+    const intervalId = window.setInterval(() => {
+      setNow(Date.now());
+    }, 1000);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [streakStatus.freezerShieldActive]);
+
   const handleRefresh = async () => {
     await new Promise(r => setTimeout(r, 800));
+  };
+
+  const handleActivateFreezer = async () => {
+    try {
+      await activateStreakFreezer();
+      await playSuccessSound();
+    } catch (error) {
+      alert(error.message || 'Freezer를 적용하지 못했어요.');
+    }
   };
 
   return (
@@ -51,6 +140,19 @@ export default function Study() {
             </div>
             {isPremium && <PremiumBadge compact />}
           </div>
+          {streakStatus.freezerShieldActive ? (
+            <div className="mt-4 rounded-2xl border border-sky-200 bg-sky-50/90 px-4 py-3">
+              <div className="flex items-center justify-between gap-3 flex-wrap">
+                <div>
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-sky-700/70">Freezer Countdown</p>
+                  <p className="mt-1 text-[12px] text-sky-700/80">
+                    {freezerCountdownTarget ? `${formatHistoryTime(freezerCountdownTarget)}까지 스트릭을 보호해요` : '다음 공백 1일을 보호해요'}
+                  </p>
+                </div>
+                <p className="font-mono text-[22px] font-black tracking-[0.16em] text-sky-700">{remainingShieldTime}</p>
+              </div>
+            </div>
+          ) : null}
           <div className="grid grid-cols-2 gap-3 mt-4">
             <div className="rounded-xl bg-background/80 border border-border px-4 py-3">
               <div className="flex items-center gap-2">
@@ -67,8 +169,40 @@ export default function Study() {
               </div>
               <p className="mt-1 text-[20px] font-extrabold text-foreground">{streakStatus.streakFreezers}개</p>
               <p className="text-[11px] text-muted-foreground">
-                {isPremium ? '하루 놓쳐도 스트릭을 지켜줘요' : '프리미엄에서 이용 가능'}
+                {streakStatus.freezerShieldActive
+                  ? '다음 1일 공백 보호가 적용 중이에요'
+                  : isPremium
+                  ? '필요할 때 직접 사용해 스트릭을 지켜요'
+                  : '프리미엄에서 이용 가능'}
               </p>
+              {isPremium ? (
+                <button
+                  type="button"
+                  onClick={handleActivateFreezer}
+                  disabled={!canUseFreezer}
+                  className="mt-3 w-full rounded-xl bg-sky-500 px-3 py-2 text-[12px] font-bold text-white disabled:cursor-not-allowed disabled:bg-sky-200"
+                >
+                  {streakStatus.freezerShieldActive ? '적용 완료' : '지금 Freezer 사용'}
+                </button>
+              ) : null}
+              {freezerHistory.length > 0 ? (
+                <div className="mt-3 space-y-2">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">최근 Freezer 이력</p>
+                  {freezerHistory.map((entry) => {
+                    const statusMeta = getFreezerHistoryLabel(entry);
+
+                    return (
+                      <div
+                        key={`${entry.activatedAt}-${entry.status}`}
+                        className={`rounded-xl border px-3 py-2 ${statusMeta.className}`}
+                      >
+                        <p className="text-[11px] font-semibold">{statusMeta.title}</p>
+                        <p className="mt-1 text-[10px] opacity-80">{statusMeta.detail}</p>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : null}
             </div>
           </div>
         </div>

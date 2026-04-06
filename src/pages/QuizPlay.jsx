@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { ArrowLeft, BookOpen, CheckCircle2, Loader2, Trophy, Star, Sparkles } from 'lucide-react';
 import { getQuizById } from '../lib/quizData';
@@ -7,6 +7,7 @@ import HeartDisplay from '../components/quiz/HeartDisplay';
 import QuestionCard from '../components/quiz/QuestionCard';
 import QuizResult from '../components/quiz/QuizResult';
 import { generateAiQuiz } from '@/api/quizClient';
+import useSoundEffects from '@/hooks/useSoundEffects';
 import { getLessonChunkForQuiz } from '@/lib/studyData';
 
 export default function QuizPlay() {
@@ -34,11 +35,36 @@ export default function QuizPlay() {
   const [xpEarned, setXpEarned] = useState(0);
   const [showCongrats, setShowCongrats] = useState(false);
   const [isAdvancing, setIsAdvancing] = useState(false);
+  const [hasRequestedQuiz, setHasRequestedQuiz] = useState(false);
+  const [quizSource, setQuizSource] = useState(null);
   const autoNextTimerRef = useRef(null);
+  const { playCorrectSound, playWrongSound, playSuccessSound } = useSoundEffects();
 
-  const quizData = getQuizById(quizId);
-  const lessonChunk = getLessonChunkForQuiz(quizData?.studyTopicId, quizId);
+  const quizData = useMemo(
+    () => getQuizById(quizId),
+    [quizId]
+  );
+  const lessonChunk = useMemo(
+    () => getLessonChunkForQuiz(quizData?.studyTopicId, quizId),
+    [quizData?.studyTopicId, quizId]
+  );
   const reviewCount = getReviewNotesForQuiz(quizId).length;
+
+  useEffect(() => {
+    setQuestions(null);
+    setLoading(false);
+    setCurrentIndex(0);
+    setSelectedAnswer(null);
+    setConfirmed(false);
+    setIsCorrect(false);
+    setScore(0);
+    setFinished(false);
+    setXpEarned(0);
+    setShowCongrats(false);
+    setIsAdvancing(false);
+    setQuizSource(null);
+    setHasRequestedQuiz(false);
+  }, [quizId]);
 
   useEffect(() => {
     let active = true;
@@ -48,18 +74,30 @@ export default function QuizPlay() {
       return undefined;
     }
 
-    const loadQuestions = async () => {
+     if (lessonChunk && !hasRequestedQuiz) {
+      setLoading(false);
+      return undefined;
+    }
+
+    const loadQuestions = async (options = {}) => {
+      const { forceRefresh = false } = options;
       setLoading(true);
 
       try {
-        const generatedQuestions = await generateAiQuiz(quizId);
+        const generatedQuiz = await generateAiQuiz(quizId, { forceRefresh });
         if (active) {
-          setQuestions(generatedQuestions);
+          setQuestions(generatedQuiz.questions);
+          setQuizSource(generatedQuiz);
         }
       } catch (error) {
         console.error('AI quiz generation failed, using local fallback:', error);
         if (active) {
           setQuestions(quizData?.questions || []);
+          setQuizSource({
+            source: 'fallback',
+            model: null,
+            fromCache: false,
+          });
         }
       } finally {
         if (active) {
@@ -73,7 +111,7 @@ export default function QuizPlay() {
     return () => {
       active = false;
     };
-  }, [quizId]);
+  }, [hasRequestedQuiz, lessonChunk, quizData, quizId]);
 
   useEffect(() => {
     return () => {
@@ -82,6 +120,16 @@ export default function QuizPlay() {
       }
     };
   }, []);
+
+  const quizSourceLabel = quizSource?.source === 'fallback'
+    ? '기본 문항 사용 중'
+    : quizSource?.fromCache
+    ? 'AI 생성 문항 캐시 사용 중'
+    : quizSource?.model
+    ? `AI 생성: ${quizSource.model}`
+    : quizSource?.source
+    ? 'AI 생성 문항'
+    : null;
 
   const advanceToNextStep = async () => {
     if (currentIndex < questions.length - 1) {
@@ -100,6 +148,7 @@ export default function QuizPlay() {
     setXpEarned(xp);
     if (passed) {
       await completeQuiz(quizId, finalScore, quizData.xpReward);
+      await playSuccessSound();
     }
     setIsAdvancing(false);
     setFinished(true);
@@ -114,23 +163,26 @@ export default function QuizPlay() {
     );
   }
 
-  if (loading || !progress) {
+  if (!progress) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen gap-3">
         <Loader2 className="w-8 h-8 text-primary animate-spin" />
-        <p className="text-muted-foreground text-[13px]">AI가 퀴즈를 생성 중...</p>
+        <p className="text-muted-foreground text-[13px]">진행 정보를 불러오는 중...</p>
       </div>
     );
   }
 
-  if (lessonChunk && currentIndex === 0 && selectedAnswer === null && !confirmed && !finished) {
+  if (lessonChunk && !hasRequestedQuiz) {
     return (
       <div className="px-5 pt-14 pb-8 min-h-screen">
         <div className="flex items-center justify-between mb-8">
           <button onClick={() => navigate(-1)} className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors outline-none">
             <ArrowLeft className="w-5 h-5" />
           </button>
-          <span className="text-[14px] font-bold text-foreground">{quizData.title}</span>
+          <div className="flex flex-col items-center">
+            <span className="text-[14px] font-bold text-foreground">{quizData.title}</span>
+            {quizSourceLabel ? <span className="text-[10px] text-muted-foreground">{quizSourceLabel}</span> : null}
+          </div>
           <HeartDisplay hearts={progress.hearts} unlimited={isPremium} />
         </div>
 
@@ -187,7 +239,7 @@ export default function QuizPlay() {
 
         <button
           type="button"
-          onClick={() => setSelectedAnswer(-1)}
+          onClick={() => setHasRequestedQuiz(true)}
           className="w-full rounded-2xl bg-primary text-primary-foreground py-3.5 text-[14px] font-bold"
         >
           이 내용으로 바로 퀴즈 풀기
@@ -268,9 +320,18 @@ export default function QuizPlay() {
     );
   }
 
+  if (loading || !questions?.length) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen gap-3">
+        <Loader2 className="w-8 h-8 text-primary animate-spin" />
+        <p className="text-muted-foreground text-[13px]">AI가 퀴즈를 생성 중...</p>
+      </div>
+    );
+  }
+
   const currentQuestion = questions[currentIndex];
   const showPremiumControls = isPremium;
-  const effectiveSelectedAnswer = selectedAnswer === -1 ? null : selectedAnswer;
+  const effectiveSelectedAnswer = selectedAnswer;
 
   const registerWrongAnswer = async (answerIndex) => {
     await recordWrongAnswer({
@@ -292,9 +353,11 @@ export default function QuizPlay() {
 
     if (correct) {
       setScore((prev) => prev + 1);
+      await playCorrectSound();
     } else {
       await registerWrongAnswer(effectiveSelectedAnswer);
       await loseHeart();
+      await playWrongSound();
     }
   };
 
@@ -309,9 +372,11 @@ export default function QuizPlay() {
 
     if (correct) {
       setScore((prev) => prev + 1);
+      await playCorrectSound();
     } else {
       await registerWrongAnswer(answerIndex);
       await loseHeart();
+      await playWrongSound();
     }
 
     autoNextTimerRef.current = window.setTimeout(() => {
@@ -330,7 +395,10 @@ export default function QuizPlay() {
         <button onClick={() => navigate(-1)} className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors outline-none">
           <ArrowLeft className="w-5 h-5" />
         </button>
-        <span className="text-[14px] font-bold text-foreground">{quizData.title}</span>
+        <div className="flex flex-col items-center">
+          <span className="text-[14px] font-bold text-foreground">{quizData.title}</span>
+          {quizSourceLabel ? <span className="text-[10px] text-muted-foreground">{quizSourceLabel}</span> : null}
+        </div>
         <HeartDisplay hearts={progress.hearts} unlimited={isPremium} />
       </div>
 

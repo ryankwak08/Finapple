@@ -12,10 +12,12 @@ import { getCurrentSeasonMeta } from '../src/lib/season.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+dotenv.config({ path: path.resolve(__dirname, '.env') });
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
-dotenv.config({ path: path.resolve(__dirname, '.env'), override: true });
 
 const app = express();
+app.disable('x-powered-by');
+app.set('trust proxy', 1);
 
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://127.0.0.1:5173';
 const tossSecretKey = process.env.TOSS_SECRET_KEY;
@@ -29,6 +31,8 @@ const PORT = process.env.PORT || 3000;
 const QUIZ_CACHE_TTL_MS = 1000 * 60 * 60 * 24;
 const aiQuizCache = new Map();
 const aiQuizInflight = new Map();
+const rateLimitStore = new Map();
+const MAX_AI_QUIZ_ATTEMPTS = 1;
 
 const quizResponseSchema = {
   type: 'object',
@@ -124,6 +128,41 @@ const buildQuizContext = (quizId) => {
   };
 };
 
+const quizVariationBlueprints = [
+  {
+    scenario: '월급일 직후 소비, 자동이체, 고정지출 정리',
+    framing: '친구 조언이 섞인 현실 대화형',
+    focus: '실수 예방과 첫 행동 선택',
+  },
+  {
+    scenario: '자취, 배달앱, 장보기, 생활비 부족',
+    framing: '하루 생활 흐름을 따라가는 상황형',
+    focus: '불필요한 선택지 구분',
+  },
+  {
+    scenario: '카드값, 할부, 통장잔고, 청구일 직전 판단',
+    framing: '짧은 사례 분석형',
+    focus: '가장 합리적인 다음 행동',
+  },
+  {
+    scenario: '사회초년생, 첫 재무목표, 저축과 소비 충돌',
+    framing: '계획 세우기형',
+    focus: '원칙 적용과 우선순위',
+  },
+];
+
+const getQuizVariationBlueprint = (quizId) => {
+  const hourBucket = Math.floor(Date.now() / (1000 * 60 * 60));
+  let hash = hourBucket;
+
+  for (const character of String(quizId)) {
+    hash = ((hash << 5) - hash) + character.charCodeAt(0);
+    hash |= 0;
+  }
+
+  return quizVariationBlueprints[Math.abs(hash) % quizVariationBlueprints.length];
+};
+
 const buildQuizPrompts = ({ quiz, unit, topic }) => {
   const seedQuestions = (quiz.questions || []).slice(0, 2).map((item, index) => ({
     no: index + 1,
@@ -132,6 +171,7 @@ const buildQuizPrompts = ({ quiz, unit, topic }) => {
     answer: item.answer,
     explanation: item.explanation,
   }));
+  const variationBlueprint = getQuizVariationBlueprint(quiz.id);
 
   const topicContext = {
       title: topic?.title || unit?.title || quiz.unitTitle || '금융 교육',
@@ -145,8 +185,14 @@ const buildQuizPrompts = ({ quiz, unit, topic }) => {
     '항상 중급 난이도의 4지선다 객관식 5문항을 만든다.',
     '모든 문항은 실생활 맥락 또는 짧은 사례 기반으로 작성한다.',
     '보기는 서로 구분 가능해야 하며 정답은 단 하나여야 한다.',
+    '오답 보기는 정답과 헷갈릴 수는 있지만, 서로 거의 같은 표현이거나 말장난처럼 보이면 안 된다.',
+    '문항은 짧아도 핵심 상황과 조건이 드러나야 하며, 질문 의도가 불명확하면 안 된다.',
     '해설은 정답과 반드시 일치해야 하며, 정답 선택의 근거를 2문장 안팎으로 설명한다.',
+    '해설에는 왜 정답이고 왜 다른 선택지가 아닌지 드러나는 근거가 들어가야 한다.',
+    '정답이 질문 문장에 노출되거나 보기 길이 차이만으로 티 나지 않게 작성한다.',
     '기존 예시와 문장 구조나 수치를 그대로 복사하지 말고, 같은 학습 목표를 새 방식으로 평가한다.',
+    '예시 문항과 같은 인물 설정, 같은 숫자, 같은 상황 전개를 반복하지 않는다.',
+    '반드시 다른 생활 장면, 다른 선택지 구성, 다른 질문 각도로 변형한다.',
     '결과는 반드시 JSON Schema에 맞는 값만 반환한다.',
   ].join(' ');
 
@@ -160,13 +206,23 @@ const buildQuizPrompts = ({ quiz, unit, topic }) => {
         questionCount: 5,
         audience: '한국어 사용자, 청년 금융교육 학습자',
       },
+      variationBlueprint,
       topicContext,
       referenceQuestions: seedQuestions,
       outputRules: {
         language: 'ko-KR',
         optionCount: 4,
         answerIndexRange: [0, 3],
-        avoid: ['예시 문제의 문장 재사용', '정답 위치 패턴 반복', '모호한 보기', '근거 없는 최신 통계 수치'],
+        avoid: [
+          '예시 문제의 문장 재사용',
+          '예시 문제와 같은 등장인물/나이/숫자 조합',
+          '정답 위치 패턴 반복',
+          '모호한 보기',
+          '근거 없는 최신 통계 수치',
+          '모두 정답/정답 없음 보기',
+          '서로 거의 같은 보기 2개',
+          '설명 없는 숫자 문제',
+        ],
       },
     },
     null,
@@ -233,7 +289,108 @@ const normalizeQuestions = (questions) => {
   });
 };
 
-const generateAiQuizQuestions = async (quizId) => {
+const normalizeComparableText = (value) => String(value || '')
+  .toLowerCase()
+  .replace(/\s+/g, ' ')
+  .replace(/[^\p{L}\p{N}%]/gu, '')
+  .trim();
+
+const hasDuplicateOptions = (options) => {
+  const normalized = options.map(normalizeComparableText).filter(Boolean);
+  return new Set(normalized).size !== normalized.length;
+};
+
+const getQuestionQualityIssues = (question, index) => {
+  const issues = [];
+  const questionText = question.question.trim();
+  const explanationText = question.explanation.trim();
+  const options = question.options.map((option) => String(option || '').trim());
+
+  if (questionText.length < 14) {
+    issues.push(`question ${index + 1}: question is too short`);
+  }
+
+  if (explanationText.length < 18) {
+    issues.push(`question ${index + 1}: explanation is too short`);
+  }
+
+  if (options.some((option) => option.length < 2)) {
+    issues.push(`question ${index + 1}: option text is too short`);
+  }
+
+  if (hasDuplicateOptions(options)) {
+    issues.push(`question ${index + 1}: duplicate or near-duplicate options`);
+  }
+
+  if (options.some((option) => ['모두 정답', '모두 맞다', '모두 틀리다', '정답 없음', '해당 없음'].includes(option))) {
+    issues.push(`question ${index + 1}: contains low-quality catch-all option`);
+  }
+
+  const optionLengths = options.map((option) => option.length);
+  const minOptionLength = Math.min(...optionLengths);
+  const maxOptionLength = Math.max(...optionLengths);
+  if (maxOptionLength - minOptionLength > 40) {
+    issues.push(`question ${index + 1}: option lengths are unbalanced`);
+  }
+
+  return issues;
+};
+
+const validateQuestionSetQuality = (questions) => {
+  const issues = [];
+  const seenPrompts = new Set();
+
+  questions.forEach((question, index) => {
+    const normalizedPrompt = normalizeComparableText(question.question);
+    if (normalizedPrompt && seenPrompts.has(normalizedPrompt)) {
+      issues.push(`question ${index + 1}: duplicate prompt`);
+    }
+    if (normalizedPrompt) {
+      seenPrompts.add(normalizedPrompt);
+    }
+
+    issues.push(...getQuestionQualityIssues(question, index));
+  });
+
+  return {
+    passed: issues.length === 0,
+    issues,
+  };
+};
+
+const applySecurityHeaders = (_req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+  res.setHeader('Content-Security-Policy', "default-src 'none'; frame-ancestors 'none'; base-uri 'none'");
+  next();
+};
+
+const createRateLimiter = ({ key, limit, windowMs }) => (req, res, next) => {
+  const clientKey = `${key}:${req.ip || 'unknown'}`;
+  const now = Date.now();
+  const entry = rateLimitStore.get(clientKey);
+
+  if (!entry || entry.resetAt <= now) {
+    rateLimitStore.set(clientKey, { count: 1, resetAt: now + windowMs });
+    return next();
+  }
+
+  if (entry.count >= limit) {
+    const retryAfter = Math.ceil((entry.resetAt - now) / 1000);
+    res.setHeader('Retry-After', String(Math.max(retryAfter, 1)));
+    return res.status(429).json({ error: '요청이 너무 많아요. 잠시 후 다시 시도해주세요.' });
+  }
+
+  entry.count += 1;
+  rateLimitStore.set(clientKey, entry);
+  return next();
+};
+
+const generateAiQuizQuestions = async (quizId, options = {}) => {
+  const { forceRefresh = false } = options;
+
   if (!openAiApiKey) {
     throw new Error('OPENAI_API_KEY is not configured');
   }
@@ -246,63 +403,85 @@ const generateAiQuizQuestions = async (quizId) => {
   }
 
   const cached = aiQuizCache.get(quizId);
-  if (cached && cached.expiresAt > Date.now()) {
+  if (!forceRefresh && cached && cached.expiresAt > Date.now()) {
     return cached.questions;
   }
 
-  const inflight = aiQuizInflight.get(quizId);
+  const inflight = !forceRefresh ? aiQuizInflight.get(quizId) : null;
   if (inflight) {
     return inflight;
   }
 
+  if (forceRefresh) {
+    aiQuizCache.delete(quizId);
+    aiQuizInflight.delete(quizId);
+  }
+
   const requestPromise = (async () => {
     const { systemPrompt, userPrompt } = buildQuizPrompts(context);
+    const qualityFailures = [];
+    let questions = null;
 
-    const response = await fetch('https://api.openai.com/v1/responses', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${openAiApiKey}`,
-      },
-      body: JSON.stringify({
-        model: openAiModel,
-        input: [
-          {
-            role: 'system',
-            content: [{ type: 'input_text', text: systemPrompt }],
-          },
-          {
-            role: 'user',
-            content: [{ type: 'input_text', text: userPrompt }],
-          },
-        ],
-        text: {
-          format: {
-            type: 'json_schema',
-            name: 'quiz_questions',
-            strict: true,
-            schema: quizResponseSchema,
-          },
+    for (let attempt = 1; attempt <= MAX_AI_QUIZ_ATTEMPTS; attempt += 1) {
+      const response = await fetch('https://api.openai.com/v1/responses', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${openAiApiKey}`,
         },
-      }),
-    });
+        body: JSON.stringify({
+          model: openAiModel,
+          input: [
+            {
+              role: 'system',
+              content: [{ type: 'input_text', text: systemPrompt }],
+            },
+            {
+              role: 'user',
+              content: [{ type: 'input_text', text: userPrompt }],
+            },
+          ],
+          text: {
+            format: {
+              type: 'json_schema',
+              name: 'quiz_questions',
+              strict: true,
+              schema: quizResponseSchema,
+            },
+          },
+        }),
+      });
 
-    const payload = await response.json();
+      const payload = await response.json();
 
-    if (!response.ok) {
-      const errorMessage = payload?.error?.message || 'OpenAI request failed';
-      const error = new Error(errorMessage);
-      error.statusCode = response.status;
-      throw error;
+      if (!response.ok) {
+        const errorMessage = payload?.error?.message || 'OpenAI request failed';
+        const error = new Error(errorMessage);
+        error.statusCode = response.status;
+        throw error;
+      }
+
+      const outputText = extractResponseText(payload);
+      if (!outputText) {
+        throw new Error('OpenAI returned an empty response');
+      }
+
+      const parsed = JSON.parse(outputText);
+      const normalizedQuestions = normalizeQuestions(parsed.questions);
+      const qualityCheck = validateQuestionSetQuality(normalizedQuestions);
+
+      if (qualityCheck.passed) {
+        questions = normalizedQuestions;
+        break;
+      }
+
+      qualityFailures.push(`attempt ${attempt}: ${qualityCheck.issues.join('; ')}`);
+      console.warn(`AI quiz quality retry for ${quizId} (attempt ${attempt})`, qualityCheck.issues);
     }
 
-    const outputText = extractResponseText(payload);
-    if (!outputText) {
-      throw new Error('OpenAI returned an empty response');
+    if (!questions) {
+      throw new Error(`AI quiz quality validation failed: ${qualityFailures.join(' | ')}`);
     }
-
-    const parsed = JSON.parse(outputText);
-    const questions = normalizeQuestions(parsed.questions);
 
     aiQuizCache.set(quizId, {
       questions,
@@ -331,7 +510,8 @@ app.use(cors({
   },
   credentials: true,
 }));
-app.use(express.json());
+app.use(applySecurityHeaders);
+app.use(express.json({ limit: '32kb' }));
 
 app.get('/', (_req, res) => {
   res.json({ ok: true, service: 'finapple-payments' });
@@ -341,7 +521,7 @@ app.get('/health', (_req, res) => {
   res.json({ ok: true });
 });
 
-app.post('/api/account/find-email', async (req, res) => {
+app.post('/api/account/find-email', createRateLimiter({ key: 'find-email', limit: 10, windowMs: 60_000 }), async (req, res) => {
   if (!supabaseAdmin) {
     return res.status(500).json({ error: 'Supabase admin is not configured' });
   }
@@ -376,7 +556,7 @@ app.post('/api/account/find-email', async (req, res) => {
   }
 });
 
-app.post('/api/account/delete', async (req, res) => {
+app.post('/api/account/delete', createRateLimiter({ key: 'account-delete', limit: 5, windowMs: 60_000 }), async (req, res) => {
   if (!supabaseAdmin) {
     return res.status(500).json({ error: 'Supabase admin is not configured' });
   }
@@ -452,7 +632,7 @@ app.get('/api/leaderboard', async (req, res) => {
   }
 });
 
-app.post('/api/leaderboard/sync', async (req, res) => {
+app.post('/api/leaderboard/sync', createRateLimiter({ key: 'leaderboard-sync', limit: 45, windowMs: 60_000 }), async (req, res) => {
   if (!supabaseAdmin) {
     return res.status(500).json({ error: 'Supabase admin is not configured' });
   }
@@ -506,15 +686,15 @@ app.post('/api/leaderboard/sync', async (req, res) => {
   }
 });
 
-app.post('/api/quizzes/generate', async (req, res) => {
-  const { quizId } = req.body || {};
+app.post('/api/quizzes/generate', createRateLimiter({ key: 'quiz-generate', limit: 25, windowMs: 60_000 }), async (req, res) => {
+  const { quizId, forceRefresh = false } = req.body || {};
 
   if (!quizId) {
     return res.status(400).json({ error: 'quizId is required' });
   }
 
   try {
-    const questions = await generateAiQuizQuestions(String(quizId));
+    const questions = await generateAiQuizQuestions(String(quizId), { forceRefresh: Boolean(forceRefresh) });
     return res.json({
       success: true,
       source: 'openai',
@@ -529,7 +709,7 @@ app.post('/api/quizzes/generate', async (req, res) => {
   }
 });
 
-app.post('/api/payments/toss/create-checkout', async (req, res) => {
+app.post('/api/payments/toss/create-checkout', createRateLimiter({ key: 'toss-checkout', limit: 10, windowMs: 60_000 }), async (req, res) => {
   if (!tossSecretKey) {
     return res.status(500).json({ error: 'TOSS_SECRET_KEY is not configured' });
   }
@@ -578,7 +758,7 @@ app.post('/api/payments/toss/create-checkout', async (req, res) => {
   }
 });
 
-app.post('/api/payments/toss/confirm', async (req, res) => {
+app.post('/api/payments/toss/confirm', createRateLimiter({ key: 'toss-confirm', limit: 12, windowMs: 60_000 }), async (req, res) => {
   if (!tossSecretKey) {
     return res.status(500).json({ error: 'TOSS_SECRET_KEY is not configured' });
   }

@@ -3,9 +3,36 @@ import { getCurrentUser } from '@/services/authService';
 import { getAdsDisabled, getIsPremium } from '@/lib/premium';
 import { quizUnits } from '@/lib/quizData';
 import { getCurrentSeasonMeta } from '@/lib/season';
+import { getLeagueRewardForRank } from '@/lib/leaderboard';
 
 const TODAY = () => new Date().toISOString().split('T')[0];
 const STORAGE_KEY = 'finapple_progress';
+const PREMIUM_FREEZER_COUNT = 3;
+const PREMIUM_FREEZER_GRANT_VERSION = 1;
+const PROGRESS_UPDATED_EVENT = 'finapple:progress-updated';
+const FREEZER_HISTORY_LIMIT = 5;
+
+const buildFreezerExpiryAt = (activatedAt) => {
+  return new Date(new Date(activatedAt).getTime() + (24 * 60 * 60 * 1000)).toISOString();
+};
+
+const trimFreezerHistory = (history = []) => history.slice(0, FREEZER_HISTORY_LIMIT);
+
+const finalizeFreezerHistoryEntry = (history = [], activatedAt, updates) => (
+  trimFreezerHistory(history.map((entry) => (
+    entry.activatedAt === activatedAt
+      ? { ...entry, ...updates }
+      : entry
+  )))
+);
+
+const clearFreezerShieldState = (progress, nextHistory = progress.streak_freezer_history || []) => ({
+  ...progress,
+  streak_freezer_shield_active: false,
+  streak_freezer_activated_at: null,
+  streak_freezer_expires_at: null,
+  streak_freezer_history: trimFreezerHistory(nextHistory),
+});
 
 const createQuestionReviewId = (quizId, question) => {
   const source = `${quizId}:${question?.question || ''}`;
@@ -31,6 +58,10 @@ const getDefaultProgress = (userEmail = 'guest') => ({
   completed_quizzes: [],
   quiz_scores: {},
   review_notes: [],
+  streak_freezer_shield_active: false,
+  streak_freezer_activated_at: null,
+  streak_freezer_expires_at: null,
+  streak_freezer_history: [],
   leaderboard_season_key: getCurrentSeasonMeta().seasonKey,
   leaderboard_season_label: getCurrentSeasonMeta().label,
   leaderboard_season_start_date: getCurrentSeasonMeta().startDate,
@@ -38,6 +69,10 @@ const getDefaultProgress = (userEmail = 'guest') => ({
   leaderboard_xp_baseline: 0,
   leaderboard_completed_baseline: 0,
   leaderboard_resolved_review_baseline: 0,
+  league_reward_claimed_season_key: '',
+  league_reward_claimed_rank: null,
+  league_reward_claimed_xp: 0,
+  premium_freezer_grant_version: 0,
 });
 
 const normalizeReviewNote = (entry) => ({
@@ -54,11 +89,40 @@ const getDaysBetween = (from, to) => {
 
 const syncDailyProgress = (progress, premiumUser, adsDisabled) => {
   const today = TODAY();
+  const activeShieldActivatedAt = progress.streak_freezer_activated_at || new Date().toISOString();
+  const expectedShieldExpiresAt = progress.streak_freezer_shield_active
+    ? buildFreezerExpiryAt(activeShieldActivatedAt)
+    : null;
+  const activeShieldExpiresAt = progress.streak_freezer_shield_active
+    ? expectedShieldExpiresAt
+    : null;
+  const activeShieldExpired = Boolean(
+    progress.streak_freezer_shield_active &&
+    activeShieldExpiresAt &&
+    Date.now() > new Date(activeShieldExpiresAt).getTime()
+  );
   const next = {
     ...progress,
     streak_count: progress.streak_count || 1,
     best_streak: progress.best_streak || progress.streak_count || 1,
-    streak_freezers: progress.streak_freezers ?? (premiumUser ? 1 : 0),
+    streak_freezers: progress.streak_freezers ?? (premiumUser ? PREMIUM_FREEZER_COUNT : 0),
+    streak_freezer_shield_active: Boolean(progress.streak_freezer_shield_active) && !activeShieldExpired,
+    streak_freezer_activated_at: progress.streak_freezer_shield_active && !activeShieldExpired
+      ? activeShieldActivatedAt
+      : null,
+    streak_freezer_expires_at: progress.streak_freezer_shield_active && !activeShieldExpired
+      ? activeShieldExpiresAt
+      : null,
+    streak_freezer_history: activeShieldExpired && progress.streak_freezer_activated_at
+      ? finalizeFreezerHistoryEntry(
+          progress.streak_freezer_history || [],
+          progress.streak_freezer_activated_at,
+          {
+            status: 'expired',
+            expiredAt: progress.streak_freezer_expires_at || new Date().toISOString(),
+          },
+        )
+      : (progress.streak_freezer_history || []),
     last_active_date: progress.last_active_date || today,
     ads_disabled: adsDisabled,
   };
@@ -79,12 +143,31 @@ const syncDailyProgress = (progress, premiumUser, adsDisabled) => {
       next.last_active_date = today;
       changed = true;
     } else if (daysBetween > 1) {
-      if ((progress.streak_freezers || 0) > 0) {
-        next.streak_freezers = (progress.streak_freezers || 0) - 1;
+      if (daysBetween === 2 && next.streak_freezer_shield_active) {
+        const consumedHistory = finalizeFreezerHistoryEntry(
+          next.streak_freezer_history,
+          next.streak_freezer_activated_at,
+          {
+            status: 'used',
+            consumedAt: new Date().toISOString(),
+          },
+        );
+        Object.assign(next, clearFreezerShieldState(next, consumedHistory));
         next.last_active_date = today;
       } else {
         next.streak_count = 1;
         next.last_active_date = today;
+        if (next.streak_freezer_shield_active) {
+          const expiredHistory = finalizeFreezerHistoryEntry(
+            next.streak_freezer_history,
+            next.streak_freezer_activated_at,
+            {
+              status: 'expired',
+              expiredAt: next.streak_freezer_expires_at || new Date().toISOString(),
+            },
+          );
+          Object.assign(next, clearFreezerShieldState(next, expiredHistory));
+        }
       }
       next.best_streak = Math.max(progress.best_streak || 0, next.streak_count);
       changed = true;
@@ -96,8 +179,20 @@ const syncDailyProgress = (progress, premiumUser, adsDisabled) => {
     changed = true;
   }
 
-  if (premiumUser && progress.streak_freezers == null) {
-    next.streak_freezers = 1;
+  if (
+    progress.streak_freezer_shield_active &&
+    (
+      progress.streak_freezer_activated_at !== next.streak_freezer_activated_at ||
+      progress.streak_freezer_expires_at !== next.streak_freezer_expires_at ||
+      progress.streak_freezer_expires_at !== expectedShieldExpiresAt
+    )
+  ) {
+    changed = true;
+  }
+
+  if (premiumUser && (progress.premium_freezer_grant_version || 0) < PREMIUM_FREEZER_GRANT_VERSION) {
+    next.streak_freezers = Math.max(progress.streak_freezers || 0, PREMIUM_FREEZER_COUNT);
+    next.premium_freezer_grant_version = PREMIUM_FREEZER_GRANT_VERSION;
     changed = true;
   }
 
@@ -146,6 +241,7 @@ export default function useProgress() {
     const { next } = syncLeaderboardSeasonProgress(nextProgress);
     setProgress(next);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+    window.dispatchEvent(new CustomEvent(PROGRESS_UPDATED_EVENT, { detail: next }));
   }, []);
 
   const loadProgress = useCallback(async () => {
@@ -178,8 +274,9 @@ export default function useProgress() {
       } else {
         const newProgress = syncLeaderboardSeasonProgress({
           ...getDefaultProgress(me?.email || 'guest'),
-          streak_freezers: premiumUser ? 1 : 0,
+          streak_freezers: premiumUser ? PREMIUM_FREEZER_COUNT : 0,
           ads_disabled: adsDisabled,
+          premium_freezer_grant_version: premiumUser ? PREMIUM_FREEZER_GRANT_VERSION : 0,
         }).next;
         setProgress(newProgress);
         localStorage.setItem(STORAGE_KEY, JSON.stringify(newProgress));
@@ -192,6 +289,74 @@ export default function useProgress() {
   }, []);
 
   useEffect(() => { loadProgress(); }, [loadProgress]);
+
+  useEffect(() => {
+    const handleProgressUpdated = (event) => {
+      if (!event.detail) {
+        return;
+      }
+
+      setProgress(event.detail);
+    };
+
+    const handleStorage = (event) => {
+      if (event.key !== STORAGE_KEY || !event.newValue) {
+        return;
+      }
+
+      try {
+        const nextProgress = JSON.parse(event.newValue);
+        setProgress(nextProgress);
+      } catch {
+        // Ignore malformed storage payloads.
+      }
+    };
+
+    window.addEventListener(PROGRESS_UPDATED_EVENT, handleProgressUpdated);
+    window.addEventListener('storage', handleStorage);
+
+    return () => {
+      window.removeEventListener(PROGRESS_UPDATED_EVENT, handleProgressUpdated);
+      window.removeEventListener('storage', handleStorage);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!progress?.streak_freezer_shield_active || !progress.streak_freezer_expires_at) {
+      return;
+    }
+
+    const remainingMs = new Date(progress.streak_freezer_expires_at).getTime() - Date.now();
+
+    if (remainingMs <= 0) {
+      const expiredHistory = finalizeFreezerHistoryEntry(
+        progress.streak_freezer_history || [],
+        progress.streak_freezer_activated_at,
+        {
+          status: 'expired',
+          expiredAt: progress.streak_freezer_expires_at,
+        },
+      );
+      persistProgress(clearFreezerShieldState(progress, expiredHistory));
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      const expiredHistory = finalizeFreezerHistoryEntry(
+        progress.streak_freezer_history || [],
+        progress.streak_freezer_activated_at,
+        {
+          status: 'expired',
+          expiredAt: progress.streak_freezer_expires_at,
+        },
+      );
+      persistProgress(clearFreezerShieldState(progress, expiredHistory));
+    }, remainingMs + 250);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [persistProgress, progress]);
 
   const loseHeart = useCallback(async () => {
     if (getIsPremium(user)) return progress?.hearts ?? 5;
@@ -301,6 +466,64 @@ export default function useProgress() {
     return nextProgress;
   }, [persistProgress, progress]);
 
+  const activateStreakFreezer = useCallback(async () => {
+    if (!progress) {
+      throw new Error('진행 정보를 불러오는 중입니다.');
+    }
+
+    if ((progress.streak_freezers || 0) <= 0) {
+      throw new Error('사용 가능한 Streak Freezer가 없어요.');
+    }
+
+    if (progress.streak_freezer_shield_active) {
+      throw new Error('이미 Freezer가 적용되어 있어요.');
+    }
+
+    const activatedAt = new Date().toISOString();
+    const expiresAt = buildFreezerExpiryAt(activatedAt);
+    const nextProgress = {
+      ...progress,
+      streak_freezers: Math.max((progress.streak_freezers || 0) - 1, 0),
+      streak_freezer_shield_active: true,
+      streak_freezer_activated_at: activatedAt,
+      streak_freezer_expires_at: expiresAt,
+      streak_freezer_history: trimFreezerHistory([
+        {
+          activatedAt,
+          expiresAt,
+          status: 'active',
+        },
+        ...(progress.streak_freezer_history || []),
+      ]),
+    };
+
+    persistProgress(nextProgress);
+    return nextProgress;
+  }, [persistProgress, progress]);
+
+  const claimLeagueReward = useCallback(async (rank, seasonKey) => {
+    if (!progress || !seasonKey) {
+      return 0;
+    }
+
+    if (progress.league_reward_claimed_season_key === seasonKey) {
+      return 0;
+    }
+
+    const rewardXp = getLeagueRewardForRank(rank);
+    const nextProgress = {
+      ...progress,
+      xp: (progress.xp || 0) + rewardXp,
+      leaderboard_xp_baseline: (progress.leaderboard_xp_baseline || 0) + rewardXp,
+      league_reward_claimed_season_key: seasonKey,
+      league_reward_claimed_rank: rank || null,
+      league_reward_claimed_xp: rewardXp,
+    };
+
+    persistProgress(nextProgress);
+    return rewardXp;
+  }, [persistProgress, progress]);
+
   const isUnitLocked = useCallback((unitId) => {
     if (unitId === 'unit1') return false;
     if (!progress) return true;
@@ -384,11 +607,18 @@ export default function useProgress() {
       bestStreak: progress?.best_streak || 1,
       lastActiveDate: progress?.last_active_date || TODAY(),
       streakFreezers: progress?.streak_freezers || 0,
+      freezerShieldActive: Boolean(progress?.streak_freezer_shield_active),
+      freezerActivatedAt: progress?.streak_freezer_activated_at || null,
+      freezerExpiresAt: progress?.streak_freezer_expires_at || null,
+      freezerHistory: progress?.streak_freezer_history || [],
       adsDisabled: Boolean(progress?.ads_disabled),
       leaderboardSeasonKey: progress?.leaderboard_season_key || getCurrentSeasonMeta().seasonKey,
       leaderboardSeasonLabel: progress?.leaderboard_season_label || getCurrentSeasonMeta().label,
       leaderboardSeasonStartDate: progress?.leaderboard_season_start_date || getCurrentSeasonMeta().startDate,
       leaderboardSeasonEndDate: progress?.leaderboard_season_end_date || getCurrentSeasonMeta().endDate,
+      leagueRewardClaimedSeasonKey: progress?.league_reward_claimed_season_key || '',
+      leagueRewardClaimedRank: progress?.league_reward_claimed_rank || null,
+      leagueRewardClaimedXp: progress?.league_reward_claimed_xp || 0,
     };
   }, [progress]);
 
@@ -406,6 +636,8 @@ export default function useProgress() {
     resolveWrongAnswer,
     completeQuiz,
     purchaseShopItem,
+    activateStreakFreezer,
+    claimLeagueReward,
     isUnitLocked,
     isQuizCompleted,
     getQuizScore,

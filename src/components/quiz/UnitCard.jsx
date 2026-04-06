@@ -60,7 +60,10 @@ export default function UnitCard({ unit, locked, quizStatuses, onQuizSelect, ind
             return (
               <button
                 key={quiz.id}
-                onClick={() => !locked && onQuizSelect(quiz.id)}
+                onClick={() => {
+                  if (locked) return;
+                  onQuizSelect(quiz.id);
+                }}
                 disabled={locked}
                 className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-200 ${
                   locked

@@ -1,9 +1,7 @@
 import { supabase } from '@/lib/supabase';
+import { BACKEND_URL } from '@/lib/backendUrl';
 import { getCurrentSeasonMeta } from '@/lib/season';
 
-const BACKEND_URL = import.meta.env.DEV
-  ? ''
-  : (import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000');
 const USE_DIRECT_SUPABASE = import.meta.env.DEV;
 const REQUEST_TIMEOUT_MS = 4500;
 

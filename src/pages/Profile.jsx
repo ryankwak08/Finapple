@@ -2,11 +2,15 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/lib/AuthContext';
 import { ArrowLeft, Camera, Star, Clock, Crown, Check, Edit2, Loader2, Trash2, NotebookPen, ChartNoAxesColumn } from 'lucide-react';
-import { deleteAccount, getCurrentUser, updateUserProfile, setPremiumStatus } from '@/services/authService';
+import { deleteAccount, getCurrentUser, updateUserProfile, setPremiumStatus, uploadProfilePicture } from '@/services/authService';
+import { syncLeaderboardEntry } from '@/api/leaderboardClient';
 import { isNicknameAvailable, syncUserProfileRecord } from '@/services/profileService';
 import { NICKNAME_MAX_LENGTH, validateNickname } from '@/lib/profileRules';
+import { buildLeaderboardPayload } from '@/lib/leaderboard';
 import { getIsPremium } from '@/lib/premium';
+import useSoundEffects from '@/hooks/useSoundEffects';
 import PremiumBadge from '@/components/PremiumBadge';
+import { Switch } from '@/components/ui/switch';
 import useProgress from '../lib/useProgress';
 
 function formatTime(seconds) {
@@ -31,7 +35,9 @@ export default function Profile() {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [isPremium, setIsPremium] = useState(false);
+  const [photoError, setPhotoError] = useState('');
   const fileInputRef = useRef(null);
+  const { enabled: soundEnabled, setEnabled: setSoundEnabled, playSuccessSound } = useSoundEffects();
   const progressSummary = getProgressSummary();
   const streakStatus = getStreakStatus();
   const displayName =
@@ -39,6 +45,25 @@ export default function Profile() {
     user?.user_metadata?.full_name?.trim() ||
     user?.email?.split('@')[0] ||
     '이름 없음';
+
+  const syncLeaderboardProfile = async (nextUser, nextPremium = isPremium) => {
+    if (!progress || !nextUser?.email) {
+      return;
+    }
+
+    const nextEntry = buildLeaderboardPayload({
+      user: nextUser,
+      progress,
+      streakStatus: {
+        ...streakStatus,
+        adsDisabled: nextPremium,
+      },
+    });
+
+    await syncLeaderboardEntry(nextEntry).catch((syncError) => {
+      console.error('Leaderboard profile sync failed:', syncError);
+    });
+  };
 
   useEffect(() => {
     getCurrentUser().then(u => {
@@ -83,6 +108,7 @@ export default function Profile() {
       await syncUserProfileRecord(updatedUser, optimisticNickname);
       setUser(updatedUser);
       setNicknameInput(updatedUser.user_metadata?.nickname || updatedUser.user_metadata?.full_name || '');
+      await syncLeaderboardProfile(updatedUser);
       setSaving(false);
     } catch (error) {
       console.error('Failed to save nickname:', error);
@@ -109,19 +135,24 @@ export default function Profile() {
   };
 
   const handlePhotoUpload = async (e) => {
-    const file = e.target.files[0];
+    const file = e.target.files?.[0];
+    e.target.value = '';
     if (!file) return;
+    setPhotoError('');
     setUploadingPhoto(true);
-    // 실제 업로드 API 통합 필요
-    const fileUrl = URL.createObjectURL(file);
-    await updateUserProfile({ profile_picture: fileUrl });
-    setUser(prev => ({
-      ...prev,
-      profile_picture: fileUrl,
-      user_metadata: { ...(prev?.user_metadata || {}), profile_picture: fileUrl },
-    }));
-    window.dispatchEvent(new CustomEvent('profilePictureUpdated', { detail: { profile_picture: fileUrl } }));
-    setUploadingPhoto(false);
+    try {
+      const updatedUser = await uploadProfilePicture(file);
+      const nextProfilePicture = updatedUser?.user_metadata?.profile_picture || updatedUser?.profile_picture || '';
+      setUser(updatedUser);
+      window.dispatchEvent(new CustomEvent('profilePictureUpdated', { detail: { profile_picture: nextProfilePicture } }));
+      await syncLeaderboardProfile(updatedUser);
+      await playSuccessSound();
+    } catch (uploadError) {
+      console.error('Failed to upload profile photo:', uploadError);
+      setPhotoError(uploadError.message || '프로필 사진을 저장하지 못했습니다.');
+    } finally {
+      setUploadingPhoto(false);
+    }
   };
 
   const plans = [
@@ -140,7 +171,7 @@ export default function Profile() {
       name: '프리미엄',
       price: '₩9,900',
       period: '/ 월',
-      features: ['모든 학습 콘텐츠', '무제한 하트', '오프라인 학습', '퀴즈 해설, 진도 확인, 오답노트 ', 'Streak Freezer와 연속 학습 관리', '광고 없음'],
+      features: ['모든 학습 콘텐츠', '무제한 하트', 'Streak Freezer 3개 지급', '퀴즈 해설, 진도 확인, 오답노트', '연속 학습 관리', '광고 없음'],
       current: isPremium,
       color: 'border-primary bg-primary/5',
       badge: '인기',
@@ -243,6 +274,7 @@ export default function Profile() {
               <p className="text-muted-foreground text-[12px] mt-0.5 truncate">{user?.email || ''}</p>
             </div>
           </div>
+          {photoError ? <p className="mt-3 text-[12px] text-destructive">{photoError}</p> : null}
         </div>
 
         {/* Stats */}
@@ -277,7 +309,11 @@ export default function Profile() {
             <p className="text-[11px] text-muted-foreground">Streak Freezer</p>
             <p className="text-[20px] font-extrabold text-foreground leading-tight mt-1">{streakStatus.streakFreezers}개</p>
             <p className="text-[12px] text-muted-foreground mt-1">
-              {streakStatus.adsDisabled ? '광고 제거 적용 중' : '광고 제거 미적용'}
+              {streakStatus.freezerShieldActive
+                ? '다음 1일 공백 보호 적용 중'
+                : streakStatus.adsDisabled
+                ? '광고 제거 적용 중'
+                : '광고 제거 미적용'}
             </p>
           </div>
         </div>
@@ -310,6 +346,16 @@ export default function Profile() {
           <p className="text-[12px] text-muted-foreground mt-3">
             {isPremium ? '프리미엄으로 진도와 오답노트를 함께 관리할 수 있어요.' : '상세 진도와 오답노트는 프리미엄에서 확인할 수 있어요.'}
           </p>
+        </div>
+
+        <div className="bg-card rounded-2xl border border-border p-4 animate-slide-up" style={{ animationDelay: '130ms', animationFillMode: 'backwards' }}>
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-[14px] font-bold text-foreground">효과음</p>
+              <p className="text-[12px] text-muted-foreground mt-1">정답, 오답, 완료 시 간단한 사운드를 재생해요.</p>
+            </div>
+            <Switch checked={soundEnabled} onCheckedChange={setSoundEnabled} />
+          </div>
         </div>
 
         <button

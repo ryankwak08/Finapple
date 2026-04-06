@@ -100,6 +100,7 @@ export default function QuestionCard({
           <button
             onClick={onConfirm}
             disabled={selectedAnswer === null}
+            data-no-click-sound="true"
             className={`w-full py-4 rounded-2xl text-[15px] font-bold transition-all duration-200 ${
               selectedAnswer !== null
                 ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/20 active:scale-[0.98]'
@@ -136,6 +137,7 @@ export default function QuestionCard({
             ) : (
               <button
                 onClick={onNext}
+                data-no-click-sound="true"
                 className="w-full py-4 rounded-2xl text-[15px] font-bold bg-primary text-primary-foreground shadow-lg shadow-primary/20 active:scale-[0.98] transition-all duration-200"
               >
                 {questionIndex < totalQuestions - 1 ? '다음 문제' : '결과 보기'}

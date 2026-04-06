@@ -1,5 +1,15 @@
 import { getCurrentSeasonMeta } from '@/lib/season';
 
+export function getLeagueRewardForRank(rank) {
+  if (!rank || rank < 1) return 0;
+  if (rank === 1) return 500;
+  if (rank === 2) return 350;
+  if (rank === 3) return 250;
+  if (rank <= 10) return 150;
+  if (rank <= 20) return 75;
+  return 0;
+}
+
 export function buildLeagueScore({
   xp = 0,
   streakCount = 1,

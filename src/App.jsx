@@ -1,25 +1,26 @@
-import { useEffect, useMemo } from 'react';
+import { lazy, Suspense, useEffect, useMemo } from 'react';
 import { Toaster } from "@/components/ui/toaster"
 import { QueryClientProvider } from '@tanstack/react-query'
 import { queryClientInstance } from '@/lib/query-client'
-import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
+import { BrowserRouter as Router, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
+import useSoundEffects from '@/hooks/useSoundEffects';
 import PageNotFound from './lib/PageNotFound';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
-import AppShell from './components/AppShell';
-import Study from './pages/Study';
-import StudyDetail from './pages/StudyDetail';
-import Quiz from './pages/Quiz';
-import QuizPlay from './pages/QuizPlay';
-import GlossaryQuizPlay from './pages/GlossaryQuizPlay';
-import Glossary from './pages/Glossary';
-import Profile from './pages/Profile';
-import Premium from './pages/Premium';
-import PremiumResult from './pages/PremiumResult';
-import Shop from './pages/Shop';
-import Login from './pages/Login';
-import ReviewNote from './pages/ReviewNote';
-import Leaderboard from './pages/Leaderboard';
+const AppShell = lazy(() => import('./components/AppShell'));
+const Study = lazy(() => import('./pages/Study'));
+const StudyDetail = lazy(() => import('./pages/StudyDetail'));
+const Quiz = lazy(() => import('./pages/Quiz'));
+const QuizPlay = lazy(() => import('./pages/QuizPlay'));
+const GlossaryQuizPlay = lazy(() => import('./pages/GlossaryQuizPlay'));
+const Glossary = lazy(() => import('./pages/Glossary'));
+const Profile = lazy(() => import('./pages/Profile'));
+const Premium = lazy(() => import('./pages/Premium'));
+const PremiumResult = lazy(() => import('./pages/PremiumResult'));
+const Shop = lazy(() => import('./pages/Shop'));
+const Login = lazy(() => import('./pages/Login'));
+const ReviewNote = lazy(() => import('./pages/ReviewNote'));
+const Leaderboard = lazy(() => import('./pages/Leaderboard'));
 
 
 const FullScreenSpinner = () => (
@@ -28,37 +29,118 @@ const FullScreenSpinner = () => (
   </div>
 );
 
+const isClickableElement = (target) => {
+  if (!(target instanceof Element)) {
+    return false;
+  }
+
+  if (target.closest('[data-no-click-sound="true"]')) {
+    return false;
+  }
+
+  const clickable = target.closest('button, a, [role="button"], input[type="button"], input[type="submit"], input[type="reset"], summary');
+  if (!clickable) {
+    return false;
+  }
+
+  if (clickable.hasAttribute('disabled') || clickable.getAttribute('aria-disabled') === 'true') {
+    return false;
+  }
+
+  return true;
+};
+
+const GlobalInteractionSound = () => {
+  const { playClickSound, primeSoundEffects } = useSoundEffects();
+
+  useEffect(() => {
+    let lastPlayedAt = 0;
+
+    const playGlobalClick = async () => {
+      const now = Date.now();
+      if (now - lastPlayedAt < 50) {
+        return;
+      }
+
+      lastPlayedAt = now;
+      await primeSoundEffects();
+      await playClickSound();
+    };
+
+    const handlePointerDown = (event) => {
+      if (event.button !== 0 || !isClickableElement(event.target)) {
+        return;
+      }
+
+      void playGlobalClick();
+    };
+
+    const handleKeyDown = (event) => {
+      if ((event.key !== 'Enter' && event.key !== ' ') || !isClickableElement(event.target)) {
+        return;
+      }
+
+      void playGlobalClick();
+    };
+
+    window.addEventListener('pointerdown', handlePointerDown, true);
+    window.addEventListener('keydown', handleKeyDown, true);
+
+    return () => {
+      window.removeEventListener('pointerdown', handlePointerDown, true);
+      window.removeEventListener('keydown', handleKeyDown, true);
+    };
+  }, [playClickSound, primeSoundEffects]);
+
+  return null;
+};
+
 const AppRoutes = () => (
-  <Routes>
-    <Route element={<AppShell />}>
-      <Route path="/" element={<Study />} />
-      <Route path="/study/:topicId" element={<StudyDetail />} />
-      <Route path="/quiz" element={<Quiz />} />
-      <Route path="/quiz/:quizId" element={<QuizPlay />} />
-      <Route path="/glossary-quiz/:unitId" element={<GlossaryQuizPlay />} />
-      <Route path="/glossary" element={<Glossary />} />
-      <Route path="/leaderboard" element={<Leaderboard />} />
-      <Route path="/shop" element={<Shop />} />
-      <Route path="/profile" element={<Profile />} />
-      <Route path="/review-note" element={<ReviewNote />} />
-      <Route path="/review-note/:reviewId" element={<ReviewNote />} />
-    </Route>
-    <Route path="/premium" element={<Premium />} />
-    <Route path="/premium/success" element={<PremiumResult status="success" />} />
-    <Route path="/premium/fail" element={<PremiumResult status="fail" />} />
-    <Route path="/premium/cancel" element={<PremiumResult status="cancel" />} />
-    <Route path="/login" element={<Login />} />
-    <Route path="*" element={<PageNotFound />} />
-  </Routes>
+  <Suspense fallback={<FullScreenSpinner />}>
+    <Routes>
+      <Route element={<AppShell />}>
+        <Route path="/" element={<Study />} />
+        <Route path="/study/:topicId" element={<StudyDetail />} />
+        <Route path="/quiz" element={<Quiz />} />
+        <Route path="/quiz/:quizId" element={<QuizPlay />} />
+        <Route path="/glossary-quiz/:unitId" element={<GlossaryQuizPlay />} />
+        <Route path="/glossary" element={<Glossary />} />
+        <Route path="/leaderboard" element={<Leaderboard />} />
+        <Route path="/shop" element={<Shop />} />
+        <Route path="/profile" element={<Profile />} />
+        <Route path="/review-note" element={<ReviewNote />} />
+        <Route path="/review-note/:reviewId" element={<ReviewNote />} />
+      </Route>
+      <Route path="/premium" element={<Premium />} />
+      <Route path="/premium/success" element={<PremiumResult status="success" />} />
+      <Route path="/premium/fail" element={<PremiumResult status="fail" />} />
+      <Route path="/premium/cancel" element={<PremiumResult status="cancel" />} />
+      <Route path="/login" element={<Login />} />
+      <Route path="*" element={<PageNotFound />} />
+    </Routes>
+  </Suspense>
 );
 
 const AuthenticatedApp = () => {
-  const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
+  const { isLoadingAuth, isLoadingPublicSettings, authError } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const shouldRedirectToLogin = Boolean(
+    authError &&
+    (authError.type === 'auth_required' || authError.type === 'email_not_verified') &&
+    location.pathname !== '/login'
+  );
 
   const isBootstrapping = useMemo(
     () => isLoadingPublicSettings || isLoadingAuth,
     [isLoadingPublicSettings, isLoadingAuth]
   );
+
+  useEffect(() => {
+    if (shouldRedirectToLogin) {
+      navigate('/login', { replace: true });
+    }
+  }, [navigate, shouldRedirectToLogin]);
 
   // Show loading spinner while checking app public settings or auth
   if (isBootstrapping) {
@@ -70,12 +152,9 @@ const AuthenticatedApp = () => {
     if (authError.type === 'user_not_registered') {
       return <UserNotRegisteredError />;
     } else if (authError.type === 'auth_required' || authError.type === 'email_not_verified') {
-      // If already on login page, let the route render.
-      if (window.location.pathname === '/login') {
+      if (!shouldRedirectToLogin) {
         return <AppRoutes />;
       }
-      // Otherwise redirect to login automatically
-      navigateToLogin();
       return null;
     }
   }
@@ -89,9 +168,11 @@ function App() {
   useEffect(() => {
     const mq = window.matchMedia('(prefers-color-scheme: dark)');
     const apply = (dark) => document.documentElement.classList.toggle('dark', dark);
+    const handleChange = (event) => apply(event.matches);
+
     apply(mq.matches);
-    mq.addEventListener('change', e => apply(e.matches));
-    return () => mq.removeEventListener('change', e => apply(e.matches));
+    mq.addEventListener('change', handleChange);
+    return () => mq.removeEventListener('change', handleChange);
   }, []);
 
   const appProviders = (
@@ -103,6 +184,7 @@ function App() {
   return (
     <AuthProvider>
       <QueryClientProvider client={queryClientInstance}>
+        <GlobalInteractionSound />
         {appProviders}
         <Toaster />
       </QueryClientProvider>

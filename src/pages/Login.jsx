@@ -2,18 +2,31 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Eye, EyeOff } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
-import { findMaskedEmailByNickname, requestPasswordReset, resendSignupConfirmation, signInWithEmail, signOut, signUpWithEmail, updatePassword, verifySignupEmailOtp } from '@/services/authService';
+import { findMaskedEmailByNickname, initializePasswordRecovery, requestPasswordReset, resendSignupConfirmation, signInWithEmail, signOut, signUpWithEmail, updatePassword, verifySignupEmailOtp } from '@/services/authService';
 import { isNicknameAvailable } from '@/services/profileService';
 import { NICKNAME_MAX_LENGTH, normalizeNickname, validateNickname, validatePassword } from '@/lib/profileRules';
 import { useAuth } from '@/lib/AuthContext';
 
 const OTP_LENGTH = 6;
+const hasPasswordRecoveryContext = () => {
+  const searchParams = new URLSearchParams(window.location.search);
+  const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+
+  return (
+    searchParams.get('mode') === 'reset-password' ||
+    Boolean(searchParams.get('code')) ||
+    searchParams.get('type') === 'recovery' ||
+    hashParams.get('type') === 'recovery' ||
+    (Boolean(hashParams.get('access_token')) && Boolean(hashParams.get('refresh_token')))
+  );
+};
 
 export default function Login() {
   const navigate = useNavigate();
   const searchParams = new URLSearchParams(window.location.search);
   const { checkAppState, isAuthenticated, authError, user } = useAuth();
-  const [mode, setMode] = useState(searchParams.get('mode') === 'reset-password' ? 'reset-password' : 'signin');
+  const [mode, setMode] = useState(hasPasswordRecoveryContext() ? 'reset-password' : 'signin');
+  const [isRecoveryReady, setIsRecoveryReady] = useState(!hasPasswordRecoveryContext());
   const [email, setEmail] = useState('');
   const [nickname, setNickname] = useState('');
   const [password, setPassword] = useState('');
@@ -45,9 +58,26 @@ export default function Login() {
   const isNicknameVerified = normalizedNickname.length > 0 && nicknameCheckedValue === normalizedNickname;
 
   useEffect(() => {
-    if (window.location.hash.includes('type=recovery')) {
-      setMode('reset-password');
-    }
+    let cancelled = false;
+
+    initializePasswordRecovery()
+      .then((isRecovery) => {
+        if (!cancelled) {
+          if (isRecovery) {
+            setMode('reset-password');
+            setError('');
+            setMessage('새 비밀번호를 입력해주세요.');
+          }
+          setIsRecoveryReady(true);
+        }
+      })
+      .catch((recoveryError) => {
+        if (!cancelled) {
+          console.error('Password recovery initialization failed:', recoveryError);
+          setError(recoveryError.message || '비밀번호 재설정 링크를 확인하지 못했어요. 다시 요청해주세요.');
+          setIsRecoveryReady(true);
+        }
+      });
 
     const { data: listener } = supabase.auth.onAuthStateChange((event) => {
       if (event === 'PASSWORD_RECOVERY') {
@@ -58,6 +88,7 @@ export default function Login() {
     });
 
     return () => {
+      cancelled = true;
       if (listener?.subscription?.unsubscribe) {
         listener.subscription.unsubscribe();
       }
@@ -65,10 +96,14 @@ export default function Login() {
   }, []);
 
   useEffect(() => {
-    if (isAuthenticated && !isResetPassword) {
+    if (!isRecoveryReady) {
+      return;
+    }
+
+    if (isAuthenticated && !hasPasswordRecoveryContext() && !isResetPassword) {
       navigate('/');
     }
-  }, [isAuthenticated, isResetPassword, navigate]);
+  }, [isAuthenticated, isRecoveryReady, isResetPassword, navigate]);
 
   useEffect(() => {
     if (authError?.type === 'email_not_verified') {
@@ -225,6 +260,8 @@ export default function Login() {
       window.history.replaceState({}, '', '/login');
       setPassword('');
       setConfirmPassword('');
+      setShowPassword(false);
+      setShowConfirmPassword(false);
     } catch (resetError) {
       setError(resetError.message || '비밀번호를 변경하지 못했습니다.');
     } finally {
@@ -358,6 +395,7 @@ export default function Login() {
             <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
               <p className="text-sm font-semibold text-slate-900">이메일 인증 코드 입력</p>
               <p className="mt-1 text-sm text-slate-600">{resolvedVerificationEmail || '가입한 이메일'}</p>
+              <p className="mt-2 text-xs text-slate-500">메일이 바로 안 보이면 스팸함이나 프로모션함도 함께 확인해주세요.</p>
             </div>
 
             <div>
@@ -402,7 +440,7 @@ export default function Login() {
                   })}
                 </div>
               </div>
-              <p className="mt-2 text-xs text-slate-500">메일에 보이는 6자리 숫자를 그대로 입력해주세요.</p>
+              <p className="mt-2 text-xs text-slate-500">메일에 보이는 6자리 숫자를 그대로 입력해주세요. 메일이 없으면 스팸함도 확인해주세요.</p>
             </div>
 
             {error ? <p className="text-sm text-red-600">{error}</p> : null}

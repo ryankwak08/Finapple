@@ -31,6 +31,10 @@ export default function Premium() {
       return;
     }
 
+    if (paymentMethod === 'bank') {
+      return;
+    }
+
     setLoading(true);
     try {
       const customerName = user?.user_metadata?.full_name || user?.user_metadata?.nickname || user?.email || 'Finapple User';
@@ -137,7 +141,7 @@ export default function Premium() {
 
           <button
             onClick={handleCheckout}
-            disabled={loading || paymentMethod === 'bank'}
+            disabled={loading}
             className="w-full bg-primary text-primary-foreground font-bold py-4 rounded-xl text-lg hover:opacity-90 transition-all active:scale-95 disabled:opacity-50"
           >
             {paymentMethod === 'bank' 

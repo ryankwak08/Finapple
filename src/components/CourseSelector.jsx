@@ -44,7 +44,10 @@ export default function CourseSelector({ type, onSelect }) {
         {courses.map((course, i) => (
           <button
             key={course.id}
-            onClick={() => course.available && onSelect(course.id)}
+            onClick={() => {
+              if (!course.available) return;
+              onSelect(course.id);
+            }}
             disabled={!course.available}
             className={`w-full text-left rounded-2xl border p-5 transition-all duration-200 animate-slide-up ${
               course.available

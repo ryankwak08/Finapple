@@ -36,7 +36,7 @@ function QuizNode({ quiz, status, locked, onSelect, position }) {
             <Play className="w-5 h-5 text-primary fill-primary" />
           )}
           {completed && (
-            <div className="absolute -top-1 -right-1 flex">
+            <div className="absolute left-1/2 -top-3 flex -translate-x-1/2 rounded-full bg-background/95 px-1 py-0.5 shadow-sm">
               {[1,2,3].map(i => (
                 <Star key={i} className={`w-3 h-3 ${i <= stars ? 'text-accent fill-accent' : 'text-muted-foreground/20 fill-muted-foreground/10'}`} />
               ))}

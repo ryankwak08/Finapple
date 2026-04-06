@@ -1,6 +1,4 @@
-const BACKEND_URL = import.meta.env.DEV
-  ? ''
-  : (import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000');
+import { BACKEND_URL } from '@/lib/backendUrl';
 
 const QUIZ_CACHE_TTL_MS = 1000 * 60 * 60 * 24;
 const memoryCache = new Map();
@@ -11,7 +9,7 @@ const getCacheKey = (quizId) => `finapple:ai-quiz:${quizId}`;
 function readCachedQuiz(quizId) {
   const memoryEntry = memoryCache.get(quizId);
   if (memoryEntry && memoryEntry.expiresAt > Date.now()) {
-    return memoryEntry.questions;
+    return memoryEntry;
   }
 
   try {
@@ -25,15 +23,17 @@ function readCachedQuiz(quizId) {
     }
 
     memoryCache.set(quizId, parsed);
-    return parsed.questions;
+    return parsed;
   } catch {
     return null;
   }
 }
 
-function writeCachedQuiz(quizId, questions) {
+function writeCachedQuiz(quizId, result) {
   const entry = {
-    questions,
+    questions: result.questions,
+    source: result.source || 'openai',
+    model: result.model || null,
     expiresAt: Date.now() + QUIZ_CACHE_TTL_MS,
   };
 
@@ -46,13 +46,29 @@ function writeCachedQuiz(quizId, questions) {
   }
 }
 
-async function fetchAiQuiz(quizId) {
+export function clearAiQuizCache(quizId) {
+  memoryCache.delete(quizId);
+  inflightRequests.delete(quizId);
+
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  try {
+    window.localStorage.removeItem(getCacheKey(quizId));
+  } catch {
+    // Ignore storage errors.
+  }
+}
+
+async function fetchAiQuiz(quizId, options = {}) {
+  const { forceRefresh = false } = options;
   const response = await fetch(`${BACKEND_URL}/api/quizzes/generate`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ quizId }),
+    body: JSON.stringify({ quizId, forceRefresh }),
   });
 
   const result = await response.json();
@@ -61,8 +77,13 @@ async function fetchAiQuiz(quizId) {
     throw new Error(result?.error || 'AI quiz generation failed');
   }
 
-  writeCachedQuiz(quizId, result.questions);
-  return result.questions;
+  writeCachedQuiz(quizId, result);
+  return {
+    questions: result.questions,
+    source: result.source || 'openai',
+    model: result.model || null,
+    fromCache: false,
+  };
 }
 
 export function prefetchAiQuiz(quizId) {
@@ -72,7 +93,7 @@ export function prefetchAiQuiz(quizId) {
 
   const cached = readCachedQuiz(quizId);
   if (cached) {
-    return Promise.resolve(cached);
+    return Promise.resolve(cached.questions);
   }
 
   const inflight = inflightRequests.get(quizId);
@@ -90,13 +111,23 @@ export function prefetchAiQuiz(quizId) {
   return request;
 }
 
-export async function generateAiQuiz(quizId) {
-  const cached = typeof window !== 'undefined' ? readCachedQuiz(quizId) : null;
+export async function generateAiQuiz(quizId, options = {}) {
+  const { forceRefresh = false } = options;
+  const cached = !forceRefresh && typeof window !== 'undefined' ? readCachedQuiz(quizId) : null;
   if (cached) {
-    return cached;
+    return {
+      questions: cached.questions,
+      source: cached.source || 'openai',
+      model: cached.model || null,
+      fromCache: true,
+    };
   }
 
-  const inflight = inflightRequests.get(quizId);
+  if (forceRefresh) {
+    clearAiQuizCache(quizId);
+  }
+
+  const inflight = !forceRefresh ? inflightRequests.get(quizId) : null;
   if (inflight) {
     const result = await inflight;
     if (result) {
@@ -104,7 +135,7 @@ export async function generateAiQuiz(quizId) {
     }
   }
 
-  const request = fetchAiQuiz(quizId).finally(() => {
+  const request = fetchAiQuiz(quizId, { forceRefresh }).finally(() => {
     inflightRequests.delete(quizId);
   });
 

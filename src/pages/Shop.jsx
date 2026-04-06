@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { ShoppingBag, Zap, Snowflake, Gift } from 'lucide-react';
+import useSoundEffects from '@/hooks/useSoundEffects';
 import useProgress from '../lib/useProgress';
 
 
@@ -26,6 +27,7 @@ const ITEMS = [
 
 export default function Shop() {
   const { progress, purchaseShopItem, getInventoryCount } = useProgress();
+  const { playSuccessSound } = useSoundEffects();
   const [purchasing, setPurchasing] = useState(null);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
@@ -41,6 +43,7 @@ export default function Shop() {
     setPurchasing(item.id);
     try {
       await purchaseShopItem(item);
+      await playSuccessSound();
       setSuccess(`${item.name} 구매 완료!`);
       setTimeout(() => setSuccess(null), 2500);
     } catch (e) {
@@ -143,6 +146,7 @@ export default function Shop() {
       <div className="mt-6 bg-muted/50 rounded-2xl px-4 py-3">
         <p className="text-[12px] text-muted-foreground leading-relaxed">
           📌 Streak Freezer는 하루를 놓쳤을 때 자동으로 1개 소모되어 스트릭을 지켜줘요.<br/>
+          프리미엄 구독 시 기본으로 3개가 지급돼요.<br/>
           퀴즈를 통과할 때마다 XP를 획득할 수 있어요!
         </p>
       </div>

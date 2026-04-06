@@ -71,7 +71,10 @@ export default function StudyDetail() {
         </button>
         {topic?.pdfUrl ? (
           <button
-            onClick={() => !isPremium ? null : setTab('pdf')}
+            onClick={() => {
+              if (!isPremium) return;
+              setTab('pdf');
+            }}
             disabled={!isPremium}
             className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-lg text-[13px] font-semibold transition-all duration-200 ${
               tab === 'pdf'

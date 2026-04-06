@@ -1,8 +1,5 @@
 import { supabase } from '@/lib/supabase';
-
-const BACKEND_URL = import.meta.env.DEV
-  ? ''
-  : (import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000');
+import { BACKEND_URL } from '@/lib/backendUrl';
 export const PREMIUM_MONTHLY_PRICE = 9900;
 
 const normalizeAbsoluteUrl = (value) => {
