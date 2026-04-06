@@ -174,30 +174,32 @@ export default function QuizPlay() {
 
   if (lessonChunk && !hasRequestedQuiz) {
     return (
-      <div className="px-5 pt-14 pb-8 min-h-screen">
-        <div className="flex items-center justify-between mb-8">
-          <button onClick={() => navigate(-1)} className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors outline-none">
+      <div className="min-h-screen px-4 pb-8 pt-8 sm:px-5 sm:pt-10">
+        <div className="mb-8 flex items-start justify-between gap-3">
+          <button onClick={() => navigate(-1)} className="flex shrink-0 items-center gap-1.5 text-muted-foreground transition-colors outline-none hover:text-foreground">
             <ArrowLeft className="w-5 h-5" />
           </button>
-          <div className="flex flex-col items-center">
-            <span className="text-[14px] font-bold text-foreground">{quizData.title}</span>
-            {quizSourceLabel ? <span className="text-[10px] text-muted-foreground">{quizSourceLabel}</span> : null}
+          <div className="min-w-0 flex-1 text-center">
+            <span className="block text-[14px] font-bold text-foreground">{quizData.title}</span>
+            {quizSourceLabel ? <span className="mt-1 block text-[10px] text-muted-foreground">{quizSourceLabel}</span> : null}
           </div>
-          <HeartDisplay hearts={progress.hearts} unlimited={isPremium} />
+          <div className="shrink-0">
+            <HeartDisplay hearts={progress.hearts} unlimited={isPremium} />
+          </div>
         </div>
 
-        <div className="rounded-3xl border border-primary/15 bg-primary/5 p-5 mb-5">
-          <div className="flex items-center gap-2 mb-2">
+        <div className="mb-5 rounded-3xl border border-primary/15 bg-primary/5 p-4 sm:p-5">
+          <div className="mb-2 flex items-center gap-2">
             <BookOpen className="w-4 h-4 text-primary" />
             <p className="text-[12px] font-bold text-primary">퀴즈 전에 1분 학습</p>
           </div>
-          <h1 className="text-xl font-extrabold text-foreground leading-snug">{lessonChunk.title}</h1>
-          <p className="text-[13px] text-muted-foreground mt-2 leading-relaxed">{lessonChunk.summary}</p>
+          <h1 className="text-xl font-extrabold leading-snug text-foreground sm:text-2xl">{lessonChunk.title}</h1>
+          <p className="mt-2 text-[13px] leading-relaxed text-muted-foreground">{lessonChunk.summary}</p>
         </div>
 
         {lessonChunk.goals?.length ? (
-          <div className="rounded-2xl border border-border bg-card p-4 mb-4">
-            <p className="text-[12px] font-bold text-muted-foreground uppercase tracking-wider mb-3">이번 퀴즈 전에 잡을 포인트</p>
+          <div className="mb-4 rounded-2xl border border-border bg-card p-4">
+            <p className="mb-3 text-[12px] font-bold uppercase tracking-wider text-muted-foreground">이번 퀴즈 전에 잡을 포인트</p>
             <div className="space-y-2">
               {lessonChunk.goals.map((goal) => (
                 <div key={goal} className="flex items-start gap-2">
@@ -210,8 +212,8 @@ export default function QuizPlay() {
         ) : null}
 
         {lessonChunk.concepts?.length ? (
-          <div className="rounded-2xl border border-border bg-card p-4 mb-4">
-            <p className="text-[12px] font-bold text-muted-foreground uppercase tracking-wider mb-3">핵심 개념</p>
+          <div className="mb-4 rounded-2xl border border-border bg-card p-4">
+            <p className="mb-3 text-[12px] font-bold uppercase tracking-wider text-muted-foreground">핵심 개념</p>
             <div className="space-y-3">
               {lessonChunk.concepts.map((concept) => (
                 <div key={concept.term} className="rounded-xl bg-muted/40 px-4 py-3">
@@ -389,17 +391,19 @@ export default function QuizPlay() {
   };
 
   return (
-    <div className="px-5 pt-14 pb-8 min-h-screen">
+    <div className="min-h-screen px-4 pb-8 pt-8 sm:px-5 sm:pt-10">
       {/* Header */}
-      <div className="flex items-center justify-between mb-8">
-        <button onClick={() => navigate(-1)} className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors outline-none">
+      <div className="mb-8 flex items-start justify-between gap-3">
+        <button onClick={() => navigate(-1)} className="flex shrink-0 items-center gap-1.5 text-muted-foreground transition-colors outline-none hover:text-foreground">
           <ArrowLeft className="w-5 h-5" />
         </button>
-        <div className="flex flex-col items-center">
-          <span className="text-[14px] font-bold text-foreground">{quizData.title}</span>
-          {quizSourceLabel ? <span className="text-[10px] text-muted-foreground">{quizSourceLabel}</span> : null}
+        <div className="min-w-0 flex-1 text-center">
+          <span className="block text-[14px] font-bold text-foreground">{quizData.title}</span>
+          {quizSourceLabel ? <span className="mt-1 block text-[10px] text-muted-foreground">{quizSourceLabel}</span> : null}
         </div>
-        <HeartDisplay hearts={progress.hearts} unlimited={isPremium} />
+        <div className="shrink-0">
+          <HeartDisplay hearts={progress.hearts} unlimited={isPremium} />
+        </div>
       </div>
 
       <QuestionCard

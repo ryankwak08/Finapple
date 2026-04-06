@@ -9,17 +9,17 @@ export default function TopicCard({ topic, index, course }) {
       className="block animate-slide-up"
       style={{ animationDelay: `${index * 80}ms`, animationFillMode: 'backwards' }}
     >
-      <div className="bg-card rounded-2xl border border-border p-5 hover:shadow-lg hover:shadow-primary/5 transition-all duration-300 active:scale-[0.98]">
-        <div className="flex items-start gap-4">
-          <div className="text-3xl mt-0.5">{topic.icon}</div>
+      <div className="rounded-2xl border border-border bg-card p-4 transition-all duration-300 active:scale-[0.985] hover:shadow-lg hover:shadow-primary/5 sm:p-5">
+        <div className="flex items-start gap-3 sm:gap-4">
+          <div className="mt-0.5 text-[30px] sm:text-3xl">{topic.icon}</div>
           <div className="flex-1 min-w-0">
-            <h3 className="font-bold text-foreground text-[15px] leading-snug">
+            <h3 className="text-[15px] font-bold leading-snug text-foreground sm:text-base">
               {topic.title}
             </h3>
-            <p className="text-muted-foreground text-[13px] mt-1 leading-relaxed">
+            <p className="mt-1 text-[13px] leading-relaxed text-muted-foreground">
               {topic.subtitle}
             </p>
-            <p className="text-muted-foreground/70 text-[12px] mt-2 line-clamp-2 leading-relaxed">
+            <p className="mt-2 line-clamp-2 text-[12px] leading-relaxed text-muted-foreground/70">
               {topic.summary}
             </p>
           </div>

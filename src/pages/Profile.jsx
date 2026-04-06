@@ -181,21 +181,21 @@ export default function Profile() {
   return (
     <div className="min-h-screen bg-background pb-24">
       {/* Header */}
-      <div className="px-5 pt-12 pb-4 flex items-center gap-3">
-        <button onClick={() => navigate(-1)} className="p-2 rounded-xl hover:bg-muted transition-colors">
+      <div className="flex items-center gap-3 px-4 pb-4 pt-8 sm:px-5 sm:pt-10">
+        <button onClick={() => navigate(-1)} className="rounded-xl p-2 transition-colors hover:bg-muted">
           <ArrowLeft className="w-5 h-5 text-muted-foreground" />
         </button>
         <h1 className="font-extrabold text-foreground text-xl">프로필</h1>
       </div>
 
-      <div className="px-5 space-y-5">
+      <div className="space-y-5 px-4 sm:px-5">
         {/* Profile Card */}
-        <div className="bg-card rounded-2xl border border-border p-6 animate-slide-up">
-          <div className="flex items-center gap-4">
+        <div className="animate-slide-up rounded-2xl border border-border bg-card p-5 sm:p-6">
+          <div className="flex items-start gap-4">
             {/* Avatar */}
             <div className="relative flex-shrink-0">
               <div
-                className="w-20 h-20 rounded-2xl bg-primary/10 flex items-center justify-center overflow-hidden cursor-pointer"
+                className="flex h-18 w-18 cursor-pointer items-center justify-center overflow-hidden rounded-2xl bg-primary/10 sm:h-20 sm:w-20"
                 onClick={() => fileInputRef.current?.click()}
               >
                 {uploadingPhoto ? (
@@ -230,7 +230,7 @@ export default function Profile() {
             {/* Name & Email */}
             <div className="flex-1 min-w-0">
               {editingNickname ? (
-                <div className="flex flex-col gap-2 flex-1">
+                <div className="flex flex-1 flex-col gap-2">
                   <input
                     value={nicknameInput}
                     onChange={e => {
@@ -253,10 +253,10 @@ export default function Profile() {
                   <p className="text-[11px] text-muted-foreground">한글, 영문, 숫자, 밑줄(_) 가능 · {NICKNAME_MAX_LENGTH}자 이하</p>
                 </div>
               ) : (
-                <div className="space-y-2 flex-1">
-                  <div className="flex items-center gap-2">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
+                <div className="flex-1 space-y-2">
+                  <div className="flex items-start gap-2">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
                         <p className="font-bold text-foreground text-[14px]">{displayName}</p>
                         {isPremium && <PremiumBadge compact />}
                       </div>
@@ -278,8 +278,8 @@ export default function Profile() {
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-2 gap-3 animate-slide-up" style={{ animationDelay: '80ms', animationFillMode: 'backwards' }}>
-          <div className="bg-card rounded-2xl border border-border p-4 flex items-center gap-3">
+        <div className="grid grid-cols-1 gap-3 min-[390px]:grid-cols-2 animate-slide-up" style={{ animationDelay: '80ms', animationFillMode: 'backwards' }}>
+          <div className="flex items-center gap-3 rounded-2xl border border-border bg-card p-4">
             <div className="w-10 h-10 bg-accent/15 rounded-xl flex items-center justify-center flex-shrink-0">
               <Star className="w-5 h-5 text-accent fill-accent" />
             </div>
@@ -288,7 +288,7 @@ export default function Profile() {
               <p className="text-[20px] font-extrabold text-foreground leading-tight">{progress?.xp || 0}</p>
             </div>
           </div>
-          <div className="bg-card rounded-2xl border border-border p-4 flex items-center gap-3">
+          <div className="flex items-center gap-3 rounded-2xl border border-border bg-card p-4">
             <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center flex-shrink-0">
               <Clock className="w-5 h-5 text-primary" />
             </div>
@@ -299,13 +299,13 @@ export default function Profile() {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-3 animate-slide-up" style={{ animationDelay: '100ms', animationFillMode: 'backwards' }}>
-          <div className="bg-card rounded-2xl border border-border p-4">
+        <div className="grid grid-cols-1 gap-3 min-[390px]:grid-cols-2 animate-slide-up" style={{ animationDelay: '100ms', animationFillMode: 'backwards' }}>
+          <div className="rounded-2xl border border-border bg-card p-4">
             <p className="text-[11px] text-muted-foreground">현재 스트릭</p>
             <p className="text-[20px] font-extrabold text-foreground leading-tight mt-1">{streakStatus.streakCount}일</p>
             <p className="text-[12px] text-muted-foreground mt-1">최고 {streakStatus.bestStreak}일</p>
           </div>
-          <div className="bg-card rounded-2xl border border-border p-4">
+          <div className="rounded-2xl border border-border bg-card p-4">
             <p className="text-[11px] text-muted-foreground">Streak Freezer</p>
             <p className="text-[20px] font-extrabold text-foreground leading-tight mt-1">{streakStatus.streakFreezers}개</p>
             <p className="text-[12px] text-muted-foreground mt-1">
@@ -318,15 +318,15 @@ export default function Profile() {
           </div>
         </div>
 
-        <div className="bg-card rounded-2xl border border-border p-4 animate-slide-up" style={{ animationDelay: '120ms', animationFillMode: 'backwards' }}>
-          <div className="flex items-center justify-between mb-3">
+        <div className="animate-slide-up rounded-2xl border border-border bg-card p-4" style={{ animationDelay: '120ms', animationFillMode: 'backwards' }}>
+          <div className="mb-3 flex items-center justify-between gap-3">
             <div className="flex items-center gap-2">
               <ChartNoAxesColumn className="w-4 h-4 text-primary" />
               <h2 className="font-bold text-foreground text-[15px]">학습 진도</h2>
             </div>
             {isPremium && <PremiumBadge compact />}
           </div>
-          <div className="grid grid-cols-3 gap-2 mb-3">
+          <div className="mb-3 grid grid-cols-3 gap-2">
             <div className="rounded-xl bg-muted/50 p-3 text-center">
               <p className="text-[11px] text-muted-foreground">완료</p>
               <p className="text-[16px] font-extrabold text-foreground">{progressSummary.completedCount}</p>
@@ -348,9 +348,9 @@ export default function Profile() {
           </p>
         </div>
 
-        <div className="bg-card rounded-2xl border border-border p-4 animate-slide-up" style={{ animationDelay: '130ms', animationFillMode: 'backwards' }}>
+        <div className="animate-slide-up rounded-2xl border border-border bg-card p-4" style={{ animationDelay: '130ms', animationFillMode: 'backwards' }}>
           <div className="flex items-center justify-between gap-4">
-            <div>
+            <div className="min-w-0">
               <p className="text-[14px] font-bold text-foreground">효과음</p>
               <p className="text-[12px] text-muted-foreground mt-1">정답, 오답, 완료 시 간단한 사운드를 재생해요.</p>
             </div>
@@ -360,15 +360,15 @@ export default function Profile() {
 
         <button
           onClick={() => isPremium ? navigate('/review-note') : navigate('/premium')}
-          className="w-full bg-card rounded-2xl border border-border p-4 animate-slide-up text-left"
+          className="w-full rounded-2xl border border-border bg-card p-4 text-left animate-slide-up"
           style={{ animationDelay: '140ms', animationFillMode: 'backwards' }}
         >
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex min-w-0 items-center gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10">
                 <NotebookPen className="w-5 h-5 text-primary" />
               </div>
-              <div>
+              <div className="min-w-0">
                 <p className="text-[14px] font-bold text-foreground">오답노트</p>
                 <p className="text-[12px] text-muted-foreground">
                   {isPremium ? `${progressSummary.reviewCount}개 문제를 다시 풀 수 있어요` : '프리미엄에서 틀린 문제를 다시 풀 수 있어요'}
@@ -381,7 +381,7 @@ export default function Profile() {
 
         {/* Premium Plans */}
         <div className="animate-slide-up" style={{ animationDelay: '160ms', animationFillMode: 'backwards' }}>
-          <div className="flex items-center gap-2 mb-3">
+          <div className="mb-3 flex items-center gap-2">
             <Crown className="w-4 h-4 text-accent" />
             <h2 className="font-bold text-foreground text-[15px]">플랜 선택</h2>
           </div>
@@ -391,8 +391,8 @@ export default function Profile() {
                 key={plan.id}
                 className={`rounded-2xl border-2 p-4 transition-all ${plan.color}`}
               >
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-2">
+                <div className="mb-3 flex items-start justify-between gap-3">
+                  <div className="flex min-w-0 flex-wrap items-center gap-2">
                     <h3 className="font-bold text-foreground text-[15px]">{plan.name}</h3>
                     {plan.badge && (
                       <span className="text-[10px] font-bold bg-primary text-white px-2 py-0.5 rounded-full">
@@ -405,7 +405,7 @@ export default function Profile() {
                       </span>
                     )}
                   </div>
-                  <div className="text-right">
+                  <div className="shrink-0 text-right">
                     <span className="font-extrabold text-foreground text-[16px]">{plan.price}</span>
                     <span className="text-muted-foreground text-[11px]">{plan.period}</span>
                   </div>
@@ -481,13 +481,13 @@ export default function Profile() {
 
         {/* Delete confirmation dialog */}
         {showDeleteDialog && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 px-6">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 sm:px-6">
             <div className="bg-card rounded-2xl p-6 w-full max-w-sm border border-border shadow-xl">
               <h3 className="text-[16px] font-bold text-foreground mb-2">계정을 삭제할까요?</h3>
               <p className="text-[14px] text-muted-foreground mb-6 leading-relaxed">
                 계정을 삭제하면 모든 학습 기록과 데이터가 영구적으로 삭제됩니다. 이 작업은 되돌릴 수 없습니다.
               </p>
-              <div className="flex gap-3">
+              <div className="flex flex-col gap-3 sm:flex-row">
                 <button
                   onClick={() => setShowDeleteDialog(false)}
                   className="flex-1 py-3 rounded-xl border border-border text-[14px] font-semibold text-foreground"

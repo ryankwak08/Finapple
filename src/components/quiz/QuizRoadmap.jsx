@@ -11,7 +11,7 @@ function QuizNode({ quiz, status, locked, onSelect, position }) {
   const isLeft = position % 2 === 0;
 
   return (
-    <div className={`flex items-center gap-4 ${isLeft ? 'flex-row' : 'flex-row-reverse'}`}>
+    <div className={`flex items-center gap-3 sm:gap-4 ${isLeft ? 'flex-row' : 'flex-row-reverse'}`}>
       {/* Node */}
       <div className="flex flex-col items-center">
         <button
@@ -20,7 +20,7 @@ function QuizNode({ quiz, status, locked, onSelect, position }) {
           onFocus={() => !locked && prefetchAiQuiz(quiz.id)}
           onTouchStart={() => !locked && prefetchAiQuiz(quiz.id)}
           disabled={locked}
-          className={`relative w-16 h-16 rounded-2xl flex items-center justify-center shadow-md transition-all duration-200 active:scale-[0.95] ${
+          className={`relative flex h-14 w-14 items-center justify-center rounded-2xl shadow-md transition-all duration-200 active:scale-[0.95] sm:h-16 sm:w-16 ${
             locked
               ? 'bg-muted border-2 border-border cursor-not-allowed opacity-60'
               : completed
@@ -55,7 +55,7 @@ function QuizNode({ quiz, status, locked, onSelect, position }) {
         <p className={`text-[13px] font-bold ${locked ? 'text-muted-foreground' : 'text-foreground'}`}>
           {quiz.title}
         </p>
-        <p className="text-[11px] text-muted-foreground mt-0.5">{quiz.subtitle}</p>
+        <p className="mt-0.5 text-[11px] leading-relaxed text-muted-foreground">{quiz.subtitle}</p>
       </div>
     </div>
   );
@@ -65,12 +65,12 @@ function GlossaryNode({ unitId, locked, completed, position, course }) {
   const navigate = useNavigate();
   const isLeft = position % 2 === 0;
   return (
-    <div className={`flex items-center gap-4 ${isLeft ? 'flex-row' : 'flex-row-reverse'}`}>
+    <div className={`flex items-center gap-3 sm:gap-4 ${isLeft ? 'flex-row' : 'flex-row-reverse'}`}>
       <div className="flex flex-col items-center">
         <button
           onClick={() => !locked && navigate(`/glossary-quiz/${unitId}?course=${course}`)}
           disabled={locked}
-          className={`relative w-16 h-16 rounded-2xl flex items-center justify-center shadow-md transition-all duration-200 active:scale-[0.95] ${
+          className={`relative flex h-14 w-14 items-center justify-center rounded-2xl shadow-md transition-all duration-200 active:scale-[0.95] sm:h-16 sm:w-16 ${
             locked
               ? 'bg-muted border-2 border-border cursor-not-allowed opacity-60'
               : completed
@@ -91,7 +91,7 @@ function GlossaryNode({ unitId, locked, completed, position, course }) {
         <p className={`text-[13px] font-bold ${locked ? 'text-muted-foreground' : 'text-foreground'}`}>
           시사 용어 10개 외우기
         </p>
-        <p className="text-[11px] text-muted-foreground mt-0.5">9개 이상 맞춰야 통과 · +100 XP</p>
+        <p className="mt-0.5 text-[11px] leading-relaxed text-muted-foreground">9개 이상 맞춰야 통과 · +100 XP</p>
       </div>
     </div>
   );
@@ -128,10 +128,10 @@ export default function QuizRoadmap({ isUnitLocked, isQuizCompleted, getQuizScor
         return (
           <div key={unit.id} className="mb-2">
             {/* Unit Section Header */}
-            <div className={`flex items-center gap-3 mb-6 px-1 ${ui > 0 ? 'mt-8' : ''}`}>
+            <div className={`mb-6 flex items-start gap-3 px-1 ${ui > 0 ? 'mt-8' : ''}`}>
               <div className={`w-1 h-10 rounded-full ${unitLocked ? 'bg-muted' : 'bg-primary'}`} />
               <div className={`text-2xl ${unitLocked ? 'grayscale opacity-40' : ''}`}>{unit.icon}</div>
-              <div>
+              <div className="min-w-0">
                 <p className={`text-[15px] font-extrabold ${unitLocked ? 'text-muted-foreground' : 'text-foreground'}`}>
                   {unit.title}
                 </p>
@@ -142,7 +142,7 @@ export default function QuizRoadmap({ isUnitLocked, isQuizCompleted, getQuizScor
             </div>
 
             {/* Path with quiz nodes */}
-            <div className="relative pl-2 pr-2">
+            <div className="relative pl-1 pr-1 sm:pl-2 sm:pr-2">
               {unit.quizzes.map((quiz, qi) => {
                 const completed = isQuizCompleted(quiz.id);
                 const score = getQuizScore(quiz.id);
@@ -150,7 +150,7 @@ export default function QuizRoadmap({ isUnitLocked, isQuizCompleted, getQuizScor
 
                 return (
                   <div key={quiz.id} className="relative">
-                    <div className="absolute left-[31px] top-16 w-0.5 h-8 bg-border z-0" />
+                    <div className="absolute left-[27px] top-14 z-0 h-8 w-0.5 bg-border sm:left-[31px] sm:top-16" />
                     <div className="relative z-10 py-1 mb-8">
                       <QuizNode
                         quiz={quiz}
@@ -174,7 +174,7 @@ export default function QuizRoadmap({ isUnitLocked, isQuizCompleted, getQuizScor
                 return (
                   <div className="relative">
                     {!glossaryDone && (
-                      <div className="absolute left-[31px] top-16 w-0.5 h-8 bg-border z-0" />
+                      <div className="absolute left-[27px] top-14 z-0 h-8 w-0.5 bg-border sm:left-[31px] sm:top-16" />
                     )}
                     <div className="relative z-10 py-1 mb-8">
                       <GlossaryNode

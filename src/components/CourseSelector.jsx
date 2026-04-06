@@ -32,15 +32,15 @@ const courses = [
 
 export default function CourseSelector({ type, onSelect }) {
   return (
-    <div className="px-5 pt-14 pb-4">
-      <div className="mb-8">
-        <h1 className="text-2xl font-extrabold text-foreground tracking-tight mb-1">
+    <div className="px-4 pb-6 pt-8 sm:px-5 sm:pt-10">
+      <div className="mb-6 sm:mb-8">
+        <h1 className="mb-1 text-[26px] font-extrabold tracking-tight text-foreground sm:text-3xl">
           {type === 'study' ? '학습' : '퀴즈'}
         </h1>
         <p className="text-muted-foreground text-[14px]">학습할 과목을 선택하세요</p>
       </div>
 
-      <div className="space-y-4">
+      <div className="grid gap-4 xl:grid-cols-2">
         {courses.map((course, i) => (
           <button
             key={course.id}
@@ -49,19 +49,19 @@ export default function CourseSelector({ type, onSelect }) {
               onSelect(course.id);
             }}
             disabled={!course.available}
-            className={`w-full text-left rounded-2xl border p-5 transition-all duration-200 animate-slide-up ${
+            className={`w-full rounded-2xl border p-4 text-left transition-all duration-200 animate-slide-up sm:p-5 ${
               course.available
                 ? 'bg-card border-border hover:shadow-lg hover:shadow-primary/5 active:scale-[0.98]'
                 : 'bg-muted/30 border-border/50 opacity-60'
             }`}
             style={{ animationDelay: `${i * 80}ms`, animationFillMode: 'backwards' }}
           >
-            <div className="flex items-start gap-4">
-              <div className={`text-3xl mt-0.5`}>{course.emoji}</div>
+            <div className="flex items-start gap-3 sm:gap-4">
+              <div className="mt-0.5 text-[30px] sm:text-3xl">{course.emoji}</div>
               <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-0.5">
-                  <h3 className="font-bold text-foreground text-[15px]">{course.title}</h3>
-                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                <div className="mb-1 flex flex-wrap items-center gap-2">
+                  <h3 className="text-[15px] font-bold text-foreground sm:text-base">{course.title}</h3>
+                  <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
                     course.available
                       ? 'bg-primary/10 text-primary'
                       : 'bg-muted text-muted-foreground'
@@ -69,8 +69,8 @@ export default function CourseSelector({ type, onSelect }) {
                     {course.badge}
                   </span>
                 </div>
-                <p className="text-muted-foreground text-[12px] mb-1">{course.subtitle}</p>
-                <p className="text-muted-foreground/70 text-[12px] whitespace-pre-line leading-relaxed">
+                <p className="mb-1 text-[12px] text-muted-foreground">{course.subtitle}</p>
+                <p className="whitespace-pre-line text-[12px] leading-relaxed text-muted-foreground/70">
                   {course.description}
                 </p>
               </div>

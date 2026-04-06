@@ -20,13 +20,13 @@ export default function UnitCard({ unit, locked, quizStatuses, onQuizSelect, ind
             : 'bg-card border-border'
       }`}>
         {/* Unit Header */}
-        <div className="p-5 pb-3">
-          <div className="flex items-center gap-3">
+        <div className="p-4 pb-3 sm:p-5">
+          <div className="flex items-start gap-3">
             <div className={`text-2xl ${locked ? 'grayscale opacity-50' : ''}`}>
               {unit.icon}
             </div>
-            <div className="flex-1">
-              <div className="flex items-center gap-2 flex-wrap">
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-2">
                 <h3 className="font-bold text-[15px] text-foreground">{unit.title}</h3>
                 {locked && <Lock className="w-3.5 h-3.5 text-muted-foreground" />}
                 <div className="flex gap-0.5">
@@ -37,7 +37,7 @@ export default function UnitCard({ unit, locked, quizStatuses, onQuizSelect, ind
               </div>
               <p className="text-muted-foreground text-[12px] mt-0.5">{unit.subtitle}</p>
             </div>
-            <div className="text-right">
+            <div className="shrink-0 text-right">
               <span className="text-[12px] font-medium text-primary">
                 {completedCount}/{totalQuizzes}
               </span>
@@ -65,31 +65,35 @@ export default function UnitCard({ unit, locked, quizStatuses, onQuizSelect, ind
                   onQuizSelect(quiz.id);
                 }}
                 disabled={locked}
-                className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-200 ${
+                className={`w-full rounded-xl px-3 py-3 transition-all duration-200 ${
                   locked
                     ? 'opacity-50 cursor-not-allowed'
                     : 'hover:bg-secondary active:scale-[0.98] cursor-pointer'
                 }`}
               >
-                <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
-                  status.completed
-                    ? 'bg-primary/10'
-                    : 'bg-muted'
-                }`}>
-                  {status.completed ? (
-                    <Check className="w-4 h-4 text-primary" strokeWidth={2.5} />
-                  ) : (
-                    <span className="text-[12px] font-semibold text-muted-foreground">{qi + 1}</span>
+                <div className="flex items-center gap-3">
+                  <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${
+                    status.completed
+                      ? 'bg-primary/10'
+                      : 'bg-muted'
+                  }`}>
+                    {status.completed ? (
+                      <Check className="w-4 h-4 text-primary" strokeWidth={2.5} />
+                    ) : (
+                      <span className="text-[12px] font-semibold text-muted-foreground">{qi + 1}</span>
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1 text-left">
+                    <p className="font-medium text-[13px] text-foreground">{quiz.title}</p>
+                    <p className="text-[11px] text-muted-foreground">{quiz.subtitle}</p>
+                  </div>
+                </div>
+                <div className="ml-auto flex shrink-0 items-center gap-2 pl-3">
+                  {status.score !== null && (
+                    <span className="text-[12px] font-semibold text-primary">{status.score}/5</span>
                   )}
+                  {!locked && <ChevronRight className="w-4 h-4 text-muted-foreground/40" />}
                 </div>
-                <div className="flex-1 text-left">
-                  <p className="font-medium text-[13px] text-foreground">{quiz.title}</p>
-                  <p className="text-[11px] text-muted-foreground">{quiz.subtitle}</p>
-                </div>
-                {status.score !== null && (
-                  <span className="text-[12px] font-semibold text-primary">{status.score}/5</span>
-                )}
-                {!locked && <ChevronRight className="w-4 h-4 text-muted-foreground/40" />}
               </button>
             );
           })}

@@ -109,13 +109,13 @@ export default function Study() {
 
   return (
     <PullToRefresh onRefresh={handleRefresh}>
-    <div className="px-5 pt-14 pb-4">
+    <div className="px-4 pb-6 pt-8 sm:px-5 sm:pt-10">
       {/* Header */}
-      <div className="mb-8">
-        <div className="flex items-center justify-between mb-1">
-          <h1 className="text-2xl font-extrabold text-foreground tracking-tight">생활 금융 가이드</h1>
+      <div className="mb-6 sm:mb-8">
+        <div className="mb-1 flex items-start justify-between gap-3">
+          <h1 className="text-[26px] font-extrabold tracking-tight text-foreground sm:text-3xl">생활 금융 가이드</h1>
           {!loading && progress && (
-            <div className="flex items-center gap-1.5 bg-accent/15 px-3 py-1.5 rounded-full">
+            <div className="flex shrink-0 items-center gap-1.5 rounded-full bg-accent/15 px-3 py-1.5">
               <Star className="w-4 h-4 text-accent fill-accent" />
               <span className="text-[13px] font-bold text-accent-foreground">{progress.xp || 0} XP</span>
             </div>
@@ -128,7 +128,7 @@ export default function Study() {
 
       {/* Greeting */}
       {!loading && user && (
-        <div className="bg-primary/5 rounded-2xl p-5 mb-6 border border-primary/10 animate-slide-up">
+        <div className="animate-slide-up rounded-2xl border border-primary/10 bg-primary/5 p-5 mb-6 xl:p-6">
           <div className="flex items-start justify-between gap-3">
             <div>
               <p className="text-[14px] text-foreground">
@@ -153,7 +153,7 @@ export default function Study() {
               </div>
             </div>
           ) : null}
-          <div className="grid grid-cols-2 gap-3 mt-4">
+          <div className="mt-4 grid grid-cols-1 gap-3 min-[390px]:grid-cols-2 xl:grid-cols-3">
             <div className="rounded-xl bg-background/80 border border-border px-4 py-3">
               <div className="flex items-center gap-2">
                 <Flame className="w-4 h-4 text-orange-500" />
@@ -209,7 +209,7 @@ export default function Study() {
       )}
 
       {/* Topics */}
-      <div className="space-y-4">
+      <div className="grid gap-4 xl:grid-cols-2 2xl:grid-cols-3">
         {lifeStudyTopics.map((topic, i) => (
           <TopicCard key={topic.id} topic={topic} index={i} />
         ))}

@@ -37,19 +37,19 @@ export default function StudyDetail() {
   }
 
   return (
-    <div className="px-5 pt-14 pb-8">
+    <div className="px-4 pb-8 pt-8 sm:px-5 sm:pt-10">
       {/* Back */}
-      <button onClick={() => navigate(-1)} className="inline-flex items-center gap-1.5 text-muted-foreground hover:text-foreground text-[13px] font-medium mb-5 transition-colors outline-none">
+      <button onClick={() => navigate(-1)} className="mb-5 inline-flex items-center gap-1.5 text-[13px] font-medium text-muted-foreground transition-colors outline-none hover:text-foreground">
         <ArrowLeft className="w-4 h-4" />
         학습 목록
       </button>
 
       {/* Title */}
       <div className="mb-5">
-        <div className="text-3xl mb-2">{topic.icon}</div>
-        <p className="text-[11px] font-semibold text-primary uppercase tracking-widest mb-1">{topic.subtitle}</p>
-        <div className="flex items-center gap-2">
-          <h1 className="text-xl font-extrabold text-foreground leading-snug">
+        <div className="mb-2 text-3xl">{topic.icon}</div>
+        <p className="mb-1 text-[11px] font-semibold uppercase tracking-widest text-primary">{topic.subtitle}</p>
+        <div className="flex flex-wrap items-center gap-2">
+          <h1 className="text-xl font-extrabold leading-snug text-foreground sm:text-2xl">
             {topic.title}
           </h1>
           {isPremium && <PremiumBadge compact />}
@@ -57,10 +57,10 @@ export default function StudyDetail() {
       </div>
 
       {/* Tab toggle */}
-      <div className="flex gap-2 mb-6 bg-muted p-1 rounded-xl">
+      <div className={`mb-6 grid gap-2 rounded-xl bg-muted p-1 ${topic?.pdfUrl ? 'grid-cols-2' : 'grid-cols-1'}`}>
         <button
           onClick={() => setTab('summary')}
-          className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-lg text-[13px] font-semibold transition-all duration-200 ${
+          className={`flex items-center justify-center gap-1.5 rounded-lg py-2.5 text-[13px] font-semibold transition-all duration-200 ${
             tab === 'summary'
               ? 'bg-card text-foreground shadow-sm'
               : 'text-muted-foreground hover:text-foreground'
@@ -76,7 +76,7 @@ export default function StudyDetail() {
               setTab('pdf');
             }}
             disabled={!isPremium}
-            className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-lg text-[13px] font-semibold transition-all duration-200 ${
+            className={`flex items-center justify-center gap-1.5 rounded-lg px-2 py-2.5 text-[13px] font-semibold transition-all duration-200 ${
               tab === 'pdf'
                 ? 'bg-card text-foreground shadow-sm'
                 : !isPremium
@@ -153,9 +153,9 @@ export default function StudyDetail() {
                   <button
                     key={quiz.id}
                     onClick={() => navigate(`/quiz/${quiz.id}`)}
-                    className="flex items-center justify-between rounded-xl border border-border bg-background px-4 py-3 text-left"
+                    className="flex items-center justify-between gap-3 rounded-xl border border-border bg-background px-4 py-3 text-left"
                   >
-                    <div>
+                    <div className="min-w-0">
                       <p className="text-[13px] font-bold text-foreground">{quiz.title}</p>
                       <p className="text-[12px] text-muted-foreground mt-0.5">{quiz.subtitle}</p>
                     </div>
@@ -167,7 +167,7 @@ export default function StudyDetail() {
           ) : null}
         </div>
       ) : !isPremium ? (
-        <div className="rounded-2xl border border-border overflow-hidden bg-muted/50 flex items-center justify-center" style={{ height: '80vh' }}>
+        <div className="flex min-h-[60dvh] items-center justify-center overflow-hidden rounded-2xl border border-border bg-muted/50 sm:min-h-[80vh]">
           <div className="flex flex-col items-center justify-center p-8 text-center">
             <Lock className="w-16 h-16 text-muted-foreground/30 mb-4" />
             <h3 className="text-lg font-bold text-foreground mb-2">프리미엄 기능입니다</h3>
@@ -178,7 +178,7 @@ export default function StudyDetail() {
           </div>
         </div>
       ) : !hasPdfTab ? (
-        <div className="rounded-2xl border border-border overflow-hidden bg-muted/50 flex items-center justify-center" style={{ height: '80vh' }}>
+        <div className="flex min-h-[60dvh] items-center justify-center overflow-hidden rounded-2xl border border-border bg-muted/50 sm:min-h-[80vh]">
           <div className="flex flex-col items-center justify-center p-8 text-center">
             <FileText className="w-16 h-16 text-muted-foreground/30 mb-4" />
             <h3 className="text-lg font-bold text-foreground mb-2">원문 PDF가 아직 없어요</h3>
@@ -186,9 +186,9 @@ export default function StudyDetail() {
           </div>
         </div>
       ) : (
-        <div className="rounded-2xl border border-border overflow-hidden bg-card" style={{ height: '80vh' }}>
+        <div className="overflow-hidden rounded-2xl border border-border bg-card">
             <div className="h-full">
-              <div className="flex items-center justify-between border-b border-border bg-muted/30 px-4 py-3">
+              <div className="flex flex-col gap-2 border-b border-border bg-muted/30 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
                 <p className="text-[12px] font-semibold text-foreground">프리미엄 원문 PDF</p>
                 <a
                   href={topic.pdfUrl}
@@ -202,7 +202,7 @@ export default function StudyDetail() {
               </div>
               <iframe
                 src={topic.pdfUrl}
-                className="h-[calc(80vh-49px)] w-full"
+                className="h-[60dvh] w-full sm:h-[calc(80vh-49px)]"
                 title={topic.title + ' PDF'}
               />
             </div>

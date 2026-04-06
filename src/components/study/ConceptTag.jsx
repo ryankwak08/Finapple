@@ -7,20 +7,20 @@ export default function ConceptTag({ concept }) {
     <div className="animate-scale-in">
       <button
         onClick={() => setOpen(!open)}
-        className={`w-full text-left rounded-xl border transition-all duration-200 ${
+        className={`w-full rounded-xl border p-4 text-left transition-all duration-200 ${
           open
             ? 'bg-primary/5 border-primary/20 shadow-sm'
             : 'bg-card border-border hover:border-primary/20'
-        } p-4`}
+        }`}
       >
-        <div className="flex items-center justify-between">
-          <span className="font-semibold text-[14px] text-foreground">{concept.term}</span>
-          <span className={`text-[12px] text-primary transition-transform duration-200 ${open ? 'rotate-180' : ''}`}>
+        <div className="flex items-start justify-between gap-3">
+          <span className="font-semibold text-[14px] leading-snug text-foreground">{concept.term}</span>
+          <span className={`pt-0.5 text-[12px] text-primary transition-transform duration-200 ${open ? 'rotate-180' : ''}`}>
             ▼
           </span>
         </div>
         {open && (
-          <p className="text-muted-foreground text-[13px] mt-2 leading-relaxed animate-slide-up">
+          <p className="mt-2 animate-slide-up text-[13px] leading-relaxed text-muted-foreground">
             {concept.definition}
           </p>
         )}

@@ -17,7 +17,7 @@ export default function QuestionCard({
   return (
     <div className="animate-slide-up">
       {/* Progress */}
-      <div className="flex items-center gap-2 mb-6">
+      <div className="mb-6 flex items-center gap-2">
         {Array.from({ length: totalQuestions }).map((_, i) => (
           <div
             key={i}
@@ -34,10 +34,10 @@ export default function QuestionCard({
 
       {/* Question */}
       <div className="mb-6">
-        <span className="text-[12px] font-semibold text-primary mb-2 block">
+        <span className="mb-2 block text-[12px] font-semibold text-primary">
           문제 {questionIndex + 1} / {totalQuestions}
         </span>
-        <h3 className="text-[17px] font-bold text-foreground leading-snug">
+        <h3 className="text-[18px] font-bold leading-snug text-foreground sm:text-[20px]">
           {question.question}
         </h3>
       </div>
@@ -65,30 +65,32 @@ export default function QuestionCard({
               key={oi}
               onClick={() => !confirmed && onSelect(oi)}
               disabled={confirmed}
-              className={`w-full flex items-center gap-3 p-4 rounded-xl border transition-all duration-200 ${optionStyle}`}
+              className={`w-full rounded-2xl border p-4 text-left transition-all duration-200 sm:p-5 ${optionStyle}`}
             >
-              <div className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 text-[12px] font-bold ${
-                showResult && isCorrectOption
-                  ? 'bg-emerald-100 text-emerald-700'
-                  : showResult && isSelected && !isCorrect
-                    ? 'bg-red-100 text-red-700'
-                    : isSelected
-                      ? 'bg-primary text-primary-foreground'
-                      : 'bg-muted text-muted-foreground'
-              }`}>
-                {showResult && isCorrectOption ? (
-                  <Check className="w-4 h-4" strokeWidth={3} />
-                ) : showResult && isSelected && !isCorrect ? (
-                  <X className="w-4 h-4" strokeWidth={3} />
-                ) : (
-                  String.fromCharCode(65 + oi)
-                )}
+              <div className="flex items-start gap-3">
+                <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-[12px] font-bold ${
+                  showResult && isCorrectOption
+                    ? 'bg-emerald-100 text-emerald-700'
+                    : showResult && isSelected && !isCorrect
+                      ? 'bg-red-100 text-red-700'
+                      : isSelected
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-muted text-muted-foreground'
+                }`}>
+                  {showResult && isCorrectOption ? (
+                    <Check className="w-4 h-4" strokeWidth={3} />
+                  ) : showResult && isSelected && !isCorrect ? (
+                    <X className="w-4 h-4" strokeWidth={3} />
+                  ) : (
+                    String.fromCharCode(65 + oi)
+                  )}
+                </div>
+                <span className={`pt-0.5 text-[14px] leading-snug sm:text-[15px] ${
+                  isSelected && !showResult ? 'font-semibold text-foreground' : 'text-foreground/80'
+                }`}>
+                  {option}
+                </span>
               </div>
-              <span className={`text-[14px] text-left leading-snug ${
-                isSelected && !showResult ? 'font-semibold text-foreground' : 'text-foreground/80'
-              }`}>
-                {option}
-              </span>
             </button>
           );
         })}
@@ -101,7 +103,7 @@ export default function QuestionCard({
             onClick={onConfirm}
             disabled={selectedAnswer === null}
             data-no-click-sound="true"
-            className={`w-full py-4 rounded-2xl text-[15px] font-bold transition-all duration-200 ${
+            className={`w-full rounded-2xl py-4 text-[15px] font-bold transition-all duration-200 ${
               selectedAnswer !== null
                 ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/20 active:scale-[0.98]'
                 : 'bg-muted text-muted-foreground cursor-not-allowed'
@@ -138,7 +140,7 @@ export default function QuestionCard({
               <button
                 onClick={onNext}
                 data-no-click-sound="true"
-                className="w-full py-4 rounded-2xl text-[15px] font-bold bg-primary text-primary-foreground shadow-lg shadow-primary/20 active:scale-[0.98] transition-all duration-200"
+                className="w-full rounded-2xl bg-primary py-4 text-[15px] font-bold text-primary-foreground shadow-lg shadow-primary/20 transition-all duration-200 active:scale-[0.98]"
               >
                 {questionIndex < totalQuestions - 1 ? '다음 문제' : '결과 보기'}
               </button>

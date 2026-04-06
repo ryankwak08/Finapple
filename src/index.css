@@ -5,7 +5,11 @@
 @tailwind utilities;
 
 @layer base {
-  :root {
+:root {
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-right: env(safe-area-inset-right, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+    --safe-left: env(safe-area-inset-left, 0px);
     --font-inter: 'Inter', sans-serif;
 
     --background: 140 20% 97%;
@@ -86,6 +90,8 @@
   body {
     @apply bg-background text-foreground font-inter;
     overscroll-behavior-y: none;
+    -webkit-text-size-adjust: 100%;
+    text-rendering: optimizeLegibility;
   }
   button, [role="tab"], [role="button"], svg, a {
     user-select: none;
@@ -96,12 +102,18 @@
   }
 }
 
+.app-shell-gradient {
+  background:
+    radial-gradient(circle at top, hsl(var(--primary) / 0.12), transparent 38%),
+    linear-gradient(180deg, hsl(var(--background)), hsl(var(--background)));
+}
+
 .safe-area-top {
-  padding-top: env(safe-area-inset-top);
+  padding-top: var(--safe-top);
 }
 
 .safe-area-bottom {
-  padding-bottom: env(safe-area-inset-bottom);
+  padding-bottom: var(--safe-bottom);
 }
 
 /* Custom scrollbar for mobile feel */
