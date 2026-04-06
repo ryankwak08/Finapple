@@ -5,7 +5,7 @@ const adminEmails = (import.meta.env.VITE_ADMIN_EMAILS || 'ryankwak08@gmail.com'
   .filter(Boolean);
 
 export function getIsPremium(user) {
-  if (forcePremium && user?.email && adminEmails.includes(user.email.toLowerCase())) {
+  if (user?.email && adminEmails.includes(user.email.toLowerCase())) {
     return true;
   }
 

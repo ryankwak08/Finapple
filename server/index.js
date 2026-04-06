@@ -295,6 +295,14 @@ const normalizeComparableText = (value) => String(value || '')
   .replace(/[^\p{L}\p{N}%]/gu, '')
   .trim();
 
+const maskApiKey = (value) => {
+  if (!value || value.length < 12) {
+    return 'missing';
+  }
+
+  return `${value.slice(0, 7)}...${value.slice(-4)}`;
+};
+
 const hasDuplicateOptions = (options) => {
   const normalized = options.map(normalizeComparableText).filter(Boolean);
   return new Set(normalized).size !== normalized.length;
@@ -423,6 +431,11 @@ const generateAiQuizQuestions = async (quizId, options = {}) => {
     let questions = null;
 
     for (let attempt = 1; attempt <= MAX_AI_QUIZ_ATTEMPTS; attempt += 1) {
+      console.info(
+        `[AI quiz] OpenAI request started quizId=${quizId} attempt=${attempt}/${MAX_AI_QUIZ_ATTEMPTS} model=${openAiModel} key=${maskApiKey(openAiApiKey)}`
+      );
+
+      const startedAt = Date.now();
       const response = await fetch('https://api.openai.com/v1/responses', {
         method: 'POST',
         headers: {
@@ -453,16 +466,25 @@ const generateAiQuizQuestions = async (quizId, options = {}) => {
       });
 
       const payload = await response.json();
+      const elapsedMs = Date.now() - startedAt;
 
       if (!response.ok) {
         const errorMessage = payload?.error?.message || 'OpenAI request failed';
+        console.error(
+          `[AI quiz] OpenAI request failed quizId=${quizId} attempt=${attempt}/${MAX_AI_QUIZ_ATTEMPTS} status=${response.status} elapsedMs=${elapsedMs} message=${errorMessage}`
+        );
         const error = new Error(errorMessage);
         error.statusCode = response.status;
         throw error;
       }
 
+      console.info(
+        `[AI quiz] OpenAI request succeeded quizId=${quizId} attempt=${attempt}/${MAX_AI_QUIZ_ATTEMPTS} status=${response.status} elapsedMs=${elapsedMs}`
+      );
+
       const outputText = extractResponseText(payload);
       if (!outputText) {
+        console.error(`[AI quiz] Empty OpenAI response quizId=${quizId} attempt=${attempt}/${MAX_AI_QUIZ_ATTEMPTS}`);
         throw new Error('OpenAI returned an empty response');
       }
 
@@ -472,6 +494,9 @@ const generateAiQuizQuestions = async (quizId, options = {}) => {
 
       if (qualityCheck.passed) {
         questions = normalizedQuestions;
+        console.info(
+          `[AI quiz] Quiz generation accepted quizId=${quizId} questionCount=${normalizedQuestions.length} attempt=${attempt}/${MAX_AI_QUIZ_ATTEMPTS}`
+        );
         break;
       }
 
@@ -480,6 +505,7 @@ const generateAiQuizQuestions = async (quizId, options = {}) => {
     }
 
     if (!questions) {
+      console.error(`[AI quiz] Quiz generation rejected quizId=${quizId} reasons=${qualityFailures.join(' | ')}`);
       throw new Error(`AI quiz quality validation failed: ${qualityFailures.join(' | ')}`);
     }
 

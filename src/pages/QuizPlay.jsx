@@ -126,7 +126,7 @@ export default function QuizPlay() {
     : quizSource?.fromCache
     ? 'AI 생성 문항 캐시 사용 중'
     : quizSource?.model
-    ? `AI 생성: ${quizSource.model}`
+    ? `AI 생성 문항 · ${quizSource.model}`
     : quizSource?.source
     ? 'AI 생성 문항'
     : null;

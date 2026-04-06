@@ -45,9 +45,34 @@ export async function syncUserProfileRecord(user, overrideNickname) {
     updated_at: new Date().toISOString(),
   };
 
+  const { data: existingProfile, error: lookupError } = await supabase
+    .from('user_profiles')
+    .select('user_id, email')
+    .or(`user_id.eq.${user.id},email.eq.${user.email}`)
+    .maybeSingle();
+
+  if (lookupError) {
+    throw lookupError;
+  }
+
+  if (existingProfile) {
+    const { data, error } = await supabase
+      .from('user_profiles')
+      .update(payload)
+      .eq('user_id', existingProfile.user_id)
+      .select()
+      .single();
+
+    if (error) {
+      throw error;
+    }
+
+    return data;
+  }
+
   const { data, error } = await supabase
     .from('user_profiles')
-    .upsert(payload, { onConflict: 'user_id' })
+    .insert(payload)
     .select()
     .single();
 
