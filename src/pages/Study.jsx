@@ -1,9 +1,9 @@
-import { useEffect, useState } from 'react';
-import { lifeStudyTopics } from '../lib/studyData';
+import { useEffect, useMemo, useState } from 'react';
+import { lifeStudyTopicsCatalog } from '../lib/studyCatalog';
 import TopicCard from '../components/study/TopicCard';
 import useProgress from '../lib/useProgress';
 import PullToRefresh from '../components/PullToRefresh';
-import { Star, Flame, Snowflake } from 'lucide-react';
+import { Globe2, Star, Flame, Snowflake } from 'lucide-react';
 import useSoundEffects from '@/hooks/useSoundEffects';
 import PremiumBadge from '@/components/PremiumBadge';
 
@@ -63,6 +63,10 @@ export default function Study() {
   const { progress, loading, user, isPremium, getStreakStatus, activateStreakFreezer } = useProgress();
   const { playSuccessSound } = useSoundEffects();
   const [now, setNow] = useState(() => Date.now());
+  const groupedTopics = useMemo(() => ({
+    finance: lifeStudyTopicsCatalog.filter((topic) => topic.category === '금융 상식'),
+    issues: lifeStudyTopicsCatalog.filter((topic) => topic.category === '세계 이슈'),
+  }), []);
   const streakStatus = getStreakStatus();
   const canUseFreezer = streakStatus.streakFreezers > 0 && !streakStatus.freezerShieldActive;
   const freezerHistory = streakStatus.freezerHistory.slice(0, 3);
@@ -113,7 +117,7 @@ export default function Study() {
       {/* Header */}
       <div className="mb-6 sm:mb-8">
         <div className="mb-1 flex items-start justify-between gap-3">
-          <h1 className="text-[26px] font-extrabold tracking-tight text-foreground sm:text-3xl">생활 금융 가이드</h1>
+          <h1 className="text-[26px] font-extrabold tracking-tight text-foreground sm:text-3xl">금융 상식 쌓기</h1>
           {!loading && progress && (
             <div className="flex shrink-0 items-center gap-1.5 rounded-full bg-accent/15 px-3 py-1.5">
               <Star className="w-4 h-4 text-accent fill-accent" />
@@ -122,7 +126,7 @@ export default function Study() {
           )}
         </div>
         <p className="text-muted-foreground text-[14px]">
-          사회초년생이 실제로 자주 부딪히는 돈 문제를 먼저 정리해뒀어요
+          실생활 금융 상식부터 지금 세계 이슈까지, 돈과 연결되는 이야기를 짧고 선명하게 읽어요
         </p>
       </div>
 
@@ -208,12 +212,27 @@ export default function Study() {
         </div>
       )}
 
-      {/* Topics */}
-      <div className="grid gap-4 xl:grid-cols-2 2xl:grid-cols-3">
-        {lifeStudyTopics.map((topic, i) => (
-          <TopicCard key={topic.id} topic={topic} index={i} />
-        ))}
-      </div>
+      {groupedTopics.issues[0] ? (
+        <section className="mb-6">
+          <div className="mb-3 flex items-center gap-2">
+            <Globe2 className="h-4 w-4 text-amber-500" />
+            <h2 className="text-[13px] font-black uppercase tracking-[0.18em] text-foreground">지금 보는 세계 이슈</h2>
+          </div>
+          <TopicCard topic={groupedTopics.issues[0]} index={0} />
+        </section>
+      ) : null}
+
+      <section>
+        <div className="mb-3">
+          <h2 className="text-[13px] font-black uppercase tracking-[0.18em] text-foreground">실생활 금융 상식</h2>
+          <p className="mt-1 text-[12px] text-muted-foreground">바로 써먹을 수 있는 정책, 세금, 주거 정보를 먼저 챙겨요</p>
+        </div>
+        <div className="grid gap-4 xl:grid-cols-2 2xl:grid-cols-3">
+          {groupedTopics.finance.map((topic, i) => (
+            <TopicCard key={topic.id} topic={topic} index={i + 1} />
+          ))}
+        </div>
+      </section>
     </div>
     </PullToRefresh>
   );

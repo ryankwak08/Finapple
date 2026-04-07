@@ -1,16 +1,10 @@
 import { supabase } from '@/lib/supabase';
 import { BACKEND_URL } from '@/lib/backendUrl';
+import { buildAppUrl } from '@/lib/appBaseUrl';
 import { syncUserProfileRecord } from '@/services/profileService';
 import { getIsPremium, getUserRole } from '@/lib/premium';
 
-const getAuthRedirectUrl = () => {
-  const rawBaseUrl = import.meta.env.VITE_APP_BASE_URL || window.location.origin;
-  const normalizedBaseUrl = /^https?:\/\//.test(rawBaseUrl)
-    ? rawBaseUrl
-    : `https://${rawBaseUrl}`;
-
-  return `${normalizedBaseUrl.replace(/\/$/, '')}/login`;
-};
+const getAuthRedirectUrl = () => buildAppUrl('/login');
 
 export const getCurrentUser = async () => {
   const { data, error } = await supabase.auth.getSession();

@@ -8,6 +8,7 @@ import { fileURLToPath } from 'url';
 import { getQuizById, getUnitById } from '../src/lib/quizData.js';
 import { studyTopics } from '../src/lib/studyData.js';
 import { getCurrentSeasonMeta } from '../src/lib/season.js';
+import { getQuizExamplesForUnit } from './quizExampleBank.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -20,6 +21,7 @@ app.disable('x-powered-by');
 app.set('trust proxy', 1);
 
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://127.0.0.1:5173';
+const EXTRA_FRONTEND_URLS = process.env.FRONTEND_URLS || '';
 const tossSecretKey = process.env.TOSS_SECRET_KEY;
 const kakaoAdminKey = process.env.KAKAO_ADMIN_KEY;
 const supabaseUrl = process.env.SUPABASE_URL;
@@ -33,6 +35,14 @@ const aiQuizCache = new Map();
 const aiQuizInflight = new Map();
 const rateLimitStore = new Map();
 const MAX_AI_QUIZ_ATTEMPTS = 1;
+const serverEnvChecklist = [
+  { key: 'SUPABASE_URL', configured: Boolean(supabaseUrl), level: 'required' },
+  { key: 'SUPABASE_SERVICE_ROLE_KEY', configured: Boolean(supabaseServiceRoleKey), level: 'required' },
+  { key: 'FRONTEND_URL', configured: Boolean(FRONTEND_URL), level: 'recommended' },
+  { key: 'TOSS_SECRET_KEY', configured: Boolean(tossSecretKey), level: 'recommended' },
+  { key: 'KAKAO_ADMIN_KEY', configured: Boolean(kakaoAdminKey), level: 'optional' },
+  { key: 'OPENAI_API_KEY', configured: Boolean(openAiApiKey), level: 'recommended' },
+];
 
 const quizResponseSchema = {
   type: 'object',
@@ -84,8 +94,14 @@ const normalizeOrigin = (value) => {
   return `https://${trimmed.replace(/^\/+/, '').replace(/\/$/, '')}`;
 };
 
+const parseConfiguredOrigins = (value) => String(value || '')
+  .split(',')
+  .map((origin) => normalizeOrigin(origin))
+  .filter(Boolean);
+
 const allowedOrigins = new Set([
-  normalizeOrigin(FRONTEND_URL),
+  ...parseConfiguredOrigins(FRONTEND_URL),
+  ...parseConfiguredOrigins(EXTRA_FRONTEND_URLS),
   'http://localhost:5173',
   'http://127.0.0.1:5173',
   'https://finapple.xyz',
@@ -109,6 +125,56 @@ const supabaseAdmin = (supabaseUrl && supabaseServiceRoleKey)
       auth: { autoRefreshToken: false, persistSession: false },
     })
   : null;
+
+const getServerConfigSummary = () => {
+  const requiredMissing = serverEnvChecklist
+    .filter((item) => item.level === 'required' && !item.configured)
+    .map((item) => item.key);
+  const recommendedMissing = serverEnvChecklist
+    .filter((item) => item.level === 'recommended' && !item.configured)
+    .map((item) => item.key);
+
+  return {
+    requiredMissing,
+    recommendedMissing,
+    configured: serverEnvChecklist
+      .filter((item) => item.configured)
+      .map((item) => item.key),
+  };
+};
+
+const isAllowedCallbackUrl = (value) => {
+  if (!value || typeof value !== 'string') {
+    return false;
+  }
+
+  try {
+    const url = new URL(value);
+    const origin = normalizeOrigin(url.origin);
+    return isAllowedOrigin(origin);
+  } catch {
+    return false;
+  }
+};
+
+app.get('/api/health', (_req, res) => {
+  const configSummary = getServerConfigSummary();
+  const status = configSummary.requiredMissing.length > 0 ? 'degraded' : 'ok';
+
+  res.json({
+    ok: status === 'ok',
+    status,
+    timestamp: new Date().toISOString(),
+    config: configSummary,
+    origins: Array.from(allowedOrigins).filter(Boolean),
+    services: {
+      openaiConfigured: Boolean(openAiApiKey),
+      supabaseConfigured: Boolean(supabaseAdmin),
+      tossConfigured: Boolean(tossSecretKey),
+      kakaoConfigured: Boolean(kakaoAdminKey),
+    },
+  });
+});
 
 const buildQuizContext = (quizId) => {
   const quiz = getQuizById(quizId);
@@ -171,6 +237,13 @@ const buildQuizPrompts = ({ quiz, unit, topic }) => {
     answer: item.answer,
     explanation: item.explanation,
   }));
+  const styleExamples = getQuizExamplesForUnit(unit?.id).slice(0, 10).map((item, index) => ({
+    no: index + 1,
+    concept: item.concept,
+    prompt: item.prompt,
+    answerHint: item.answerHint,
+    intent: item.intent,
+  }));
   const variationBlueprint = getQuizVariationBlueprint(quiz.id);
 
   const topicContext = {
@@ -193,6 +266,8 @@ const buildQuizPrompts = ({ quiz, unit, topic }) => {
     '기존 예시와 문장 구조나 수치를 그대로 복사하지 말고, 같은 학습 목표를 새 방식으로 평가한다.',
     '예시 문항과 같은 인물 설정, 같은 숫자, 같은 상황 전개를 반복하지 않는다.',
     '반드시 다른 생활 장면, 다른 선택지 구성, 다른 질문 각도로 변형한다.',
+    '제공된 스타일 예시는 학습용 기준점으로만 참고하고, 문장을 베끼지 않는다.',
+    '스타일 예시가 있는 단원은 해당 예시의 난이도, 개념 정확도, 실전성을 우선적으로 따른다.',
     '결과는 반드시 JSON Schema에 맞는 값만 반환한다.',
   ].join(' ');
 
@@ -209,6 +284,7 @@ const buildQuizPrompts = ({ quiz, unit, topic }) => {
       variationBlueprint,
       topicContext,
       referenceQuestions: seedQuestions,
+      styleExamples,
       outputRules: {
         language: 'ko-KR',
         optionCount: 4,
@@ -222,6 +298,11 @@ const buildQuizPrompts = ({ quiz, unit, topic }) => {
           '모두 정답/정답 없음 보기',
           '서로 거의 같은 보기 2개',
           '설명 없는 숫자 문제',
+        ],
+        prioritize: [
+          '정책·기관·제도 이름을 물을 때는 헷갈리기 쉬운 보기를 만든다',
+          '문항은 청년이 실제로 접할 법한 뉴스, 소비, 취업, 금융 플랫폼 상황과 연결한다',
+          '해설에는 개념 정의보다 왜 그 선택지가 맞는지가 드러나야 한다',
         ],
       },
     },
@@ -658,6 +739,49 @@ app.get('/api/leaderboard', async (req, res) => {
   }
 });
 
+app.get('/api/leaderboard/profile', async (req, res) => {
+  if (!supabaseAdmin) {
+    return res.status(500).json({ error: 'Supabase admin is not configured' });
+  }
+
+  const userId = String(req.query.userId || '').trim();
+  if (!userId) {
+    return res.status(400).json({ error: 'userId is required' });
+  }
+
+  try {
+    const [currentResult, historyResult] = await Promise.all([
+      supabaseAdmin
+        .from('leaderboard_entries')
+        .select('user_id, user_email, display_name, avatar_url, season_key, season_label, season_start_date, season_end_date, xp, streak_count, best_streak, streak_freezers, completed_count, active_review_count, resolved_review_count, ads_disabled, score, updated_at')
+        .eq('user_id', userId)
+        .maybeSingle(),
+      supabaseAdmin
+        .from('leaderboard_entry_history')
+        .select('user_id, user_email, display_name, avatar_url, season_key, season_label, season_start_date, season_end_date, xp, streak_count, best_streak, streak_freezers, completed_count, active_review_count, resolved_review_count, ads_disabled, score, updated_at')
+        .eq('user_id', userId)
+        .order('season_start_date', { ascending: false })
+        .limit(8),
+    ]);
+
+    if (currentResult.error) {
+      throw currentResult.error;
+    }
+
+    if (historyResult.error && historyResult.error.code !== '42P01') {
+      throw historyResult.error;
+    }
+
+    const profile = currentResult.data || null;
+    const seasons = historyResult.data?.length ? historyResult.data : (profile ? [profile] : []);
+
+    return res.json({ profile, seasons });
+  } catch (error) {
+    console.error('leaderboard profile fetch error', error.message);
+    return res.status(500).json({ error: error.message || 'Failed to fetch leaderboard profile' });
+  }
+});
+
 app.post('/api/leaderboard/sync', createRateLimiter({ key: 'leaderboard-sync', limit: 45, windowMs: 60_000 }), async (req, res) => {
   if (!supabaseAdmin) {
     return res.status(500).json({ error: 'Supabase admin is not configured' });
@@ -705,6 +829,14 @@ app.post('/api/leaderboard/sync', createRateLimiter({ key: 'leaderboard-sync', l
       throw error;
     }
 
+    const { error: historyError } = await supabaseAdmin
+      .from('leaderboard_entry_history')
+      .upsert(payload, { onConflict: 'user_id,season_key' });
+
+    if (historyError && historyError.code !== '42P01') {
+      throw historyError;
+    }
+
     return res.json({ success: true, entry: data });
   } catch (error) {
     console.error('leaderboard sync error', error.message);
@@ -748,6 +880,10 @@ app.post('/api/payments/toss/create-checkout', createRateLimiter({ key: 'toss-ch
 
   if (!orderId || !String(orderId).startsWith('premium_monthly_')) {
     return res.status(400).json({ error: 'Invalid orderId' });
+  }
+
+  if (!isAllowedCallbackUrl(successUrl) || !isAllowedCallbackUrl(failUrl)) {
+    return res.status(400).json({ error: 'Invalid payment redirect URL' });
   }
 
   try {
@@ -862,6 +998,10 @@ app.post('/api/payments/kakao/create-checkout', async (req, res) => {
   if (!kakaoAdminKey) return res.status(500).json({ error: 'KAKAO_ADMIN_KEY is not configured' });
 
   const { cid, partner_order_id, partner_user_id, item_name, quantity, total_amount, tax_free_amount, approval_url, fail_url, cancel_url } = req.body;
+  if (!isAllowedCallbackUrl(approval_url) || !isAllowedCallbackUrl(fail_url) || !isAllowedCallbackUrl(cancel_url)) {
+    return res.status(400).json({ error: 'Invalid payment redirect URL' });
+  }
+
   try {
     const response = await axios.post(
       'https://kapi.kakao.com/v1/payment/ready',
@@ -894,4 +1034,16 @@ app.post('/api/payments/kakao/create-checkout', async (req, res) => {
 
 app.listen(PORT, () => {
   console.log(`Payment backend running on port ${PORT}`);
+  const configSummary = getServerConfigSummary();
+
+  if (configSummary.requiredMissing.length > 0) {
+    console.warn(`[startup] Missing required server env: ${configSummary.requiredMissing.join(', ')}`);
+  }
+
+  if (configSummary.recommendedMissing.length > 0) {
+    console.warn(`[startup] Missing recommended server env: ${configSummary.recommendedMissing.join(', ')}`);
+  }
+
+  console.log(`[startup] Allowed frontend origins: ${Array.from(allowedOrigins).filter(Boolean).join(', ')}`);
+  console.log(`[startup] Healthcheck: http://127.0.0.1:${PORT}/api/health`);
 });

@@ -10,6 +10,36 @@ export default defineConfig({
       '@': path.resolve(__dirname, 'src'),
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (!id.includes('node_modules')) {
+            return undefined;
+          }
+
+          if (id.includes('react') || id.includes('scheduler')) {
+            return 'react-vendor';
+          }
+
+          if (id.includes('@supabase')) {
+            return 'supabase-vendor';
+          }
+
+          if (id.includes('framer-motion') || id.includes('lucide-react')) {
+            return 'ui-vendor';
+          }
+
+          return 'vendor';
+        },
+      },
+    },
+  },
+  test: {
+    environment: 'jsdom',
+    globals: true,
+    setupFiles: './src/test/setup.js',
+  },
   server: {
     port: 5173,
     proxy: {

@@ -15,6 +15,14 @@ const normalizeUrl = (value) => {
   return `https://${trimmed.replace(/^\/+/, '').replace(/\/$/, '')}`;
 };
 
+const getBrowserOrigin = () => {
+  if (typeof window === 'undefined' || !window.location?.origin) {
+    return '';
+  }
+
+  return window.location.origin.replace(/\/$/, '');
+};
+
 export const BACKEND_URL = (() => {
   if (import.meta.env.DEV) {
     const localDevUrl = normalizeUrl(import.meta.env.VITE_LOCAL_BACKEND_URL);
@@ -26,5 +34,5 @@ export const BACKEND_URL = (() => {
     return configuredUrl;
   }
 
-  return '';
+  return getBrowserOrigin();
 })();

@@ -1,26 +1,7 @@
 import { supabase } from '@/lib/supabase';
 import { BACKEND_URL } from '@/lib/backendUrl';
+import { buildAppUrl } from '@/lib/appBaseUrl';
 export const PREMIUM_MONTHLY_PRICE = 9900;
-
-const normalizeAbsoluteUrl = (value) => {
-  if (!value || typeof value !== 'string') {
-    return '';
-  }
-
-  const trimmed = value.trim();
-  if (!trimmed) {
-    return '';
-  }
-
-  if (/^https?:\/\//i.test(trimmed)) {
-    return trimmed;
-  }
-
-  // Support env values like "my-app.vercel.app" by defaulting to HTTPS.
-  return `https://${trimmed.replace(/^\/+/, '')}`;
-};
-
-const getAppBaseUrl = () => normalizeAbsoluteUrl(import.meta.env.VITE_APP_BASE_URL) || window.location.origin;
 
 const parseJsonResponse = async (response) => {
   const rawText = await response.text();
@@ -52,8 +33,8 @@ export const createTossCheckoutSession = async ({ amount, orderId, orderName, cu
         orderName,
         customerName,
         customerEmail,
-        successUrl: `${getAppBaseUrl()}/premium/success?provider=toss`,
-        failUrl: `${getAppBaseUrl()}/premium/fail?provider=toss`,
+        successUrl: buildAppUrl('/premium/success?provider=toss'),
+        failUrl: buildAppUrl('/premium/fail?provider=toss'),
       }),
     });
 
@@ -112,9 +93,9 @@ export const createKakaoCheckoutSession = async ({ itemName, quantity, totalAmou
         quantity,
         total_amount: totalAmount,
         tax_free_amount: 0,
-        approval_url: `${window.location.origin}/premium/success?provider=kakao`,
-        fail_url: `${window.location.origin}/premium/fail?provider=kakao`,
-        cancel_url: `${window.location.origin}/premium/cancel?provider=kakao`,
+        approval_url: buildAppUrl('/premium/success?provider=kakao'),
+        fail_url: buildAppUrl('/premium/fail?provider=kakao'),
+        cancel_url: buildAppUrl('/premium/cancel?provider=kakao'),
       }),
     });
     const data = await parseJsonResponse(response);
