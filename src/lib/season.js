@@ -50,6 +50,13 @@ export function getCurrentSeasonMeta(date = new Date()) {
   };
 }
 
+export function getPreviousSeasonMeta(date = new Date()) {
+  const currentSeason = getCurrentSeasonMeta(date);
+  const previousSeasonDate = new Date(`${currentSeason.startDate}T12:00:00+09:00`);
+  previousSeasonDate.setUTCDate(previousSeasonDate.getUTCDate() - 1);
+  return getCurrentSeasonMeta(previousSeasonDate);
+}
+
 export function getSeasonProgressMeta(date = new Date()) {
   const season = getCurrentSeasonMeta(date);
   const { weekdayIndex } = getSeoulDateParts(date);
