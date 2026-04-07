@@ -14,7 +14,7 @@ export default function AppShell() {
   const activeTab = getActiveTab(location.pathname);
 
   useEffect(() => {
-    window.scrollTo({ top: 0, behavior: 'instant' });
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
   }, [location.pathname]);
 
   useEffect(() => {
