@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useMemo } from 'react';
+import { Component, lazy, Suspense, useEffect, useMemo } from 'react';
 import { Toaster } from "@/components/ui/toaster"
 import { QueryClientProvider } from '@tanstack/react-query'
 import { queryClientInstance } from '@/lib/query-client'
@@ -28,6 +28,49 @@ const FullScreenSpinner = () => (
     <div className="w-8 h-8 border-4 border-slate-200 border-t-slate-800 rounded-full animate-spin"></div>
   </div>
 );
+
+class AppErrorBoundary extends Component {
+  constructor(props) {
+    super(props);
+    this.state = { error: null };
+  }
+
+  static getDerivedStateFromError(error) {
+    return { error };
+  }
+
+  componentDidCatch(error, errorInfo) {
+    console.error('App crashed:', error, errorInfo);
+  }
+
+  render() {
+    if (this.state.error) {
+      return (
+        <div className="min-h-screen bg-background px-6 py-10 text-foreground">
+          <div className="mx-auto max-w-md rounded-3xl border border-border bg-card p-6 shadow-sm">
+            <p className="text-[12px] font-black uppercase tracking-[0.18em] text-destructive">Runtime Error</p>
+            <h1 className="mt-3 text-xl font-extrabold">앱을 불러오지 못했어요</h1>
+            <p className="mt-2 text-sm text-muted-foreground">
+              새로고침 후 다시 시도해주세요. 문제가 계속되면 잠시 뒤 다시 접속해주세요.
+            </p>
+            <pre className="mt-4 overflow-auto rounded-2xl bg-muted/70 p-3 text-xs text-muted-foreground">
+              {this.state.error?.message || 'Unknown error'}
+            </pre>
+            <button
+              type="button"
+              onClick={() => window.location.reload()}
+              className="mt-4 w-full rounded-2xl bg-primary px-4 py-3 text-sm font-bold text-primary-foreground"
+            >
+              다시 불러오기
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
+}
 
 const isClickableElement = (target) => {
   if (!(target instanceof Element)) {
@@ -160,13 +203,27 @@ const AuthenticatedApp = () => {
 
 function App() {
   useEffect(() => {
-    const mq = window.matchMedia('(prefers-color-scheme: dark)');
+    const mq = window.matchMedia?.('(prefers-color-scheme: dark)');
+    if (!mq) {
+      return undefined;
+    }
+
     const apply = (dark) => document.documentElement.classList.toggle('dark', dark);
     const handleChange = (event) => apply(event.matches);
 
     apply(mq.matches);
-    mq.addEventListener('change', handleChange);
-    return () => mq.removeEventListener('change', handleChange);
+
+    if (typeof mq.addEventListener === 'function') {
+      mq.addEventListener('change', handleChange);
+      return () => mq.removeEventListener('change', handleChange);
+    }
+
+    if (typeof mq.addListener === 'function') {
+      mq.addListener(handleChange);
+      return () => mq.removeListener(handleChange);
+    }
+
+    return undefined;
   }, []);
 
   const appProviders = (
@@ -176,13 +233,15 @@ function App() {
   );
 
   return (
-    <AuthProvider>
-      <QueryClientProvider client={queryClientInstance}>
-        <GlobalInteractionSound />
-        {appProviders}
-        <Toaster />
-      </QueryClientProvider>
-    </AuthProvider>
+    <AppErrorBoundary>
+      <AuthProvider>
+        <QueryClientProvider client={queryClientInstance}>
+          <GlobalInteractionSound />
+          {appProviders}
+          <Toaster />
+        </QueryClientProvider>
+      </AuthProvider>
+    </AppErrorBoundary>
   )
 }
 
