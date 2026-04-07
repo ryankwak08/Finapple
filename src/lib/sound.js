@@ -1,3 +1,5 @@
+import { safeStorage } from '@/lib/safeStorage';
+
 const SOUND_EFFECTS_KEY = 'finapple_sound_effects';
 
 let audioContext = null;
@@ -24,7 +26,7 @@ export const getSoundEffectsEnabled = () => {
     return true;
   }
 
-  return window.localStorage.getItem(SOUND_EFFECTS_KEY) !== 'false';
+  return safeStorage.getItem(SOUND_EFFECTS_KEY) !== 'false';
 };
 
 export const setSoundEffectsEnabled = (enabled) => {
@@ -32,7 +34,7 @@ export const setSoundEffectsEnabled = (enabled) => {
     return;
   }
 
-  window.localStorage.setItem(SOUND_EFFECTS_KEY, enabled ? 'true' : 'false');
+  safeStorage.setItem(SOUND_EFFECTS_KEY, enabled ? 'true' : 'false');
 };
 
 export const primeSoundEffects = async () => {

@@ -3,6 +3,7 @@ import { BACKEND_URL } from '@/lib/backendUrl';
 import { buildAppUrl } from '@/lib/appBaseUrl';
 import { syncUserProfileRecord } from '@/services/profileService';
 import { getIsPremium, getUserRole } from '@/lib/premium';
+import { safeStorage } from '@/lib/safeStorage';
 
 const getAuthRedirectUrl = () => buildAppUrl('/login');
 
@@ -154,8 +155,8 @@ export const deleteAccount = async () => {
   }
 
   await supabase.auth.signOut();
-  localStorage.removeItem('finapple_progress');
-  localStorage.removeItem('totalUsageSeconds');
+  safeStorage.removeItem('finapple_progress');
+  safeStorage.removeItem('totalUsageSeconds');
 };
 
 export const updateUserProfile = async (updates) => {

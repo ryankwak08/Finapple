@@ -12,6 +12,7 @@ import useSoundEffects from '@/hooks/useSoundEffects';
 import PremiumBadge from '@/components/PremiumBadge';
 import { Switch } from '@/components/ui/switch';
 import useProgress from '../lib/useProgress';
+import { safeStorage } from '@/lib/safeStorage';
 
 function formatTime(seconds) {
   if (seconds < 60) return `${seconds}초`;
@@ -75,7 +76,7 @@ export default function Profile() {
       setIsPremium(false);
     });
 
-    const stored = parseInt(localStorage.getItem('totalUsageSeconds') || '0');
+    const stored = parseInt(safeStorage.getItem('totalUsageSeconds') || '0');
     setTotalTime(stored);
   }, []);
 

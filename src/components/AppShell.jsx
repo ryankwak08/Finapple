@@ -7,6 +7,7 @@ import { AnimatePresence } from 'framer-motion';
 import BottomNav, { appTabs, getActiveTab } from './BottomNav';
 import PageTransition from './PageTransition';
 import PremiumBadge from './PremiumBadge';
+import { safeStorage } from '@/lib/safeStorage';
 
 export default function AppShell() {
   const [user, setUser] = useState(null);
@@ -43,8 +44,8 @@ export default function AppShell() {
     window.addEventListener('profilePictureUpdated', handleProfileUpdate);
     return () => {
       const elapsed = Math.floor((Date.now() - start) / 1000);
-      const prev = parseInt(localStorage.getItem('totalUsageSeconds') || '0');
-      localStorage.setItem('totalUsageSeconds', String(prev + elapsed));
+      const prev = parseInt(safeStorage.getItem('totalUsageSeconds') || '0');
+      safeStorage.setItem('totalUsageSeconds', String(prev + elapsed));
       window.removeEventListener('profilePictureUpdated', handleProfileUpdate);
     };
   }, []);

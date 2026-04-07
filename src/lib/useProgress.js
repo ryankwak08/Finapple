@@ -4,6 +4,7 @@ import { getAdsDisabled, getIsPremium } from '@/lib/premium';
 import { TOTAL_QUIZ_COUNT } from '@/lib/quizCatalog';
 import { getCurrentSeasonMeta } from '@/lib/season';
 import { getLeagueRewardForRank } from '@/lib/leaderboard';
+import { safeStorage } from '@/lib/safeStorage';
 
 const TODAY = () => new Date().toISOString().split('T')[0];
 const STORAGE_KEY = 'finapple_progress';
@@ -241,7 +242,7 @@ export default function useProgress() {
   const persistProgress = useCallback((nextProgress) => {
     const { next } = syncLeaderboardSeasonProgress(nextProgress);
     setProgress(next);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+    safeStorage.setItem(STORAGE_KEY, JSON.stringify(next));
     window.dispatchEvent(new CustomEvent(PROGRESS_UPDATED_EVENT, { detail: next }));
   }, []);
 
@@ -252,7 +253,7 @@ export default function useProgress() {
       const premiumUser = getIsPremium(me);
       const adsDisabled = getAdsDisabled(me);
 
-      const savedProgress = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
+      const savedProgress = JSON.parse(safeStorage.getItem(STORAGE_KEY) || 'null');
       if (savedProgress && savedProgress.user_email === me?.email) {
         let p = {
           ...getDefaultProgress(me?.email || 'guest'),
@@ -261,16 +262,16 @@ export default function useProgress() {
         };
         if (premiumUser) {
           p = { ...p, hearts: 5, hearts_last_reset: TODAY() };
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(p));
+          safeStorage.setItem(STORAGE_KEY, JSON.stringify(p));
         } else if (shouldResetHearts(p.hearts_last_reset)) {
           p = { ...p, hearts: 5, hearts_last_reset: TODAY() };
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(p));
+          safeStorage.setItem(STORAGE_KEY, JSON.stringify(p));
         }
         const { next, changed } = syncDailyProgress(p, premiumUser, adsDisabled);
         const seasonSync = syncLeaderboardSeasonProgress(next);
         setProgress(seasonSync.next);
         if (changed || seasonSync.changed) {
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(seasonSync.next));
+          safeStorage.setItem(STORAGE_KEY, JSON.stringify(seasonSync.next));
         }
       } else {
         const newProgress = syncLeaderboardSeasonProgress({
@@ -280,7 +281,7 @@ export default function useProgress() {
           premium_freezer_grant_version: premiumUser ? PREMIUM_FREEZER_GRANT_VERSION : 0,
         }).next;
         setProgress(newProgress);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(newProgress));
+        safeStorage.setItem(STORAGE_KEY, JSON.stringify(newProgress));
       }
     } catch (e) {
       console.error('Failed to load progress', e);
