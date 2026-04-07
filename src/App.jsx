@@ -2,7 +2,7 @@ import { lazy, Suspense, useEffect, useMemo } from 'react';
 import { Toaster } from "@/components/ui/toaster"
 import { QueryClientProvider } from '@tanstack/react-query'
 import { queryClientInstance } from '@/lib/query-client'
-import { BrowserRouter as Router, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
+import { BrowserRouter as Router, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import useSoundEffects from '@/hooks/useSoundEffects';
 import PageNotFound from './lib/PageNotFound';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
@@ -124,7 +124,6 @@ const AppRoutes = () => (
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError } = useAuth();
   const location = useLocation();
-  const navigate = useNavigate();
   const shouldRedirectToLogin = Boolean(
     authError &&
     (authError.type === 'auth_required' || authError.type === 'email_not_verified') &&
@@ -136,12 +135,6 @@ const AuthenticatedApp = () => {
     [isLoadingPublicSettings, isLoadingAuth]
   );
 
-  useEffect(() => {
-    if (shouldRedirectToLogin) {
-      navigate('/login', { replace: true });
-    }
-  }, [navigate, shouldRedirectToLogin]);
-
   // Show loading spinner while checking app public settings or auth
   if (isBootstrapping) {
     return <FullScreenSpinner />;
@@ -152,10 +145,11 @@ const AuthenticatedApp = () => {
     if (authError.type === 'user_not_registered') {
       return <UserNotRegisteredError />;
     } else if (authError.type === 'auth_required' || authError.type === 'email_not_verified') {
-      if (!shouldRedirectToLogin) {
-        return <AppRoutes />;
+      if (shouldRedirectToLogin) {
+        return <Navigate to="/login" replace />;
       }
-      return null;
+
+      return <AppRoutes />;
     }
   }
 
