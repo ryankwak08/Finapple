@@ -1,213 +1,189 @@
-import { useState, useEffect } from 'react';
+import { useMemo, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { ArrowLeft, BookOpen, ExternalLink, FileText, Lock, PlayCircle } from 'lucide-react';
-import { getCurrentUser } from '@/services/authService';
-import { getIsPremium } from '@/lib/premium';
+import { ArrowLeft, BookOpen, ChevronDown, ChevronUp, PlayCircle } from 'lucide-react';
 import { getStudyTopicById } from '../lib/studyData';
-import { getUnitByStudyTopicId } from '../lib/quizData';
-import PremiumBadge from '@/components/PremiumBadge';
+import { getQuizUnitCatalogByStudyTopicId } from '../lib/quizCatalog';
 import ConceptTag from '../components/study/ConceptTag';
 
-const isPlaceholderPdfUrl = (pdfUrl) => !pdfUrl || pdfUrl.includes('media.example.com');
+const buildSummaryBullets = (topic) => {
+  const bullets = [];
+
+  (topic.goals || []).slice(0, 2).forEach((goal) => {
+    bullets.push(goal);
+  });
+
+  (topic.learningPoints || []).slice(0, 4).forEach((point) => {
+    bullets.push(point.title);
+  });
+
+  return bullets.slice(0, 6);
+};
 
 export default function StudyDetail() {
   const navigate = useNavigate();
   const { topicId } = useParams();
-  const [tab, setTab] = useState('summary');
-  const [isPremium, setIsPremium] = useState(false);
+  const [showSummary, setShowSummary] = useState(false);
   const topic = getStudyTopicById(topicId);
-  const linkedUnit = getUnitByStudyTopicId(topicId);
-  const hasPdfTab = Boolean(topic?.pdfUrl) && !isPlaceholderPdfUrl(topic?.pdfUrl);
-
-  useEffect(() => {
-    const checkPremium = async () => {
-      const user = await getCurrentUser().catch(() => null);
-      setIsPremium(getIsPremium(user));
-    };
-    checkPremium();
-  }, []);
+  const linkedUnit = getQuizUnitCatalogByStudyTopicId(topicId);
+  const summaryBullets = useMemo(() => (topic ? buildSummaryBullets(topic) : []), [topic]);
 
   if (!topic) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen px-6">
-        <p className="text-muted-foreground text-[15px]">주제를 찾을 수 없습니다</p>
-        <Link to="/" className="text-primary font-semibold text-[14px] mt-4">돌아가기</Link>
+      <div className="flex min-h-screen flex-col items-center justify-center px-6">
+        <p className="text-[15px] text-muted-foreground">주제를 찾을 수 없습니다</p>
+        <Link to="/" className="mt-4 text-[14px] font-semibold text-primary">돌아가기</Link>
       </div>
     );
   }
 
   return (
     <div className="px-4 pb-8 pt-8 sm:px-5 sm:pt-10">
-      {/* Back */}
-      <button onClick={() => navigate(-1)} className="mb-5 inline-flex items-center gap-1.5 text-[13px] font-medium text-muted-foreground transition-colors outline-none hover:text-foreground">
-        <ArrowLeft className="w-4 h-4" />
+      <button
+        onClick={() => navigate(-1)}
+        className="mb-5 inline-flex items-center gap-1.5 text-[13px] font-medium text-muted-foreground transition-colors outline-none hover:text-foreground"
+      >
+        <ArrowLeft className="h-4 w-4" />
         학습 목록
       </button>
 
-      {/* Title */}
       <div className="mb-5">
         <div className="mb-2 text-3xl">{topic.icon}</div>
         <p className="mb-1 text-[11px] font-semibold uppercase tracking-widest text-primary">{topic.subtitle}</p>
-        <div className="flex flex-wrap items-center gap-2">
-          <h1 className="text-xl font-extrabold leading-snug text-foreground sm:text-2xl">
-            {topic.title}
-          </h1>
-          {isPremium && <PremiumBadge compact />}
-        </div>
+        <h1 className="text-xl font-extrabold leading-snug text-foreground sm:text-2xl">
+          {topic.title}
+        </h1>
       </div>
 
-      {/* Tab toggle */}
-      <div className={`mb-6 grid gap-2 rounded-xl bg-muted p-1 ${topic?.pdfUrl ? 'grid-cols-2' : 'grid-cols-1'}`}>
+      <div className="mb-6 rounded-2xl border border-primary/15 bg-primary/5 p-4">
+        <p className="text-[13px] leading-relaxed text-foreground">{topic.summary}</p>
         <button
-          onClick={() => setTab('summary')}
-          className={`flex items-center justify-center gap-1.5 rounded-lg py-2.5 text-[13px] font-semibold transition-all duration-200 ${
-            tab === 'summary'
-              ? 'bg-card text-foreground shadow-sm'
-              : 'text-muted-foreground hover:text-foreground'
-          }`}
+          type="button"
+          onClick={() => setShowSummary((current) => !current)}
+          className="mt-4 inline-flex items-center gap-2 rounded-xl border border-primary/20 bg-background px-3 py-2 text-[13px] font-bold text-primary transition-colors hover:bg-primary/5"
         >
-          <BookOpen className="w-3.5 h-3.5" />
+          <BookOpen className="h-4 w-4" />
           요약 정리
+          {showSummary ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
         </button>
-        {topic?.pdfUrl ? (
-          <button
-            onClick={() => {
-              if (!isPremium) return;
-              setTab('pdf');
-            }}
-            disabled={!isPremium}
-            className={`flex items-center justify-center gap-1.5 rounded-lg px-2 py-2.5 text-[13px] font-semibold transition-all duration-200 ${
-              tab === 'pdf'
-                ? 'bg-card text-foreground shadow-sm'
-                : !isPremium
-                ? 'text-muted-foreground/30 cursor-not-allowed'
-                : 'text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            <FileText className="w-3.5 h-3.5" />
-            원문 PDF
-            {!isPremium && <Lock className="w-3 h-3" />}
-          </button>
-        ) : null}
       </div>
 
-      {tab === 'summary' ? (
-        <div className="space-y-6">
-          {/* Summary intro */}
-          <div className="bg-primary/5 border border-primary/15 rounded-2xl p-4">
-            <p className="text-[13px] text-foreground leading-relaxed">{topic.summary}</p>
+      {showSummary ? (
+        <section className="mb-6 rounded-2xl border border-border bg-card p-4">
+          <h2 className="mb-3 text-[13px] font-bold uppercase tracking-wider text-muted-foreground">요약 정리</h2>
+          <div className="space-y-2">
+            {summaryBullets.map((bullet) => (
+              <div key={bullet} className="flex items-start gap-3 rounded-xl border border-border bg-muted/30 px-4 py-3">
+                <span className="mt-0.5 text-[13px] font-bold text-primary">•</span>
+                <p className="text-[13px] leading-relaxed text-foreground">{bullet}</p>
+              </div>
+            ))}
           </div>
+        </section>
+      ) : null}
 
-          {/* Goals */}
-          <section>
-            <h2 className="text-[13px] font-bold text-muted-foreground uppercase tracking-wider mb-3">🎯 학습 목표</h2>
-            <div className="space-y-2">
-              {topic.goals.map((goal, i) => (
-                <div key={i} className="flex items-start gap-3 bg-card rounded-xl border border-border px-4 py-3">
-                  <span className="text-primary font-bold text-[13px] flex-shrink-0">{i + 1}</span>
-                  <p className="text-[13px] text-foreground leading-relaxed">{goal}</p>
+      {topic.cardNews?.length ? (
+        <section className="mb-6 rounded-[28px] border border-orange-200 bg-orange-50 p-4 shadow-[0_18px_40px_-28px_rgba(234,88,12,0.22)] sm:p-5">
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <div>
+              <p className="text-[11px] font-black uppercase tracking-[0.18em] text-orange-700">Card News</p>
+              <h2 className="mt-1 text-[18px] font-extrabold text-slate-900">슬라이드로 보는 이슈 핵심</h2>
+            </div>
+            <div className="rounded-full bg-white/95 px-3 py-1 text-[11px] font-bold text-orange-700 shadow-sm">
+              총 {topic.cardNews.length}장
+            </div>
+          </div>
+          <div className="rounded-[26px] bg-orange-50 px-2 py-2.5">
+            <div className="flex snap-x snap-mandatory gap-4 overflow-x-auto pb-2">
+            {topic.cardNews.map((slide, index) => (
+              <article
+                key={slide.src}
+                className="min-w-[88%] snap-center overflow-hidden rounded-[24px] border border-orange-200 bg-white shadow-[0_16px_36px_-24px_rgba(234,88,12,0.45)] sm:min-w-[420px]"
+              >
+                <img
+                  src={slide.src}
+                  alt={slide.alt}
+                  className="w-full object-cover"
+                  loading={index === 0 ? 'eager' : 'lazy'}
+                />
+              </article>
+            ))}
+            </div>
+          </div>
+        </section>
+      ) : null}
+
+      {topic.goals?.length ? (
+        <section className="mb-6">
+          <h2 className="mb-3 text-[13px] font-bold uppercase tracking-wider text-muted-foreground">학습 목표</h2>
+          <div className="space-y-2">
+            {topic.goals.map((goal, index) => (
+              <div key={goal} className="flex items-start gap-3 rounded-xl border border-border bg-card px-4 py-3">
+                <span className="mt-0.5 text-[11px] font-black text-primary">{index + 1}</span>
+                <p className="text-[13px] leading-relaxed text-foreground">{goal}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
+      {topic.learningPoints?.length ? (
+        <section className="mb-6">
+          <h2 className="mb-3 text-[13px] font-bold uppercase tracking-wider text-muted-foreground">학습 내용</h2>
+          <div className="space-y-3">
+            {topic.learningPoints.map((point) => (
+              <article key={point.title} className="overflow-hidden rounded-2xl border border-border bg-card">
+                <div className="flex items-center gap-2.5 border-b border-border bg-muted/30 px-4 py-3">
+                  <span className="text-lg">{point.emoji || '📘'}</span>
+                  <h3 className="text-[14px] font-bold text-foreground">{point.title}</h3>
                 </div>
-              ))}
-            </div>
-          </section>
-
-          {/* Key concepts */}
-          <section>
-            <h2 className="text-[13px] font-bold text-muted-foreground uppercase tracking-wider mb-3">📚 핵심 개념</h2>
-            <div className="space-y-2">
-              {topic.concepts.map((concept, i) => (
-                <ConceptTag key={i} concept={concept} />
-              ))}
-            </div>
-          </section>
-
-          {/* Learning points */}
-          <section>
-            <h2 className="text-[13px] font-bold text-muted-foreground uppercase tracking-wider mb-3">📖 학습 내용</h2>
-            <div className="space-y-3">
-              {topic.learningPoints.map((point, i) => (
-                <div key={i} className="bg-card rounded-2xl border border-border overflow-hidden">
-                  <div className="flex items-center gap-2.5 px-4 py-3 border-b border-border bg-muted/30">
-                    <span className="text-lg">{point.emoji}</span>
-                    <h4 className="font-bold text-[14px] text-foreground">{point.title}</h4>
-                  </div>
-                  <div className="px-4 py-3">
-                    <p className="text-[13px] text-foreground/80 leading-relaxed whitespace-pre-line">{point.content}</p>
-                  </div>
+                <div className="px-4 py-3">
+                  <p className="whitespace-pre-line text-[13px] leading-relaxed text-foreground/80">
+                    {point.content}
+                  </p>
                 </div>
-              ))}
-            </div>
-          </section>
+              </article>
+            ))}
+          </div>
+        </section>
+      ) : null}
 
-          {linkedUnit ? (
-            <section className="rounded-2xl border border-primary/15 bg-primary/5 p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <PlayCircle className="w-4 h-4 text-primary" />
-                <h2 className="text-[13px] font-bold text-primary uppercase tracking-wider">읽고 바로 퀴즈 풀기</h2>
-              </div>
-              <p className="text-[13px] text-foreground leading-relaxed mb-4">
-                이 주제는 퀴즈 유닛과 연결되어 있어요. 각 퀴즈에 들어가면 이 학습 내용을 잘게 나눈 뒤 바로 문제를 풀게 됩니다.
-              </p>
-              <div className="grid gap-2">
-                {linkedUnit.quizzes.map((quiz) => (
-                  <button
-                    key={quiz.id}
-                    onClick={() => navigate(`/quiz/${quiz.id}`)}
-                    className="flex items-center justify-between gap-3 rounded-xl border border-border bg-background px-4 py-3 text-left"
-                  >
-                    <div className="min-w-0">
-                      <p className="text-[13px] font-bold text-foreground">{quiz.title}</p>
-                      <p className="text-[12px] text-muted-foreground mt-0.5">{quiz.subtitle}</p>
-                    </div>
-                    <PlayCircle className="w-4 h-4 text-primary flex-shrink-0" />
-                  </button>
-                ))}
-              </div>
-            </section>
-          ) : null}
-        </div>
-      ) : !isPremium ? (
-        <div className="flex min-h-[60dvh] items-center justify-center overflow-hidden rounded-2xl border border-border bg-muted/50 sm:min-h-[80vh]">
-          <div className="flex flex-col items-center justify-center p-8 text-center">
-            <Lock className="w-16 h-16 text-muted-foreground/30 mb-4" />
-            <h3 className="text-lg font-bold text-foreground mb-2">프리미엄 기능입니다</h3>
-            <p className="text-muted-foreground text-[14px] mb-6">원문 PDF는 프리미엄 구독자만 볼 수 있어요</p>
-            <Link to="/premium" className="px-6 py-2.5 rounded-xl bg-primary text-primary-foreground font-bold text-[13px]">
-              프리미엄 시작하기
-            </Link>
+      {topic.concepts?.length ? (
+        <section className="mb-6">
+          <h2 className="mb-3 text-[13px] font-bold uppercase tracking-wider text-muted-foreground">핵심 개념</h2>
+          <div className="space-y-2">
+            {topic.concepts.map((concept, index) => (
+              <ConceptTag key={`${concept.term}-${index}`} concept={concept} />
+            ))}
           </div>
-        </div>
-      ) : !hasPdfTab ? (
-        <div className="flex min-h-[60dvh] items-center justify-center overflow-hidden rounded-2xl border border-border bg-muted/50 sm:min-h-[80vh]">
-          <div className="flex flex-col items-center justify-center p-8 text-center">
-            <FileText className="w-16 h-16 text-muted-foreground/30 mb-4" />
-            <h3 className="text-lg font-bold text-foreground mb-2">원문 PDF가 아직 없어요</h3>
-            <p className="text-muted-foreground text-[14px]">이 콘텐츠는 앱 안 요약으로 먼저 읽도록 구성했습니다.</p>
+        </section>
+      ) : null}
+
+      {linkedUnit ? (
+        <section className="rounded-2xl border border-primary/15 bg-primary/5 p-4">
+          <div className="mb-2 flex items-center gap-2">
+            <PlayCircle className="h-4 w-4 text-primary" />
+            <h2 className="text-[13px] font-bold uppercase tracking-wider text-primary">읽고 바로 퀴즈 풀기</h2>
           </div>
-        </div>
-      ) : (
-        <div className="overflow-hidden rounded-2xl border border-border bg-card">
-            <div className="h-full">
-              <div className="flex flex-col gap-2 border-b border-border bg-muted/30 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-                <p className="text-[12px] font-semibold text-foreground">프리미엄 원문 PDF</p>
-                <a
-                  href={topic.pdfUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center gap-1 rounded-lg border border-border bg-background px-3 py-1.5 text-[12px] font-semibold text-foreground"
-                >
-                  새 탭에서 열기
-                  <ExternalLink className="h-3.5 w-3.5" />
-                </a>
-              </div>
-              <iframe
-                src={topic.pdfUrl}
-                className="h-[60dvh] w-full sm:h-[calc(80vh-49px)]"
-                title={topic.title + ' PDF'}
-              />
-            </div>
-        </div>
-      )}
+          <p className="mb-4 text-[13px] leading-relaxed text-foreground">
+            이 주제는 퀴즈 유닛과 연결되어 있어요. 각 퀴즈에 들어가면 이 학습 내용을 잘게 나눈 뒤 바로 문제를 풀게 됩니다.
+          </p>
+          <div className="grid gap-2">
+            {linkedUnit.quizzes.map((quiz) => (
+              <button
+                key={quiz.id}
+                onClick={() => navigate(`/quiz/${quiz.id}`)}
+                className="flex items-center justify-between gap-3 rounded-xl border border-border bg-background px-4 py-3 text-left"
+              >
+                <div className="min-w-0">
+                  <p className="text-[13px] font-bold text-foreground">{quiz.title}</p>
+                  <p className="mt-0.5 text-[12px] text-muted-foreground">{quiz.subtitle}</p>
+                </div>
+                <PlayCircle className="h-4 w-4 shrink-0 text-primary" />
+              </button>
+            ))}
+          </div>
+        </section>
+      ) : null}
     </div>
   );
 }

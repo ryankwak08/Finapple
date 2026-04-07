@@ -21,6 +21,7 @@ export default function QuizPlay() {
     loseHeart,
     recordWrongAnswer,
     completeQuiz,
+    recordQuizActivity,
     isQuizCompleted,
     getReviewNotesForQuiz,
   } = useProgress();
@@ -142,6 +143,7 @@ export default function QuizPlay() {
     }
 
     const finalScore = score;
+    await recordQuizActivity();
     const passed = finalScore >= 3;
     const isNew = !isQuizCompleted(quizId);
     const xp = (passed && isNew) ? quizData.xpReward : 0;

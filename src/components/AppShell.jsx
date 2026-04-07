@@ -13,24 +13,18 @@ export default function AppShell() {
   const location = useLocation();
   const activeTab = getActiveTab(location.pathname);
 
-  // Save scroll position as user scrolls
   useEffect(() => {
-    const handleScroll = () => {
-      sessionStorage.setItem(`scroll:${location.pathname}`, String(window.scrollY));
-    };
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
+    window.scrollTo({ top: 0, behavior: 'instant' });
   }, [location.pathname]);
 
-  // Restore scroll position on route change
   useEffect(() => {
-    const saved = sessionStorage.getItem(`scroll:${location.pathname}`);
-    if (saved) {
-      setTimeout(() => window.scrollTo({ top: parseInt(saved), behavior: 'instant' }), 50);
-    } else {
-      window.scrollTo({ top: 0, behavior: 'instant' });
-    }
-  }, [location.pathname]);
+    const handleBottomNavReset = () => {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
+    window.addEventListener('bottomNavReset', handleBottomNavReset);
+    return () => window.removeEventListener('bottomNavReset', handleBottomNavReset);
+  }, []);
 
   useEffect(() => {
     getCurrentUser().then(u => setUser(u)).catch(() => {});

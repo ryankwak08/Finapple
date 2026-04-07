@@ -91,23 +91,6 @@ export default function Quiz() {
         </div>
       </div>
 
-      {/* Hearts status */}
-      <div className="mb-6 flex items-center justify-between gap-3 rounded-2xl border border-border bg-card p-4 animate-slide-up lg:hidden">
-        <div className="min-w-0">
-          <p className="text-[13px] font-semibold text-foreground">오늘의 하트</p>
-          <p className="text-[11px] text-muted-foreground mt-0.5">
-            {isPremium
-              ? '프리미엄 혜택으로 하트가 무제한이에요'
-              : progress.hearts > 0
-              ? '틀리면 하트가 줄어요'
-              : '내일 다시 충전돼요 😴'}
-          </p>
-        </div>
-        <div className="shrink-0">
-          <HeartDisplay hearts={progress?.hearts || 0} unlimited={isPremium} />
-        </div>
-      </div>
-
       {/* No hearts warning */}
       {!isPremium && progress.hearts <= 0 && (
         <div className="bg-destructive/10 rounded-2xl p-4 mb-6 border border-destructive/20 animate-scale-in">

@@ -2,7 +2,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { BookOpen, Trophy, BookMarked, ShoppingBag, Medal } from 'lucide-react';
 
 export const appTabs = [
-  { root: '/', label: '학습', icon: BookOpen },
+  { root: '/', label: '금융 상식', icon: BookOpen },
   { root: '/quiz', label: '퀴즈', icon: Trophy },
   { root: '/leaderboard', label: '리그', icon: Medal },
   { root: '/glossary', label: '용어사전', icon: BookMarked },

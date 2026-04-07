@@ -15,7 +15,7 @@ export default function Premium() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState('toss'); // 'toss' | 'kakao' | 'bank'
+  const [paymentMethod, setPaymentMethod] = useState('toss'); // 'toss' | 'bank'
 
   const handleGoBack = () => {
     if (window.history.length > 1) {
@@ -56,10 +56,6 @@ export default function Premium() {
         throw new Error(response.error || '결제 세션 생성 실패');
       }
 
-      if (paymentMethod === 'kakao') {
-        alert('카카오페이는 아직 승인 단계가 연결되지 않아, 지금은 토스 결제만 테스트할 수 있어요.');
-        return;
-      }
     } catch (error) {
       console.error("Checkout error:", error);
       alert(error.message || "결제 중 오류가 발생했습니다. 다시 시도해주세요.");
@@ -104,7 +100,7 @@ export default function Premium() {
           </ul>
 
           <div className="space-y-3 mb-6">
-            <label className="block text-sm font-semibold text-foreground mb-2">결제 방식 선택</label>
+            <label className="block text-sm font-semibold text-foreground mb-2">결제 수단 선택</label>
             <div className="space-y-2">
               <button
                 onClick={() => setPaymentMethod('toss')}
@@ -114,17 +110,7 @@ export default function Premium() {
                     : 'bg-card border-2 border-border text-foreground hover:border-primary/50'
                 }`}
               >
-                💳 토스 페이
-              </button>
-              <button
-                onClick={() => setPaymentMethod('kakao')}
-                className={`w-full py-3 px-4 rounded-xl font-semibold text-sm transition-all ${
-                  paymentMethod === 'kakao'
-                    ? 'bg-primary text-primary-foreground border-2 border-primary'
-                    : 'bg-card border-2 border-border text-foreground hover:border-primary/50'
-                }`}
-              >
-                👜 카카오 페이 (준비 중)
+                💳 토스페이먼츠 결제
               </button>
               <button
                 onClick={() => setPaymentMethod('bank')}
@@ -148,9 +134,7 @@ export default function Premium() {
               ? "계좌이체 안내 보기" 
               : loading 
               ? "처리 중..." 
-              : paymentMethod === 'kakao'
-              ? "카카오페이 준비 중"
-              : "지금 구독하기"}
+              : "토스페이먼츠로 결제하기"}
           </button>
 
           {paymentMethod === 'bank' && (
@@ -173,7 +157,7 @@ export default function Premium() {
           )}
 
           <p className="text-center text-xs text-muted-foreground mt-3">
-            언제든 취소 가능 · 카드 결제 안전 보장
+            언제든 취소 가능 · 토스페이먼츠 보안 결제
           </p>
         </div>
       </div>

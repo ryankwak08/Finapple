@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { getCurrentUser } from '@/services/authService';
 import { getAdsDisabled, getIsPremium } from '@/lib/premium';
-import { quizUnits } from '@/lib/quizData';
+import { TOTAL_QUIZ_COUNT } from '@/lib/quizCatalog';
 import { getCurrentSeasonMeta } from '@/lib/season';
 import { getLeagueRewardForRank } from '@/lib/leaderboard';
 
@@ -72,6 +72,7 @@ const getDefaultProgress = (userEmail = 'guest') => ({
   league_reward_claimed_season_key: '',
   league_reward_claimed_rank: null,
   league_reward_claimed_xp: 0,
+  league_reward_seen_season_key: '',
   premium_freezer_grant_version: 0,
 });
 
@@ -85,6 +86,12 @@ const getDaysBetween = (from, to) => {
   const start = new Date(`${from}T00:00:00`);
   const end = new Date(`${to}T00:00:00`);
   return Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+};
+
+const shiftDate = (dateString, days) => {
+  const date = new Date(`${dateString}T00:00:00`);
+  date.setDate(date.getDate() + days);
+  return date.toISOString().split('T')[0];
 };
 
 const syncDailyProgress = (progress, premiumUser, adsDisabled) => {
@@ -137,12 +144,7 @@ const syncDailyProgress = (progress, premiumUser, adsDisabled) => {
   } else {
     const daysBetween = getDaysBetween(progress.last_active_date, today);
 
-    if (daysBetween === 1) {
-      next.streak_count = (progress.streak_count || 0) + 1;
-      next.best_streak = Math.max(progress.best_streak || 0, next.streak_count);
-      next.last_active_date = today;
-      changed = true;
-    } else if (daysBetween > 1) {
+    if (daysBetween > 1) {
       if (daysBetween === 2 && next.streak_freezer_shield_active) {
         const consumedHistory = finalizeFreezerHistoryEntry(
           next.streak_freezer_history,
@@ -153,10 +155,9 @@ const syncDailyProgress = (progress, premiumUser, adsDisabled) => {
           },
         );
         Object.assign(next, clearFreezerShieldState(next, consumedHistory));
-        next.last_active_date = today;
+        next.last_active_date = shiftDate(today, -1);
       } else {
         next.streak_count = 1;
-        next.last_active_date = today;
         if (next.streak_freezer_shield_active) {
           const expiredHistory = finalizeFreezerHistoryEntry(
             next.streak_freezer_history,
@@ -436,6 +437,68 @@ export default function useProgress() {
     persistProgress(updated);
   }, [persistProgress, progress]);
 
+  const recordQuizActivity = useCallback(async () => {
+    if (!progress) {
+      return;
+    }
+
+    const today = TODAY();
+    const lastActiveDate = progress.last_active_date;
+
+    if (!lastActiveDate) {
+      persistProgress({
+        ...progress,
+        last_active_date: today,
+        streak_count: 1,
+        best_streak: Math.max(progress.best_streak || 1, 1),
+      });
+      return;
+    }
+
+    const daysBetween = getDaysBetween(lastActiveDate, today);
+
+    if (daysBetween <= 0) {
+      return;
+    }
+
+    if (daysBetween === 1) {
+      const nextStreakCount = (progress.streak_count || 0) + 1;
+      persistProgress({
+        ...progress,
+        last_active_date: today,
+        streak_count: nextStreakCount,
+        best_streak: Math.max(progress.best_streak || 0, nextStreakCount),
+      });
+      return;
+    }
+
+    if (daysBetween === 2 && progress.streak_freezer_shield_active) {
+      const consumedHistory = finalizeFreezerHistoryEntry(
+        progress.streak_freezer_history || [],
+        progress.streak_freezer_activated_at,
+        {
+          status: 'used',
+          consumedAt: new Date().toISOString(),
+        },
+      );
+      const nextStreakCount = (progress.streak_count || 0) + 1;
+      persistProgress({
+        ...clearFreezerShieldState(progress, consumedHistory),
+        last_active_date: today,
+        streak_count: nextStreakCount,
+        best_streak: Math.max(progress.best_streak || 0, nextStreakCount),
+      });
+      return;
+    }
+
+    persistProgress({
+      ...progress,
+      last_active_date: today,
+      streak_count: 1,
+      best_streak: Math.max(progress.best_streak || 1, 1),
+    });
+  }, [persistProgress, progress]);
+
   const purchaseShopItem = useCallback(async (item) => {
     if (!progress) {
       throw new Error('진행 정보를 불러오는 중입니다.');
@@ -584,7 +647,7 @@ export default function useProgress() {
   }, [progress]);
 
   const getProgressSummary = useCallback(() => {
-    const totalQuizzes = quizUnits.reduce((count, unit) => count + unit.quizzes.length + 1, 0);
+    const totalQuizzes = TOTAL_QUIZ_COUNT;
     const completedCount = (progress?.completed_quizzes || []).length;
     const reviewCount = (progress?.review_notes || []).filter((entry) => entry.status !== 'resolved').length;
     const resolvedReviewCount = (progress?.review_notes || []).filter((entry) => entry.status === 'resolved').length;
@@ -619,12 +682,24 @@ export default function useProgress() {
       leagueRewardClaimedSeasonKey: progress?.league_reward_claimed_season_key || '',
       leagueRewardClaimedRank: progress?.league_reward_claimed_rank || null,
       leagueRewardClaimedXp: progress?.league_reward_claimed_xp || 0,
+      leagueRewardSeenSeasonKey: progress?.league_reward_seen_season_key || '',
     };
   }, [progress]);
 
   const getInventoryCount = useCallback((itemId) => {
     return (progress?.inventory || {})[itemId] || 0;
   }, [progress]);
+
+  const markLeagueRewardSeen = useCallback((seasonKey) => {
+    if (!progress || !seasonKey || progress.league_reward_seen_season_key === seasonKey) {
+      return;
+    }
+
+    persistProgress({
+      ...progress,
+      league_reward_seen_season_key: seasonKey,
+    });
+  }, [persistProgress, progress]);
 
   return {
     progress,
@@ -635,6 +710,7 @@ export default function useProgress() {
     recordWrongAnswer,
     resolveWrongAnswer,
     completeQuiz,
+    recordQuizActivity,
     purchaseShopItem,
     activateStreakFreezer,
     claimLeagueReward,
@@ -648,6 +724,7 @@ export default function useProgress() {
     getProgressSummary,
     getStreakStatus,
     getInventoryCount,
+    markLeagueRewardSeen,
     reload: loadProgress
   };
 }

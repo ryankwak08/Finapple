@@ -96,7 +96,7 @@ export default function GlossaryQuizPlay() {
   const { unitId } = useParams();
   const course = new URLSearchParams(window.location.search).get('course') || 'youth';
   const backUrl = `/quiz?course=${course}`;
-  const { progress, isPremium, loseHeart, completeQuiz, isQuizCompleted } = useProgress();
+  const { progress, isPremium, loseHeart, completeQuiz, recordQuizActivity, isQuizCompleted } = useProgress();
 
   const quizId = `${unitId}-glossary`;
   const [terms] = useState(() => pickTerms(unitId));
@@ -191,6 +191,7 @@ export default function GlossaryQuizPlay() {
       setIsCorrect(false);
     } else {
       const finalScore = score;
+      await recordQuizActivity();
       const passed = finalScore >= PASS_THRESHOLD;
       const isNew = !isQuizCompleted(quizId);
       const xp = (passed && isNew) ? 100 : 0;

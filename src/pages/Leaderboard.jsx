@@ -1,9 +1,16 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Medal, Crown, Flame, Snowflake, Star } from 'lucide-react';
+import { Medal, Crown, Flame, Snowflake, Star, Loader2, ChartColumn, NotebookPen } from 'lucide-react';
 import useProgress from '@/lib/useProgress';
-import { fetchLeaderboard, syncLeaderboardEntry } from '@/api/leaderboardClient';
+import { fetchLeaderboard, fetchLeaderboardProfile, syncLeaderboardEntry } from '@/api/leaderboardClient';
 import { buildLeaderboardPayload, getLeagueRewardForRank } from '@/lib/leaderboard';
-import { getSeasonProgressMeta } from '@/lib/season';
+import { getPreviousSeasonMeta, getSeasonProgressMeta } from '@/lib/season';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 
 const TOP_RANK_STYLES = {
   1: {
@@ -35,15 +42,124 @@ const TOP_RANK_STYLES = {
   },
 };
 
+function LeaderboardProfileDialog({ open, onOpenChange, profileData, loading, fallbackEntry }) {
+  const profile = profileData?.profile || fallbackEntry || null;
+  const seasons = profileData?.seasons || (fallbackEntry ? [fallbackEntry] : []);
+  const displayName = profile?.display_name || '학습자';
+  const avatarUrl = profile?.avatar_url || '';
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[88vh] max-w-2xl overflow-y-auto rounded-3xl border-border p-0">
+        <div className="border-b border-border bg-gradient-to-br from-primary/10 via-background to-background px-6 py-6">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-extrabold text-foreground">리그 프로필</DialogTitle>
+            <DialogDescription>시즌별 시즌 포인트와 학습 기록을 확인할 수 있어요.</DialogDescription>
+          </DialogHeader>
+
+          {loading ? (
+            <div className="flex items-center gap-3 py-8 text-muted-foreground">
+              <Loader2 className="h-5 w-5 animate-spin" />
+              프로필을 불러오는 중...
+            </div>
+          ) : profile ? (
+            <div className="mt-5 flex items-start gap-4">
+              <div className="h-20 w-20 overflow-hidden rounded-3xl bg-primary/10">
+                {avatarUrl ? (
+                  <img src={avatarUrl} alt={displayName} className="h-full w-full object-cover" />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center text-3xl font-black text-primary">
+                    {(displayName || '?')[0] || '?'}
+                  </div>
+                )}
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-[12px] font-semibold text-primary">닉네임</p>
+                <h3 className="mt-1 truncate text-2xl font-extrabold text-foreground">{displayName}</h3>
+                <div className="mt-4 grid gap-3 sm:grid-cols-4">
+                  <div className="rounded-2xl border border-border bg-card px-4 py-3">
+                    <p className="text-[11px] font-semibold text-muted-foreground">현재 시즌 포인트</p>
+                    <p className="mt-1 text-[20px] font-black text-foreground">{(profile.score || 0).toLocaleString()}P</p>
+                  </div>
+                  <div className="rounded-2xl border border-border bg-card px-4 py-3">
+                    <p className="text-[11px] font-semibold text-muted-foreground">현재 XP</p>
+                    <p className="mt-1 text-[20px] font-black text-foreground">{(profile.xp || 0).toLocaleString()}</p>
+                  </div>
+                  <div className="rounded-2xl border border-border bg-card px-4 py-3">
+                    <p className="text-[11px] font-semibold text-muted-foreground">현재 스트릭</p>
+                    <p className="mt-1 text-[20px] font-black text-foreground">{profile.streak_count || 0}일</p>
+                  </div>
+                  <div className="rounded-2xl border border-border bg-card px-4 py-3">
+                    <p className="text-[11px] font-semibold text-muted-foreground">현재 오답</p>
+                    <p className="mt-1 text-[20px] font-black text-foreground">{profile.active_review_count || 0}개</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <p className="mt-4 text-sm text-muted-foreground">표시할 프로필 정보가 없어요.</p>
+          )}
+        </div>
+
+        <div className="px-6 py-5">
+          <div className="mb-4 flex items-center gap-2">
+            <ChartColumn className="h-4 w-4 text-primary" />
+            <h4 className="text-[14px] font-bold text-foreground">시즌별 성적</h4>
+          </div>
+
+          <div className="space-y-3">
+            {seasons.map((season) => (
+              <section key={`${season.user_id}-${season.season_key}`} className="rounded-3xl border border-border bg-card p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-[12px] font-semibold text-primary">{season.season_label || season.season_key}</p>
+                    <p className="mt-1 text-[22px] font-black text-foreground">{(season.score || 0).toLocaleString()}P</p>
+                  </div>
+                  <div className="rounded-full bg-primary/10 px-3 py-1 text-[11px] font-bold text-primary">
+                    시즌 포인트
+                  </div>
+                </div>
+                <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                  <div className="rounded-2xl bg-muted/40 px-4 py-3">
+                    <p className="text-[11px] font-semibold text-muted-foreground">XP</p>
+                    <p className="mt-1 text-[18px] font-black text-foreground">{(season.xp || 0).toLocaleString()}</p>
+                  </div>
+                  <div className="rounded-2xl bg-muted/40 px-4 py-3">
+                    <p className="text-[11px] font-semibold text-muted-foreground">스트릭</p>
+                    <p className="mt-1 text-[18px] font-black text-foreground">{season.streak_count || 0}일</p>
+                  </div>
+                  <div className="rounded-2xl bg-muted/40 px-4 py-3">
+                    <p className="text-[11px] font-semibold text-muted-foreground">오답</p>
+                    <p className="mt-1 text-[18px] font-black text-foreground">{season.active_review_count || 0}개</p>
+                  </div>
+                </div>
+                <div className="mt-3 flex items-center gap-2 text-[12px] text-muted-foreground">
+                  <NotebookPen className="h-4 w-4" />
+                  완료 퀴즈 {season.completed_count || 0}개 · 해결한 오답 {(season.resolved_review_count || 0)}개
+                </div>
+              </section>
+            ))}
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export default function Leaderboard() {
-  const { progress, loading, user, getStreakStatus, claimLeagueReward } = useProgress();
+  const { progress, loading, user, getStreakStatus, claimLeagueReward, markLeagueRewardSeen } = useProgress();
   const streakStatus = useMemo(() => getStreakStatus(), [getStreakStatus]);
   const [entries, setEntries] = useState([]);
   const [remoteLoading, setRemoteLoading] = useState(true);
   const [error, setError] = useState(null);
   const [rewardMessage, setRewardMessage] = useState('');
+  const [selectedEntry, setSelectedEntry] = useState(null);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [profileLoading, setProfileLoading] = useState(false);
+  const [profileData, setProfileData] = useState(null);
 
   const myEntry = useMemo(() => buildLeaderboardPayload({ user, progress, streakStatus }), [user, progress, streakStatus]);
+  const currentSeasonKey = myEntry.seasonKey || streakStatus.leaderboardSeasonKey;
 
   useEffect(() => {
     if (loading || !progress) {
@@ -131,24 +247,93 @@ export default function Leaderboard() {
   const rewardPreview = getLeagueRewardForRank(myRank);
 
   useEffect(() => {
-    if (!myRank || !myEntry.seasonKey || !progress) {
+    if (!progress || !user?.id || !currentSeasonKey) {
       return;
     }
 
-    if (streakStatus.leagueRewardClaimedSeasonKey === myEntry.seasonKey) {
+    const previousSeason = getPreviousSeasonMeta();
+    const claimedSeasonKey = streakStatus.leagueRewardClaimedSeasonKey;
+    const seenSeasonKey = streakStatus.leagueRewardSeenSeasonKey;
+    const isPreviousSeasonReward = claimedSeasonKey === previousSeason.seasonKey;
+
+    if (
+      isPreviousSeasonReward &&
+      seenSeasonKey !== claimedSeasonKey &&
+      streakStatus.leagueRewardClaimedXp > 0
+    ) {
+      setRewardMessage(`${streakStatus.leagueRewardClaimedRank}위 리그 보상으로 ${streakStatus.leagueRewardClaimedXp} XP를 받았어요.`);
+      markLeagueRewardSeen(claimedSeasonKey);
       return;
     }
 
-    claimLeagueReward(myRank, myEntry.seasonKey)
-      .then((rewardXp) => {
-        if (rewardXp > 0) {
-          setRewardMessage(`${myRank}위 리그 보상으로 ${rewardXp} XP를 받았어요.`);
+    if (claimedSeasonKey === previousSeason.seasonKey) {
+      return;
+    }
+
+    let cancelled = false;
+
+    fetchLeaderboard(100, previousSeason.seasonKey)
+      .then((previousEntries) => {
+        if (cancelled || !previousEntries?.length) {
+          return;
         }
+
+        const previousRank = previousEntries.findIndex((entry) => entry.user_id === user.id);
+        if (previousRank === -1) {
+          return;
+        }
+
+        const rank = previousRank + 1;
+        const rewardXp = getLeagueRewardForRank(rank);
+        if (rewardXp <= 0) {
+          return;
+        }
+
+        claimLeagueReward(rank, previousSeason.seasonKey)
+          .then((claimedXp) => {
+            if (cancelled || claimedXp <= 0) {
+              return;
+            }
+            setRewardMessage(`${rank}위 리그 보상으로 ${claimedXp} XP를 받았어요.`);
+            markLeagueRewardSeen(previousSeason.seasonKey);
+          })
+          .catch((claimError) => {
+            console.error('League reward claim failed:', claimError);
+          });
       })
-      .catch((claimError) => {
-        console.error('League reward claim failed:', claimError);
-      });
-  }, [claimLeagueReward, myEntry.seasonKey, myRank, progress, streakStatus.leagueRewardClaimedSeasonKey]);
+      .catch(() => null);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    claimLeagueReward,
+    currentSeasonKey,
+    markLeagueRewardSeen,
+    progress,
+    streakStatus.leagueRewardClaimedRank,
+    streakStatus.leagueRewardClaimedSeasonKey,
+    streakStatus.leagueRewardClaimedXp,
+    streakStatus.leagueRewardSeenSeasonKey,
+    user?.id,
+  ]);
+
+  const openProfile = async (entry) => {
+    setSelectedEntry(entry);
+    setProfileOpen(true);
+    setProfileLoading(true);
+    setProfileData(null);
+
+    try {
+      const nextProfile = await fetchLeaderboardProfile(entry.user_id);
+      setProfileData(nextProfile);
+    } catch (profileError) {
+      console.error('Leaderboard profile fetch failed:', profileError);
+      setProfileData({ profile: entry, seasons: [entry] });
+    } finally {
+      setProfileLoading(false);
+    }
+  };
 
   if (loading || !progress) {
     return (
@@ -159,155 +344,168 @@ export default function Leaderboard() {
   }
 
   return (
-    <div className="px-5 pt-14 pb-8 min-h-screen">
-      <div className="mb-6">
-        <div className="flex items-center gap-2 mb-1">
-          <Medal className="w-6 h-6 text-primary" />
-          <h1 className="text-2xl font-extrabold text-foreground tracking-tight">파이내플 리그</h1>
-        </div>
-        <div className="rounded-2xl border border-primary/15 bg-primary/5 px-4 py-4 mt-3">
-          <div className="flex items-center justify-between gap-3 flex-wrap mb-3">
-            <div>
-              <p className="text-[12px] font-semibold text-primary">이번 시즌</p>
-              <p className="text-[14px] font-bold text-foreground mt-0.5">{seasonLabel}</p>
+    <>
+      <div className="px-5 pt-14 pb-8 min-h-screen">
+        <div className="mb-6">
+          <div className="flex items-center gap-2 mb-1">
+            <Medal className="w-6 h-6 text-primary" />
+            <h1 className="text-2xl font-extrabold text-foreground tracking-tight">파이내플 리그</h1>
+          </div>
+          <div className="rounded-2xl border border-primary/15 bg-primary/5 px-4 py-4 mt-3">
+            <div className="flex items-center justify-between gap-3 flex-wrap mb-3">
+              <div>
+                <p className="text-[12px] font-semibold text-primary">이번 시즌</p>
+                <p className="text-[14px] font-bold text-foreground mt-0.5">{seasonLabel}</p>
+              </div>
+              <div className="text-right">
+                <p className="text-[11px] text-muted-foreground">점수는 이번 주 XP, 스트릭, 이번 주 완료 퀴즈, 이번 주 해결 오답을 합산해 계산돼요.</p>
+              </div>
             </div>
-            <div className="text-right">
-              <p className="text-[11px] text-muted-foreground">점수는 이번 주 XP, 스트릭, 이번 주 완료 퀴즈, 이번 주 해결 오답을 합산해 계산돼요.</p>
+            <div className="grid grid-cols-7 gap-2">
+              {seasonProgress.dayLabels.map((label, index) => (
+                <div key={label} className="text-center">
+                  <div className={`rounded-xl px-2 py-2 border text-[12px] font-bold ${
+                    index <= seasonProgress.currentDayIndex
+                      ? 'border-primary/30 bg-primary text-primary-foreground'
+                      : 'border-border bg-background text-muted-foreground'
+                  }`}>
+                    {label}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="mt-3 h-2 rounded-full bg-primary/10 overflow-hidden">
+              <div
+                className="h-full rounded-full bg-primary transition-all duration-500"
+                style={{ width: `${seasonProgress.progressPercent}%` }}
+              />
             </div>
           </div>
-          <div className="grid grid-cols-7 gap-2">
-            {seasonProgress.dayLabels.map((label, index) => (
-              <div key={label} className="text-center">
-                <div className={`rounded-xl px-2 py-2 border text-[12px] font-bold ${
-                  index <= seasonProgress.currentDayIndex
-                    ? 'border-primary/30 bg-primary text-primary-foreground'
-                    : 'border-border bg-background text-muted-foreground'
-                }`}>
-                  {label}
+        </div>
+
+        <div className="bg-primary/5 border border-primary/10 rounded-3xl p-5 mb-6">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-[12px] font-semibold text-primary">내 랭킹</p>
+              <div className="mt-2 flex items-end gap-3 flex-wrap">
+                <h2 className="text-3xl font-extrabold text-foreground">{myRank ? `#${myRank}` : '-'}</h2>
+                <div className="inline-flex items-center gap-2 rounded-full bg-background px-3 py-2 border border-primary/15 shadow-sm">
+                  <span className="text-[11px] font-semibold text-primary">시즌 포인트</span>
+                  <span className="text-xl leading-none font-black text-foreground">{myEntry.score.toLocaleString()}</span>
                 </div>
               </div>
-            ))}
-          </div>
-          <div className="mt-3 h-2 rounded-full bg-primary/10 overflow-hidden">
-            <div
-              className="h-full rounded-full bg-primary transition-all duration-500"
-              style={{ width: `${seasonProgress.progressPercent}%` }}
-            />
-          </div>
-        </div>
-      </div>
-
-      <div className="bg-primary/5 border border-primary/10 rounded-3xl p-5 mb-6">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <p className="text-[12px] font-semibold text-primary">내 랭킹</p>
-            <div className="mt-2 flex items-end gap-3 flex-wrap">
-              <h2 className="text-3xl font-extrabold text-foreground">{myRank ? `#${myRank}` : '-'}</h2>
-              <div className="inline-flex items-center gap-2 rounded-full bg-background px-3 py-2 border border-primary/15 shadow-sm">
-                <span className="text-[11px] font-semibold text-primary">시즌 포인트</span>
-                <span className="text-xl leading-none font-black text-foreground">{myEntry.score.toLocaleString()}</span>
-              </div>
-            </div>
-            <p className="text-[11px] text-muted-foreground mt-1">누적 학습 기록은 유지되고 리그 포인트만 주간 초기화돼요.</p>
-            <p className="text-[11px] text-primary mt-2">
-              현재 순위 예상 리그 보상: {rewardPreview > 0 ? `${rewardPreview} XP` : '보상 구간 밖'}
-            </p>
-          </div>
-          <div className="flex flex-col items-end gap-2 text-right">
-            <div className="inline-flex items-center gap-2 rounded-full bg-background px-3 py-1.5 border border-border">
-              <Flame className="w-4 h-4 text-orange-500" />
-              <span className="text-[12px] font-bold text-foreground">{streakStatus.streakCount}일</span>
-            </div>
-            <div className="inline-flex items-center gap-2 rounded-full bg-background px-3 py-1.5 border border-border">
-              <Snowflake className="w-4 h-4 text-sky-500" />
-              <span className="text-[12px] font-bold text-foreground">{streakStatus.streakFreezers}개</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {rewardMessage ? (
-        <div className="mb-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-[13px] font-semibold text-emerald-700">
-          {rewardMessage}
-        </div>
-      ) : null}
-
-      {error ? (
-        <div className="rounded-2xl border border-destructive/20 bg-destructive/10 px-4 py-3 text-[13px] text-destructive">
-          {error}
-          <p className="mt-1 text-[12px]">
-            `supabase/leaderboard_entries.sql`을 DB에 적용한 뒤 다시 확인해주세요.
-          </p>
-        </div>
-      ) : remoteLoading && normalizedEntries.length === 0 ? (
-        <div className="rounded-2xl border border-border bg-card px-4 py-6 text-center text-[13px] text-muted-foreground">
-          리더보드를 불러오는 중...
-        </div>
-      ) : (
-      <div className="space-y-3">
-        {normalizedEntries.map((entry) => {
-          const topRankStyle = TOP_RANK_STYLES[entry.rank];
-
-          return (
-          <div
-            key={entry.user_id}
-            className={`rounded-2xl border p-4 flex items-center gap-4 transition-all ${
-              topRankStyle
-                ? topRankStyle.cardClassName
-                : entry.isMe
-                ? 'bg-primary/5 border-primary/20'
-                : 'bg-card border-border'
-            }`}
-          >
-            <div className={`w-11 h-11 rounded-2xl flex items-center justify-center font-extrabold shadow-sm ${
-              TOP_RANK_STYLES[entry.rank]
-                ? TOP_RANK_STYLES[entry.rank].className
-                : 'bg-muted text-foreground'
-            }`}>
-              {TOP_RANK_STYLES[entry.rank] ? (
-                <Medal className={`w-5 h-5 ${TOP_RANK_STYLES[entry.rank].iconClassName}`} />
-              ) : `#${entry.rank}`}
-            </div>
-            <div className={`w-12 h-12 rounded-2xl bg-secondary flex items-center justify-center text-2xl flex-shrink-0 overflow-hidden ${
-              topRankStyle ? topRankStyle.avatarRingClassName : ''
-            }`}>
-              {entry.avatar_url ? (
-                <img src={entry.avatar_url} alt={entry.display_name} className="w-full h-full object-cover" />
-              ) : (
-                <span>{(entry.display_name || '?')[0] || '?'}</span>
-              )}
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 flex-wrap">
-                <p className={`font-bold text-[15px] truncate ${topRankStyle ? topRankStyle.accentClassName : 'text-foreground'}`}>{entry.display_name}</p>
-                {entry.isMe && (
-                  <span className="text-[10px] font-bold bg-primary text-primary-foreground px-2 py-0.5 rounded-full">
-                    나
-                  </span>
-                )}
-                <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-bold ${
-                  topRankStyle
-                    ? topRankStyle.scorePillClassName
-                    : entry.isMe
-                    ? 'bg-primary text-primary-foreground'
-                    : 'bg-slate-900 text-white'
-                }`}>
-                  <span>{TOP_RANK_STYLES[entry.rank]?.label || `#${entry.rank}`}</span>
-                  <span className={`${entry.isMe ? 'text-primary-foreground/80' : 'text-white/75'}`}>·</span>
-                  <span>{entry.score.toLocaleString()}P</span>
-                </span>
-              </div>
-              <p className="text-[11px] text-muted-foreground mt-1">
-                이번 주 XP {entry.xp.toLocaleString()} · 스트릭 {entry.streak_count}일 · 이번 주 해결한 오답 {entry.resolved_review_count}개
+              <p className="text-[11px] text-muted-foreground mt-1">누적 학습 기록은 유지되고 리그 포인트만 주간 초기화돼요.</p>
+              <p className="text-[11px] text-primary mt-2">
+                현재 순위 예상 리그 보상: {rewardPreview > 0 ? `${rewardPreview} XP` : '보상 구간 밖'}
               </p>
             </div>
-            {topRankStyle ? (
-              <Crown className={`w-5 h-5 flex-shrink-0 ${topRankStyle.iconClassName}`} />
-            ) : entry.isMe ? <Star className="w-5 h-5 text-accent fill-accent flex-shrink-0" /> : null}
+            <div className="flex flex-col items-end gap-2 text-right">
+              <div className="inline-flex items-center gap-2 rounded-full bg-background px-3 py-1.5 border border-border">
+                <Flame className="w-4 h-4 text-orange-500" />
+                <span className="text-[12px] font-bold text-foreground">{streakStatus.streakCount}일</span>
+              </div>
+              <div className="inline-flex items-center gap-2 rounded-full bg-background px-3 py-1.5 border border-border">
+                <Snowflake className="w-4 h-4 text-sky-500" />
+                <span className="text-[12px] font-bold text-foreground">{streakStatus.streakFreezers}개</span>
+              </div>
+            </div>
           </div>
-        )})}
+        </div>
+
+        {rewardMessage ? (
+          <div className="mb-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-[13px] font-semibold text-emerald-700">
+            {rewardMessage}
+          </div>
+        ) : null}
+
+        {error ? (
+          <div className="rounded-2xl border border-destructive/20 bg-destructive/10 px-4 py-3 text-[13px] text-destructive">
+            {error}
+            <p className="mt-1 text-[12px]">
+              `supabase/leaderboard_entries.sql`을 DB에 적용한 뒤 다시 확인해주세요.
+            </p>
+          </div>
+        ) : remoteLoading && normalizedEntries.length === 0 ? (
+          <div className="rounded-2xl border border-border bg-card px-4 py-6 text-center text-[13px] text-muted-foreground">
+            리더보드를 불러오는 중...
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {normalizedEntries.map((entry) => {
+              const topRankStyle = TOP_RANK_STYLES[entry.rank];
+
+              return (
+                <button
+                  type="button"
+                  key={entry.user_id}
+                  onClick={() => openProfile(entry)}
+                  className={`w-full rounded-2xl border p-4 flex items-center gap-4 text-left transition-all hover:shadow-md ${
+                    topRankStyle
+                      ? topRankStyle.cardClassName
+                      : entry.isMe
+                      ? 'bg-primary/5 border-primary/20'
+                      : 'bg-card border-border'
+                  }`}
+                >
+                  <div className={`w-11 h-11 rounded-2xl flex items-center justify-center font-extrabold shadow-sm ${
+                    TOP_RANK_STYLES[entry.rank]
+                      ? TOP_RANK_STYLES[entry.rank].className
+                      : 'bg-muted text-foreground'
+                  }`}>
+                    {TOP_RANK_STYLES[entry.rank] ? (
+                      <Medal className={`w-5 h-5 ${TOP_RANK_STYLES[entry.rank].iconClassName}`} />
+                    ) : `#${entry.rank}`}
+                  </div>
+                  <div className={`w-12 h-12 rounded-2xl bg-secondary flex items-center justify-center text-2xl flex-shrink-0 overflow-hidden ${
+                    topRankStyle ? topRankStyle.avatarRingClassName : ''
+                  }`}>
+                    {entry.avatar_url ? (
+                      <img src={entry.avatar_url} alt={entry.display_name} className="w-full h-full object-cover" />
+                    ) : (
+                      <span>{(entry.display_name || '?')[0] || '?'}</span>
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className={`font-bold text-[15px] truncate ${topRankStyle ? topRankStyle.accentClassName : 'text-foreground'}`}>{entry.display_name}</p>
+                      {entry.isMe && (
+                        <span className="text-[10px] font-bold bg-primary text-primary-foreground px-2 py-0.5 rounded-full">
+                          나
+                        </span>
+                      )}
+                      <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-bold ${
+                        topRankStyle
+                          ? topRankStyle.scorePillClassName
+                          : entry.isMe
+                          ? 'bg-primary text-primary-foreground'
+                          : 'bg-slate-900 text-white'
+                      }`}>
+                        <span>{TOP_RANK_STYLES[entry.rank]?.label || `#${entry.rank}`}</span>
+                        <span className={`${entry.isMe ? 'text-primary-foreground/80' : 'text-white/75'}`}>·</span>
+                        <span>{entry.score.toLocaleString()}P</span>
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground mt-1">
+                      이번 주 XP {entry.xp.toLocaleString()} · 스트릭 {entry.streak_count}일 · 이번 주 해결한 오답 {entry.resolved_review_count}개
+                    </p>
+                  </div>
+                  {topRankStyle ? (
+                    <Crown className={`w-5 h-5 flex-shrink-0 ${topRankStyle.iconClassName}`} />
+                  ) : entry.isMe ? <Star className="w-5 h-5 text-accent fill-accent flex-shrink-0" /> : null}
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
-      )}
-    </div>
+
+      <LeaderboardProfileDialog
+        open={profileOpen}
+        onOpenChange={setProfileOpen}
+        profileData={profileData}
+        loading={profileLoading}
+        fallbackEntry={selectedEntry}
+      />
+    </>
   );
 }
