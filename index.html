@@ -9,6 +9,45 @@
   </head>
   <body>
     <div id="root"></div>
+    <noscript>
+      <div style="padding: 16px; font-family: sans-serif; color: #111827;">
+        JavaScript is required to run Finapple. Please enable JavaScript and reload.
+      </div>
+    </noscript>
+    <script>
+      (function () {
+        var hasShownFatal = false;
+
+        function showFatal(error) {
+          if (hasShownFatal) return;
+          hasShownFatal = true;
+
+          var root = document.getElementById('root');
+          if (!root) return;
+
+          var message = (error && (error.message || error.reason && error.reason.message)) || 'Unknown startup error';
+          root.innerHTML = ''
+            + '<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;font-family:sans-serif;background:#f8fafc;color:#0f172a;">'
+            + '  <div style="max-width:560px;width:100%;background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:20px;">'
+            + '    <p style="font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#b91c1c;margin:0 0 8px;">Startup Error</p>'
+            + '    <h1 style="font-size:20px;font-weight:800;margin:0 0 8px;">Finapple failed to start</h1>'
+            + '    <p style="font-size:14px;line-height:1.5;color:#475569;margin:0 0 12px;">Reload once. If this keeps happening, share this error message.</p>'
+            + '    <pre style="white-space:pre-wrap;word-break:break-word;background:#f1f5f9;border-radius:10px;padding:12px;font-size:12px;line-height:1.5;margin:0;">'
+            +      String(message)
+            + '    </pre>'
+            + '  </div>'
+            + '</div>';
+        }
+
+        window.addEventListener('error', function (event) {
+          showFatal(event && event.error ? event.error : event);
+        });
+
+        window.addEventListener('unhandledrejection', function (event) {
+          showFatal(event);
+        });
+      })();
+    </script>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>
