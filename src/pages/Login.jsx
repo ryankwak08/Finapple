@@ -398,20 +398,45 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-[linear-gradient(180deg,#ffffff_0%,#f7f7f7_100%)] px-4 py-6 md:px-8 md:py-10">
+    <div className="relative min-h-screen overflow-hidden bg-[linear-gradient(180deg,#ffffff_0%,#f6f7fb_100%)] px-4 py-6 md:px-8 md:py-10">
+      <div className="pointer-events-none absolute left-1/2 top-[-120px] h-[420px] w-[620px] -translate-x-1/2 rounded-full bg-[radial-gradient(circle,_rgba(0,0,0,0.06)_0%,_rgba(0,0,0,0)_70%)]" />
       <div className="mx-auto flex min-h-[812px] w-full max-w-[1200px] items-center justify-center">
-        <div className="w-full md:max-w-[920px] md:rounded-[32px] md:border md:border-black/5 md:bg-white md:p-6 md:shadow-[0_24px_80px_rgba(0,0,0,0.08)]">
-          <div className="mx-auto w-full max-w-[375px] md:min-h-[812px] md:rounded-[28px] md:border md:border-[#EAEAEA] md:bg-white md:px-5 md:py-6">
+        <div className={`w-full rounded-[30px] border border-black/5 bg-white shadow-[0_24px_80px_rgba(0,0,0,0.08)] ${isDefaultSignIn ? 'overflow-hidden md:grid md:grid-cols-[1.08fr_0.92fr]' : 'mx-auto max-w-[540px] p-4 md:p-6'}`}>
           {isDefaultSignIn ? (
-            <div className="text-center">
-              <h1 className="mx-auto flex w-full flex-col justify-center text-center text-[32px] font-semibold leading-[140%] tracking-[-0.64px] text-black md:pt-2">
+            <section className="relative hidden md:flex md:flex-col md:justify-between md:bg-[linear-gradient(160deg,#F4F5F7_0%,#ECEFF2_100%)] md:p-10 lg:p-12">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#5B5B5B]">Finapple</p>
+                <h1 className="mt-4 text-[44px] font-semibold leading-[120%] tracking-[-1.2px] text-black">
+                  금융 공부,
+                  <br />
+                  더 쉽고 즐겁게.
+                </h1>
+                <p className="mt-5 text-base leading-relaxed text-[#4F4F4F]">
+                  매일 조금씩 배우는 금융 상식.
+                  <br />
+                  Finapple과 함께 시작해보세요.
+                </p>
+              </div>
+              <div className="mt-12 rounded-[24px] border border-black/5 bg-white/60 p-8 shadow-[0_16px_40px_rgba(0,0,0,0.06)] backdrop-blur-sm">
+                <img
+                  src="/login-pineapple.png"
+                  alt=""
+                  className="mx-auto h-auto w-[220px] lg:w-[260px]"
+                />
+              </div>
+            </section>
+          ) : null}
+          <div className={`w-full ${isDefaultSignIn ? 'mx-auto max-w-[375px] px-4 py-6 md:max-w-none md:px-8 md:py-10 lg:px-12' : 'mx-auto max-w-[420px] px-1 py-2 md:max-w-none md:px-4 md:py-6'}`}>
+          {isDefaultSignIn ? (
+            <div className="text-center md:hidden">
+              <h1 className="mx-auto flex w-full flex-col justify-center text-center text-[32px] font-semibold leading-[140%] tracking-[-0.64px] text-black">
                 <span className="whitespace-nowrap">Finapple에 오신 것을</span>
                 <span>환영합니다</span>
               </h1>
               <img
                 src="/login-pineapple.png"
                 alt=""
-                className="mx-auto mt-10 h-auto w-[196px] md:mt-12"
+                className="mx-auto mt-10 h-auto w-[196px]"
               />
             </div>
           ) : (
@@ -641,7 +666,7 @@ export default function Login() {
               </button>
             </form>
           ) : (
-            <form onSubmit={handleSubmit} className={`space-y-4 ${isDefaultSignIn ? 'mt-14 md:mt-16' : 'mt-10'}`}>
+            <form onSubmit={handleSubmit} className={`space-y-4 ${isDefaultSignIn ? 'mt-14 md:mt-6 lg:mt-8' : 'mt-10'}`}>
               {isSignUp ? (
                 <AuthField
                   id="nickname"
@@ -681,7 +706,7 @@ export default function Login() {
                 type="email"
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
-                placeholder="email"
+                placeholder="이메일"
                 autoComplete="email"
               />
 
@@ -691,7 +716,7 @@ export default function Login() {
                 type={showPassword ? 'text' : 'password'}
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
-                placeholder="password"
+                placeholder="비밀번호"
                 autoComplete={isSignUp ? 'new-password' : 'current-password'}
                 helper={isSignUp ? '영문, 숫자, 특수문자를 포함한 8자 이상' : undefined}
                 trailingAction={(
