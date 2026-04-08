@@ -90,8 +90,8 @@ export default function Study() {
               </p>
             </div>
           </div>
-          <div className="mt-4 grid grid-cols-1 gap-3 min-[390px]:grid-cols-2 xl:grid-cols-3">
-            <div className="rounded-xl bg-background/80 border border-border px-4 py-3">
+          <div className="mt-4 grid grid-cols-1 items-start gap-3 min-[390px]:grid-cols-2 xl:grid-cols-3">
+            <div className="h-fit rounded-xl bg-background/80 border border-border px-4 py-3">
               <div className="flex items-center gap-2">
                 <Flame className="w-4 h-4 text-orange-500" />
                 <span className="text-[12px] font-semibold text-foreground">현재 스트릭</span>
@@ -99,7 +99,7 @@ export default function Study() {
               <p className="mt-1 text-[20px] font-extrabold text-foreground">{streakStatus.streakCount}일</p>
               <p className="text-[11px] text-muted-foreground">최고 {streakStatus.bestStreak}일</p>
             </div>
-            <div className="rounded-xl bg-background/80 border border-border px-4 py-3">
+            <div className="h-fit rounded-xl bg-background/80 border border-border px-4 py-3">
               <div className="flex items-center gap-2">
                 <Snowflake className="w-4 h-4 text-sky-500" />
                 <span className="text-[12px] font-semibold text-foreground">Freezer</span>

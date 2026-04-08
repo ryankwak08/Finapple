@@ -233,13 +233,55 @@ export default function Leaderboard() {
     };
   }, [loading, myEntry, progress, user?.email]);
 
+  const mergedEntries = useMemo(() => {
+    if (!user?.id || !user?.email) {
+      return entries;
+    }
+
+    const existingMe = entries.find((entry) => entry.user_id === user.id || entry.user_email === user.email);
+    const localEntry = {
+      user_id: user.id,
+      user_email: user.email,
+      display_name: myEntry.displayName,
+      avatar_url: myEntry.avatarUrl || '',
+      season_key: myEntry.seasonKey,
+      season_label: myEntry.seasonLabel,
+      season_start_date: myEntry.seasonStartDate,
+      season_end_date: myEntry.seasonEndDate,
+      xp: myEntry.xp || 0,
+      streak_count: myEntry.streakCount || 1,
+      best_streak: myEntry.bestStreak || 1,
+      streak_freezers: myEntry.streakFreezers || 0,
+      completed_count: myEntry.completedCount || 0,
+      active_review_count: myEntry.activeReviewCount || 0,
+      resolved_review_count: myEntry.resolvedReviewCount || 0,
+      ads_disabled: Boolean(myEntry.adsDisabled),
+      score: myEntry.score || 0,
+      updated_at: existingMe?.updated_at || entries[0]?.updated_at || new Date(0).toISOString(),
+    };
+
+    const nextEntries = [
+      localEntry,
+      ...entries.filter((entry) => entry.user_id !== user.id && entry.user_email !== user.email),
+    ];
+
+    return nextEntries
+      .sort((left, right) => {
+        if (right.score !== left.score) {
+          return right.score - left.score;
+        }
+        return new Date(left.updated_at).getTime() - new Date(right.updated_at).getTime();
+      })
+      .slice(0, 20);
+  }, [entries, myEntry, user?.email, user?.id]);
+
   const normalizedEntries = useMemo(() => (
-    entries.map((entry, index) => ({
+    mergedEntries.map((entry, index) => ({
       ...entry,
       rank: index + 1,
       isMe: entry.user_email === user?.email,
     }))
-  ), [entries, user?.email]);
+  ), [mergedEntries, user?.email]);
 
   const mySyncedEntry = useMemo(
     () => normalizedEntries.find((entry) => entry.isMe) || null,
