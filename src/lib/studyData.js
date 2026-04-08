@@ -1,3 +1,5 @@
+import { teenStudyTopics } from './teenStudyData.js';
+
 const SUPABASE_PROJECT_URL = "https://eluwjbpgqnyoohtxrufd.supabase.co";
 const PDF_BUCKET = "KDI Textbooks (Youth)";
 
@@ -1056,7 +1058,7 @@ export const lifeStudyTopics = [
   },
 ];
 
-export const allStudyTopics = [...lifeStudyTopics, ...studyTopics];
+export const allStudyTopics = [...lifeStudyTopics, ...studyTopics, ...teenStudyTopics];
 
 export function getStudyTopicById(topicId) {
   return allStudyTopics.find((topic) => topic.id === topicId) || null;

@@ -534,34 +534,25 @@ export default function useProgress() {
   }, [applyProgressUpdate, getLatestProgressSnapshot]);
 
   const isUnitLocked = useCallback((unitId) => {
-    if (unitId === 'unit1') return false;
     if (!progress) return true;
+
+    const match = String(unitId || '').match(/^(.*?)(\d+)$/);
+    if (!match) return true;
+
+    const [, prefix, orderRaw] = match;
+    const order = Number(orderRaw);
+    if (!Number.isFinite(order) || order <= 1) return false;
+
     const completed = progress.completed_quizzes || [];
-    if (unitId === 'unit2') {
-      return !['unit1-quiz1', 'unit1-quiz2', 'unit1-quiz3', 'unit1-glossary'].every(q => completed.includes(q));
-    }
-    if (unitId === 'unit3') {
-      return !['unit2-quiz1', 'unit2-quiz2', 'unit2-quiz3', 'unit2-glossary'].every(q => completed.includes(q));
-    }
-    if (unitId === 'unit4') {
-      return !['unit3-quiz1', 'unit3-quiz2', 'unit3-quiz3', 'unit3-glossary'].every(q => completed.includes(q));
-    }
-    if (unitId === 'unit5') {
-      return !['unit4-quiz1', 'unit4-quiz2', 'unit4-quiz3', 'unit4-glossary'].every(q => completed.includes(q));
-    }
-    if (unitId === 'unit6') {
-      return !['unit5-quiz1', 'unit5-quiz2', 'unit5-quiz3', 'unit5-glossary'].every(q => completed.includes(q));
-    }
-    if (unitId === 'unit7') {
-      return !['unit6-quiz1', 'unit6-quiz2', 'unit6-quiz3', 'unit6-glossary'].every(q => completed.includes(q));
-    }
-    if (unitId === 'unit8') {
-      return !['unit7-quiz1', 'unit7-quiz2', 'unit7-quiz3', 'unit7-glossary'].every(q => completed.includes(q));
-    }
-    if (unitId === 'unit9') {
-      return !['unit8-quiz1', 'unit8-quiz2', 'unit8-quiz3', 'unit8-glossary'].every(q => completed.includes(q));
-    }
-    return true;
+    const prevUnitId = `${prefix}${order - 1}`;
+    const requiredQuizIds = [
+      `${prevUnitId}-quiz1`,
+      `${prevUnitId}-quiz2`,
+      `${prevUnitId}-quiz3`,
+      `${prevUnitId}-glossary`,
+    ];
+
+    return !requiredQuizIds.every((quizId) => completed.includes(quizId));
   }, [progress]);
 
   const isQuizCompleted = useCallback((quizId) => {

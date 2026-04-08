@@ -11,14 +11,19 @@ import InvestmentProfileTest from '../components/study/InvestmentProfileTest';
 import { generateAiQuiz } from '@/api/quizClient';
 import useSoundEffects from '@/hooks/useSoundEffects';
 import { getLessonChunkForQuiz } from '@/lib/studyData';
-
-const KDI_SOURCE_LABEL = '출처: KDI 생애주기별 경제교육(청년기 편)';
+import { getCourseMeta } from '@/lib/courseMeta';
+import { getQuizUnitsCatalog } from '@/lib/quizCatalog';
+import { isAdminUser } from '@/lib/premium';
 
 export default function QuizPlay() {
   const navigate = useNavigate();
   const { quizId } = useParams();
-  const isLastUnit16Quiz = quizId === 'unit16-quiz3';
   const course = new URLSearchParams(window.location.search).get('course') || 'youth';
+  const courseMeta = getCourseMeta(course);
+  const courseUnits = getQuizUnitsCatalog(course);
+  const lastUnit = courseUnits[courseUnits.length - 1];
+  const lastQuizId = lastUnit?.quizzes?.[lastUnit.quizzes.length - 1]?.id || '';
+  const isLastCourseQuiz = quizId === lastQuizId;
   const backUrl = `/quiz?course=${course}`;
   const {
     progress,
@@ -30,6 +35,7 @@ export default function QuizPlay() {
     recordQuizActivity,
     isQuizCompleted,
     getReviewNotesForQuiz,
+    user,
   } = useProgress();
   const [questions, setQuestions] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -58,6 +64,8 @@ export default function QuizPlay() {
   );
   const reviewCount = getReviewNotesForQuiz(quizId).length;
   const sourcePdfUrl = lessonChunk?.topic?.pdfUrl || '';
+  const isTeenQuiz = String(quizId || '').startsWith('teen-');
+  const canAccessTeenCourse = isAdminUser(user);
 
   useEffect(() => {
     setQuestions(null);
@@ -132,7 +140,7 @@ export default function QuizPlay() {
   }, []);
 
   useEffect(() => {
-    if (!finished || !isLastUnit16Quiz || score < 3 || showCongrats) {
+    if (!finished || !isLastCourseQuiz || score < 3 || showCongrats) {
       return undefined;
     }
 
@@ -143,7 +151,7 @@ export default function QuizPlay() {
     return () => {
       window.clearTimeout(timer);
     };
-  }, [finished, isLastUnit16Quiz, score, showCongrats]);
+  }, [finished, isLastCourseQuiz, score, showCongrats]);
 
   const quizSourceLabel = quizSource?.source === 'fallback'
     ? '기본 문항 사용 중'
@@ -184,6 +192,24 @@ export default function QuizPlay() {
       <div className="flex flex-col items-center justify-center min-h-screen px-6">
         <p className="text-muted-foreground text-[15px]">퀴즈를 찾을 수 없습니다</p>
         <Link to={backUrl} className="text-primary font-semibold text-[14px] mt-4">돌아가기</Link>
+      </div>
+    );
+  }
+
+  if (isTeenQuiz && !canAccessTeenCourse) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center px-6 text-center">
+        <div className="mb-4 text-5xl">🚧</div>
+        <h2 className="text-xl font-extrabold text-foreground">청소년기편은 준비 중입니다</h2>
+        <p className="mt-2 text-[14px] text-muted-foreground">
+          현재는 관리자 테스트 계정만 접근할 수 있어요.
+        </p>
+        <Link
+          to="/quiz"
+          className="mt-6 rounded-2xl bg-primary px-6 py-3 text-[14px] font-bold text-primary-foreground"
+        >
+          퀴즈 목록으로 돌아가기
+        </Link>
       </div>
     );
   }
@@ -244,7 +270,7 @@ export default function QuizPlay() {
           <div className="mb-4 rounded-2xl border border-border bg-card p-4">
             <div className="flex items-center justify-between gap-3">
               <div>
-                <p className="text-[11px] text-muted-foreground">{KDI_SOURCE_LABEL}</p>
+                <p className="text-[11px] text-muted-foreground">{courseMeta.sourceLabel}</p>
                 <p className="mt-0.5 text-[12px] font-semibold text-foreground">원문 PDF</p>
               </div>
               <button
@@ -339,9 +365,9 @@ export default function QuizPlay() {
               <Star className="w-6 h-6 text-yellow-500 fill-yellow-500" />
             </div>
             <h1 className="text-3xl font-extrabold text-foreground mb-2">🏆 커리큘럼 완료!</h1>
-            <p className="text-lg font-bold text-primary mb-2">KDI 청년기 생애주기 경제교육</p>
-            <p className="text-muted-foreground text-[14px] mb-1">16개 단원을 모두 완주했습니다!</p>
-            <p className="text-muted-foreground text-[13px] mb-6">합리적 소비부터 노후 준비까지,<br/>청년 경제 생활에 필요한 모든 것을 배웠어요.</p>
+            <p className="text-lg font-bold text-primary mb-2">{courseMeta.curriculumCompleteTitle}</p>
+            <p className="text-muted-foreground text-[14px] mb-1">{courseUnits.length}개 단원을 모두 완주했습니다!</p>
+            <p className="text-muted-foreground text-[13px] mb-6 whitespace-pre-line">{courseMeta.curriculumCompleteSummary}</p>
             <div className="bg-white dark:bg-card rounded-2xl p-4 mb-6 shadow-sm border border-border">
               <div className="flex items-center gap-2 justify-center mb-2">
                 <Sparkles className="w-5 h-5 text-yellow-500" />

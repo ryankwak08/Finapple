@@ -241,6 +241,10 @@ export default function Leaderboard() {
     }))
   ), [entries, user?.email]);
 
+  const mySyncedEntry = useMemo(
+    () => normalizedEntries.find((entry) => entry.isMe) || null,
+    [normalizedEntries]
+  );
   const myRank = normalizedEntries.find((entry) => entry.isMe)?.rank || null;
   const seasonLabel = myEntry.seasonLabel || streakStatus.leaderboardSeasonLabel;
   const seasonProgress = getSeasonProgressMeta();
@@ -391,10 +395,15 @@ export default function Leaderboard() {
                 <h2 className="text-3xl font-extrabold text-foreground">{myRank ? `#${myRank}` : '-'}</h2>
                 <div className="inline-flex items-center gap-2 rounded-full bg-background px-3 py-2 border border-primary/15 shadow-sm">
                   <span className="text-[11px] font-semibold text-primary">시즌 포인트</span>
-                  <span className="text-xl leading-none font-black text-foreground">{myEntry.score.toLocaleString()}</span>
+                  <span className="text-xl leading-none font-black text-foreground">
+                    {(mySyncedEntry?.score ?? myEntry.score).toLocaleString()}
+                  </span>
                 </div>
               </div>
               <p className="text-[11px] text-muted-foreground mt-1">누적 학습 기록은 유지되고 리그 포인트만 주간 초기화돼요.</p>
+              <p className="text-[11px] text-muted-foreground mt-1">
+                이번 주 XP {(mySyncedEntry?.xp ?? myEntry.xp).toLocaleString()}
+              </p>
               <p className="text-[11px] text-primary mt-2">
                 현재 순위 예상 리그 보상: {rewardPreview > 0 ? `${rewardPreview} XP` : '보상 구간 밖'}
               </p>

@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { Lock, Check, Star, Play, BookOpen } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { quizUnitsCatalog } from '../../lib/quizCatalog';
+import { getQuizUnitsCatalog } from '../../lib/quizCatalog';
 import { prefetchAiQuiz } from '@/api/quizClient';
 
 function QuizNode({ quiz, status, locked, onSelect, position }) {
@@ -96,6 +96,8 @@ function GlossaryNode({ unitId, locked, completed, position, course }) {
 }
 
 export default function QuizRoadmap({ isUnitLocked, isQuizCompleted, getQuizScore, onQuizSelect, course = 'youth' }) {
+  const quizUnitsCatalog = getQuizUnitsCatalog(course);
+
   useEffect(() => {
     const quizIdsToWarm = quizUnitsCatalog
       .flatMap((unit) => {
@@ -114,7 +116,7 @@ export default function QuizRoadmap({ isUnitLocked, isQuizCompleted, getQuizScor
         prefetchAiQuiz(quizId);
       }, index * 250);
     });
-  }, [isQuizCompleted, isUnitLocked]);
+  }, [isQuizCompleted, isUnitLocked, quizUnitsCatalog]);
 
   let globalIndex = 0;
 
@@ -193,7 +195,7 @@ export default function QuizRoadmap({ isUnitLocked, isQuizCompleted, getQuizScor
                 </div>
               )}
 
-              {ui === 0 && isUnitLocked('unit2') && (
+              {ui === 0 && quizUnitsCatalog[1] && isUnitLocked(quizUnitsCatalog[1].id) && (
                 <div className="flex items-center gap-2 bg-muted rounded-2xl px-4 py-3 mb-2">
                   <Lock className="w-3.5 h-3.5 text-muted-foreground" />
                   <p className="text-[12px] text-muted-foreground">이전 단원을 완료하면 잠금 해제</p>

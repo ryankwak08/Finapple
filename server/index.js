@@ -6,7 +6,7 @@ import { createClient } from '@supabase/supabase-js';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { getQuizById, getUnitById } from '../src/lib/quizData.js';
-import { studyTopics } from '../src/lib/studyData.js';
+import { getStudyTopicById } from '../src/lib/studyData.js';
 import { getCurrentSeasonMeta } from '../src/lib/season.js';
 import { getQuizExamplesForUnit } from './quizExampleBank.js';
 
@@ -181,9 +181,7 @@ const buildQuizContext = (quizId) => {
   }
 
   const unit = getUnitById(quiz.unitId);
-  const topic = unit
-    ? studyTopics.find((item) => item.id === unit.studyTopicId)
-    : null;
+  const topic = unit ? getStudyTopicById(unit.studyTopicId) : null;
 
   return {
     quiz,

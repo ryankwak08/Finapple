@@ -4,7 +4,8 @@ import { ArrowLeft, BookOpen, Star } from 'lucide-react';
 import { allGlossaryTerms } from '../lib/allGlossaryTerms';
 import useProgress from '../lib/useProgress';
 import HeartDisplay from '../components/quiz/HeartDisplay';
-import { quizUnitsCatalog } from '@/lib/quizCatalog';
+import { getQuizUnitsCatalog } from '@/lib/quizCatalog';
+import { isAdminUser } from '@/lib/premium';
 
 const PASS_THRESHOLD = 9;
 const QUIZ_SIZE = 10;
@@ -43,8 +44,8 @@ function buildHiddenLabels(term) {
 
 function pickTerms(unitId) {
   // Shuffle with unit-seeded offset so each unit gets different terms
-  const unitOffsets = { unit1: 0, unit2: 50, unit3: 100, unit4: 150, unit5: 200, unit6: 250 };
-  const offset = unitOffsets[unitId] ?? 0;
+  const unitNumber = Number(String(unitId || '').match(/(\d+)$/)?.[1] || 1);
+  const offset = (unitNumber - 1) * 50;
   // Take a slice then shuffle deterministically
   const pool = [...allGlossaryTerms];
   // Fisher-Yates with a seed based on offset
@@ -97,9 +98,12 @@ export default function GlossaryQuizPlay() {
   const { unitId } = useParams();
   const course = new URLSearchParams(window.location.search).get('course') || 'youth';
   const backUrl = `/quiz?course=${course}`;
-  const { progress, isPremium, loseHeart, completeQuiz, recordQuizActivity, isQuizCompleted, isUnitLocked } = useProgress();
+  const { progress, isPremium, loseHeart, completeQuiz, recordQuizActivity, isQuizCompleted, isUnitLocked, user } = useProgress();
+  const quizUnitsCatalog = getQuizUnitsCatalog(course);
   const unit = quizUnitsCatalog.find((entry) => entry.id === unitId);
   const glossaryLocked = !unit || isUnitLocked(unitId) || !unit.quizzes.every((quiz) => isQuizCompleted(quiz.id));
+  const isTeenUnit = String(unitId || '').startsWith('teen-');
+  const canAccessTeenCourse = isAdminUser(user);
 
   const quizId = `${unitId}-glossary`;
   const [terms] = useState(() => pickTerms(unitId));
@@ -120,6 +124,24 @@ export default function GlossaryQuizPlay() {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (isTeenUnit && !canAccessTeenCourse) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center px-6 text-center">
+        <div className="mb-4 text-5xl">🚧</div>
+        <h2 className="text-xl font-extrabold text-foreground">청소년기편은 준비 중입니다</h2>
+        <p className="mt-2 text-[14px] text-muted-foreground">
+          현재는 관리자 테스트 계정만 접근할 수 있어요.
+        </p>
+        <Link
+          to="/quiz"
+          className="mt-6 rounded-2xl bg-primary px-6 py-3 text-[14px] font-bold text-primary-foreground"
+        >
+          퀴즈 목록으로 돌아가기
+        </Link>
       </div>
     );
   }

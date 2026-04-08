@@ -24,10 +24,12 @@ const buildSummaryBullets = (topic) => {
 export default function StudyDetail() {
   const navigate = useNavigate();
   const { topicId } = useParams();
+  const course = new URLSearchParams(window.location.search).get('course') || '';
   const [showSummary, setShowSummary] = useState(false);
   const [showSourceViewer, setShowSourceViewer] = useState(false);
   const topic = getStudyTopicById(topicId);
-  const linkedUnit = getQuizUnitCatalogByStudyTopicId(topicId);
+  const effectiveCourse = course || topic?.course || '';
+  const linkedUnit = getQuizUnitCatalogByStudyTopicId(topicId, effectiveCourse);
   const summaryBullets = useMemo(() => (topic ? buildSummaryBullets(topic) : []), [topic]);
   const sourceMeta = useMemo(() => {
     if (!topic) {
@@ -42,8 +44,10 @@ export default function StudyDetail() {
     }
 
     return {
-      label: '출처: 한국개발연구원(KDI) 「생애주기별 경제교육(청년기 편)」',
-      url: '',
+      label: topic.course === 'teen'
+        ? '출처: 한국개발연구원(KDI) 「생애주기별 경제교육(청소년기 편)」'
+        : '출처: 한국개발연구원(KDI) 「생애주기별 경제교육(청년기 편)」',
+      url: topic.sourceUrl || '',
     };
   }, [topic]);
 
@@ -234,7 +238,7 @@ export default function StudyDetail() {
             {linkedUnit.quizzes.map((quiz) => (
               <button
                 key={quiz.id}
-                onClick={() => navigate(`/quiz/${quiz.id}`)}
+                onClick={() => navigate(`/quiz/${quiz.id}${effectiveCourse ? `?course=${effectiveCourse}` : ''}`)}
                 className="flex items-center justify-between gap-3 rounded-xl border border-border bg-background px-4 py-3 text-left"
               >
                 <div className="min-w-0">

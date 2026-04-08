@@ -1,4 +1,6 @@
-export const quizUnitsCatalog = [
+import { teenQuizUnitsCatalog } from './teenQuizCatalog';
+
+export const youthQuizUnitsCatalog = [
   {
     id: 'unit1',
     icon: '🛒',
@@ -193,8 +195,27 @@ export const quizUnitsCatalog = [
   },
 ];
 
-export const TOTAL_QUIZ_COUNT = quizUnitsCatalog.reduce((count, unit) => count + unit.quizzes.length + 1, 0);
+export const quizCatalogByCourse = {
+  youth: youthQuizUnitsCatalog,
+  teen: teenQuizUnitsCatalog,
+};
 
-export function getQuizUnitCatalogByStudyTopicId(studyTopicId) {
-  return quizUnitsCatalog.find((unit) => unit.studyTopicId === studyTopicId) || null;
+export const quizUnitsCatalog = youthQuizUnitsCatalog;
+
+export function getQuizUnitsCatalog(course = 'youth') {
+  return quizCatalogByCourse[course] || youthQuizUnitsCatalog;
+}
+
+export const TOTAL_QUIZ_COUNT = Object.values(quizCatalogByCourse)
+  .flat()
+  .reduce((count, unit) => count + unit.quizzes.length + 1, 0);
+
+export function getQuizUnitCatalogByStudyTopicId(studyTopicId, course) {
+  if (course) {
+    return getQuizUnitsCatalog(course).find((unit) => unit.studyTopicId === studyTopicId) || null;
+  }
+
+  return Object.values(quizCatalogByCourse)
+    .flat()
+    .find((unit) => unit.studyTopicId === studyTopicId) || null;
 }

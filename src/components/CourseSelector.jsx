@@ -5,10 +5,19 @@ const courses = [
     id: 'youth',
     emoji: '🧑',
     title: '청년기 편',
-    subtitle: 'KDI 청소년 경제교육',
+    subtitle: 'KDI 생애주기 경제교육',
     description: '사회초년생을 위한 실용 금융 지식\n합리적 소비·신용카드·부채 관리',
     available: true,
     badge: '현재 수록',
+  },
+  {
+    id: 'teen',
+    emoji: '🧒',
+    title: '청소년기 편',
+    subtitle: 'KDI 생애주기 경제교육',
+    description: '청소년을 위한 금융 기초와 생활경제\n용돈관리·노동권·진로 설계',
+    available: false,
+    badge: '준비 중',
   },
   {
     id: 'economy-basics',
@@ -30,7 +39,23 @@ const courses = [
   },
 ];
 
-export default function CourseSelector({ type, onSelect }) {
+export default function CourseSelector({ type, onSelect, canAccessTeenCourse = false }) {
+  const renderedCourses = courses.map((course) => {
+    if (course.id !== 'teen') {
+      return course;
+    }
+
+    if (canAccessTeenCourse) {
+      return {
+        ...course,
+        available: true,
+        badge: '관리자 테스트',
+      };
+    }
+
+    return course;
+  });
+
   return (
     <div className="px-4 pb-6 pt-8 sm:px-5 sm:pt-10">
       <div className="mb-6 sm:mb-8">
@@ -41,7 +66,7 @@ export default function CourseSelector({ type, onSelect }) {
       </div>
 
       <div className="grid gap-4 xl:grid-cols-2">
-        {courses.map((course, i) => (
+        {renderedCourses.map((course, i) => (
           <button
             key={course.id}
             onClick={() => {

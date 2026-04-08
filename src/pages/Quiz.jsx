@@ -6,8 +6,8 @@ import useProgress from '../lib/useProgress';
 import HeartDisplay from '../components/quiz/HeartDisplay';
 import QuizRoadmap from '../components/quiz/QuizRoadmap';
 import PremiumBadge from '@/components/PremiumBadge';
-
-const KDI_SOURCE_URL = 'https://eiec.kdi.re.kr/material/lifeList.do?pp=20&pg=1&life_gubun=c&svalue=';
+import { getCourseMeta } from '@/lib/courseMeta';
+import { isAdminUser } from '@/lib/premium';
 
 export default function Quiz() {
   const navigate = useNavigate();
@@ -16,12 +16,23 @@ export default function Quiz() {
     const params = new URLSearchParams(window.location.search);
     return params.get('course') || null;
   });
-  const { progress, loading, isPremium, isUnitLocked, isQuizCompleted, getQuizScore } = useProgress();
+  const { progress, loading, isPremium, isUnitLocked, isQuizCompleted, getQuizScore, user } = useProgress();
+  const courseMeta = getCourseMeta(selectedCourse || 'youth');
+  const canAccessTeenCourse = isAdminUser(user);
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     setSelectedCourse(params.get('course') || null);
   }, [location.search]);
+
+  useEffect(() => {
+    if (selectedCourse !== 'teen' || canAccessTeenCourse) {
+      return;
+    }
+
+    setSelectedCourse(null);
+    window.history.replaceState({}, '', '/quiz');
+  }, [canAccessTeenCourse, selectedCourse]);
 
   useEffect(() => {
     const handleTabReset = (event) => {
@@ -40,7 +51,7 @@ export default function Quiz() {
   };
 
   if (!selectedCourse) {
-    return <CourseSelector type="quiz" onSelect={handleSelectCourse} />;
+    return <CourseSelector type="quiz" onSelect={handleSelectCourse} canAccessTeenCourse={canAccessTeenCourse} />;
   }
 
   if (loading) {
@@ -65,7 +76,7 @@ export default function Quiz() {
               <button onClick={() => setSelectedCourse(null)} className="rounded-xl p-1.5 transition-colors hover:bg-muted">
                 <ChevronRight className="w-4 h-4 rotate-180 text-muted-foreground" />
               </button>
-              <h1 className="truncate text-[26px] font-extrabold tracking-tight text-foreground sm:text-3xl">청년기 편</h1>
+              <h1 className="truncate text-[26px] font-extrabold tracking-tight text-foreground sm:text-3xl">{courseMeta.title}</h1>
             </div>
             <div className="flex shrink-0 items-center gap-1.5 rounded-full bg-accent/15 px-3 py-1.5">
               <Star className="w-4 h-4 text-accent fill-accent" />
@@ -76,11 +87,11 @@ export default function Quiz() {
             학습한 내용을 퀴즈로 확인해보세요
           </p>
           <div className="mt-4 hidden max-w-xl rounded-2xl border border-border bg-card px-4 py-3 lg:block">
-            <p className="text-[11px] leading-relaxed text-muted-foreground">
-              출처: 한국개발연구원(KDI) 「생애주기별 경제교육(청년기 편)」
+              <p className="text-[11px] leading-relaxed text-muted-foreground">
+              {courseMeta.sourceLabel}
             </p>
             <a
-              href={KDI_SOURCE_URL}
+              href={courseMeta.sourceUrl}
               target="_blank"
               rel="noreferrer"
               className="mt-1 inline-block text-[11px] font-semibold text-primary underline-offset-2 hover:underline"
@@ -136,10 +147,10 @@ export default function Quiz() {
 
       <div className="mb-4 rounded-2xl border border-border bg-card px-4 py-3 lg:hidden">
         <p className="text-[11px] leading-relaxed text-muted-foreground">
-          출처: 한국개발연구원(KDI) 「생애주기별 경제교육(청년기 편)」
+          {courseMeta.sourceLabel}
         </p>
         <a
-          href={KDI_SOURCE_URL}
+          href={courseMeta.sourceUrl}
           target="_blank"
           rel="noreferrer"
           className="mt-1 inline-block text-[11px] font-semibold text-primary underline-offset-2 hover:underline"
