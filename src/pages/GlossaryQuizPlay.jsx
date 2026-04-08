@@ -4,6 +4,7 @@ import { ArrowLeft, BookOpen, Star } from 'lucide-react';
 import { allGlossaryTerms } from '../lib/allGlossaryTerms';
 import useProgress from '../lib/useProgress';
 import HeartDisplay from '../components/quiz/HeartDisplay';
+import { quizUnitsCatalog } from '@/lib/quizCatalog';
 
 const PASS_THRESHOLD = 9;
 const QUIZ_SIZE = 10;
@@ -96,7 +97,9 @@ export default function GlossaryQuizPlay() {
   const { unitId } = useParams();
   const course = new URLSearchParams(window.location.search).get('course') || 'youth';
   const backUrl = `/quiz?course=${course}`;
-  const { progress, isPremium, loseHeart, completeQuiz, recordQuizActivity, isQuizCompleted } = useProgress();
+  const { progress, isPremium, loseHeart, completeQuiz, recordQuizActivity, isQuizCompleted, isUnitLocked } = useProgress();
+  const unit = quizUnitsCatalog.find((entry) => entry.id === unitId);
+  const glossaryLocked = !unit || isUnitLocked(unitId) || !unit.quizzes.every((quiz) => isQuizCompleted(quiz.id));
 
   const quizId = `${unitId}-glossary`;
   const [terms] = useState(() => pickTerms(unitId));
@@ -132,6 +135,24 @@ export default function GlossaryQuizPlay() {
     );
   }
 
+  if (glossaryLocked) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center px-6 text-center">
+        <div className="mb-4 text-5xl">🔒</div>
+        <h2 className="text-xl font-extrabold text-foreground">잠긴 단원입니다</h2>
+        <p className="mt-2 text-[14px] text-muted-foreground">
+          정규 퀴즈를 먼저 완료하면 시사용어 퀴즈가 열려요.
+        </p>
+        <Link
+          to={backUrl}
+          className="mt-6 rounded-2xl bg-primary px-6 py-3 text-[14px] font-bold text-primary-foreground"
+        >
+          퀴즈 목록으로 돌아가기
+        </Link>
+      </div>
+    );
+  }
+
   if (finished) {
     const passed = score >= PASS_THRESHOLD;
     return (
@@ -148,7 +169,7 @@ export default function GlossaryQuizPlay() {
           {score}/{QUIZ_SIZE} 정답
         </p>
         <p className="text-[13px] text-center font-medium mb-2">
-          {passed ? '다음 유닛으로 진행할 수 있어요' : `${PASS_THRESHOLD}개 이상 맞춰야 통과할 수 있어요`}
+          {passed ? '다음 단원으로 진행할 수 있어요' : `${PASS_THRESHOLD}개 이상 맞춰야 통과할 수 있어요`}
         </p>
         {xpEarned > 0 && (
           <div className="flex items-center gap-2 mb-4">

@@ -8,6 +8,11 @@ import { NICKNAME_MAX_LENGTH, normalizeNickname, validateNickname, validatePassw
 import { useAuth } from '@/lib/AuthContext';
 
 const OTP_LENGTH = 6;
+const inputClassName = 'h-10 w-full rounded-lg border border-[#E0E0E0] bg-white px-4 text-sm font-normal text-black outline-none transition placeholder:text-[#828282] focus:border-black/30';
+const primaryButtonClassName = 'flex h-10 w-full items-center justify-center rounded-lg bg-black px-4 text-sm font-medium leading-[140%] text-white transition hover:bg-black/90 disabled:cursor-not-allowed disabled:opacity-60';
+const secondaryButtonClassName = 'flex h-10 w-full items-center justify-center rounded-lg border border-[#E0E0E0] bg-white px-4 text-sm font-medium text-black transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60';
+const linkButtonClassName = 'font-medium text-[12px] text-black transition hover:opacity-70';
+
 const hasPasswordRecoveryContext = () => {
   const searchParams = new URLSearchParams(window.location.search);
   const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
@@ -21,9 +26,57 @@ const hasPasswordRecoveryContext = () => {
   );
 };
 
+function StatusMessage({ tone = 'neutral', children }) {
+  if (!children) {
+    return null;
+  }
+
+  const toneClassName = tone === 'error'
+    ? 'border-red-200 bg-red-50 text-red-600'
+    : tone === 'success'
+    ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+    : 'border-[#E0E0E0] bg-white text-[#828282]';
+
+  return (
+    <p className={`rounded-lg border px-4 py-3 text-sm leading-relaxed ${toneClassName}`}>
+      {children}
+    </p>
+  );
+}
+
+function AuthField({
+  id,
+  label,
+  type = 'text',
+  value,
+  onChange,
+  placeholder,
+  autoComplete,
+  helper,
+  trailingAction,
+}) {
+  return (
+    <div className="space-y-2">
+      <label htmlFor={id} className="sr-only">
+        {label}
+      </label>
+      <input
+        id={id}
+        type={type}
+        value={value}
+        onChange={onChange}
+        className={inputClassName}
+        placeholder={placeholder}
+        autoComplete={autoComplete}
+      />
+      {trailingAction}
+      {helper ? <p className="text-xs text-[#828282]">{helper}</p> : null}
+    </div>
+  );
+}
+
 export default function Login() {
   const navigate = useNavigate();
-  const searchParams = new URLSearchParams(window.location.search);
   const { checkAppState, isAuthenticated, authError, user } = useAuth();
   const [mode, setMode] = useState(hasPasswordRecoveryContext() ? 'reset-password' : 'signin');
   const [isRecoveryReady, setIsRecoveryReady] = useState(!hasPasswordRecoveryContext());
@@ -56,6 +109,7 @@ export default function Login() {
   const isResetPassword = mode === 'reset-password';
   const normalizedNickname = normalizeNickname(nickname);
   const isNicknameVerified = normalizedNickname.length > 0 && nicknameCheckedValue === normalizedNickname;
+  const isDefaultSignIn = mode === 'signin';
 
   useEffect(() => {
     let cancelled = false;
@@ -344,65 +398,53 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center px-4">
-      <div className="w-full max-w-md bg-white rounded-2xl shadow-sm border border-slate-200 p-8">
-        <div className="mb-6 text-center">
-          <h1 className="text-2xl font-bold text-slate-900">FinApple 로그인</h1>
-          <p className="mt-2 text-sm text-slate-600">
-            경제 학습 기록과 프리미엄 기능을 이용하려면 로그인하세요.
-          </p>
-        </div>
-
-        {authError?.type === 'email_not_verified' ? (
-          <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-            {authError.message}
-          </div>
-        ) : null}
-
-        <div className="mb-6 flex rounded-xl bg-slate-100 p-1">
-          <button
-            type="button"
-            onClick={() => {
-              setMode('signin');
-              setError('');
-              setMessage('');
-              setVerificationCode('');
-            }}
-            className={`flex-1 rounded-lg px-4 py-2 text-sm font-medium transition ${
-              mode === 'signin' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'
-            }`}
-          >
-            로그인
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setMode('signup');
-              setError('');
-              setMessage('');
-              setVerificationCode('');
-            }}
-            className={`flex-1 rounded-lg px-4 py-2 text-sm font-medium transition ${
-              mode === 'signup' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'
-            }`}
-          >
-            회원가입
-          </button>
-        </div>
-
-        {isVerify ? (
-          <form onSubmit={handleVerifyCode} className="space-y-4">
-            <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
-              <p className="text-sm font-semibold text-slate-900">이메일 인증 코드 입력</p>
-              <p className="mt-1 text-sm text-slate-600">{resolvedVerificationEmail || '가입한 이메일'}</p>
-              <p className="mt-2 text-xs text-slate-500">메일이 바로 안 보이면 스팸함이나 프로모션함도 함께 확인해주세요.</p>
+    <div className="min-h-screen bg-[linear-gradient(180deg,#ffffff_0%,#f7f7f7_100%)] px-4 py-6 md:px-8 md:py-10">
+      <div className="mx-auto flex min-h-[812px] w-full max-w-[1200px] items-center justify-center">
+        <div className="w-full md:max-w-[920px] md:rounded-[32px] md:border md:border-black/5 md:bg-white md:p-6 md:shadow-[0_24px_80px_rgba(0,0,0,0.08)]">
+          <div className="mx-auto w-full max-w-[375px] md:min-h-[812px] md:rounded-[28px] md:border md:border-[#EAEAEA] md:bg-white md:px-5 md:py-6">
+          {isDefaultSignIn ? (
+            <div className="text-center">
+              <h1 className="mx-auto flex w-full flex-col justify-center text-center text-[32px] font-semibold leading-[140%] tracking-[-0.64px] text-black md:pt-2">
+                <span className="whitespace-nowrap">Finapple에 오신 것을</span>
+                <span>환영합니다</span>
+              </h1>
+              <img
+                src="/login-pineapple.png"
+                alt=""
+                className="mx-auto mt-10 h-auto w-[196px] md:mt-12"
+              />
             </div>
+          ) : (
+            <div className="text-center">
+              <p className="text-sm font-medium uppercase tracking-[0.16em] text-[#828282]">Finapple</p>
+              <h1 className="mt-3 text-[28px] font-semibold leading-[140%] tracking-[-0.56px] text-black">
+                {isSignUp
+                  ? '회원가입'
+                  : isVerify
+                  ? '이메일 인증'
+                  : isFindEmail
+                  ? '아이디 찾기'
+                  : isResetRequest
+                  ? '비밀번호 찾기'
+                  : '비밀번호 재설정'}
+              </h1>
+            </div>
+          )}
 
-            <div>
-              <label htmlFor="verificationCode" className="mb-1 block text-sm font-medium text-slate-700">
-                6자리 인증 코드
-              </label>
-              <div className="relative">
+          {authError?.type === 'email_not_verified' ? (
+            <div className="mt-6">
+              <StatusMessage tone="success">{authError.message}</StatusMessage>
+            </div>
+          ) : null}
+
+          {isVerify ? (
+            <form onSubmit={handleVerifyCode} className="mt-10 space-y-4">
+              <StatusMessage>{resolvedVerificationEmail || '가입한 이메일'}</StatusMessage>
+
+              <div>
+                <label htmlFor="verificationCode" className="sr-only">
+                  6자리 인증 코드
+                </label>
                 <input
                   id="verificationCode"
                   type="text"
@@ -426,12 +468,12 @@ export default function Login() {
                         key={index}
                         type="button"
                         onClick={() => document.getElementById('verificationCode')?.focus()}
-                        className={`h-14 rounded-2xl border text-lg font-black transition ${
+                        className={`h-12 rounded-lg border text-base font-semibold transition ${
                           digit
-                            ? 'border-primary bg-primary/5 text-foreground'
+                            ? 'border-black bg-black/5 text-black'
                             : isActive
-                            ? 'border-primary/50 bg-primary/5 text-foreground'
-                            : 'border-slate-200 bg-slate-50 text-slate-400'
+                            ? 'border-black/40 bg-black/5 text-black'
+                            : 'border-[#E0E0E0] bg-white text-[#828282]'
                         }`}
                       >
                         {digit || ''}
@@ -439,341 +481,350 @@ export default function Login() {
                     );
                   })}
                 </div>
+                <p className="mt-3 text-xs text-[#828282]">메일에 보이는 6자리 숫자를 그대로 입력해주세요.</p>
               </div>
-              <p className="mt-2 text-xs text-slate-500">메일에 보이는 6자리 숫자를 그대로 입력해주세요. 메일이 없으면 스팸함도 확인해주세요.</p>
-            </div>
 
-            {error ? <p className="text-sm text-red-600">{error}</p> : null}
-            {message ? <p className="text-sm text-emerald-600">{message}</p> : null}
+              <StatusMessage tone="error">{error}</StatusMessage>
+              <StatusMessage tone="success">{message}</StatusMessage>
 
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="w-full rounded-xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {isSubmitting ? '인증 중...' : '인증 완료하기'}
-            </button>
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className={primaryButtonClassName}
+              >
+                {isSubmitting ? '인증 중...' : '인증 완료하기'}
+              </button>
 
-            <button
-              type="button"
-              onClick={handleResendVerification}
-              disabled={isResending}
-              className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {isResending ? '인증 메일 다시 보내는 중...' : '인증 메일 다시 보내기'}
-            </button>
+              <button
+                type="button"
+                onClick={handleResendVerification}
+                disabled={isResending}
+                className={secondaryButtonClassName}
+              >
+                {isResending ? '인증 메일 다시 보내는 중...' : '인증 메일 다시 보내기'}
+              </button>
 
-            <button
-              type="button"
-              onClick={() => {
-                setMode('signin');
-                setError('');
-                setMessage('');
-                setVerificationCode('');
-              }}
-              className="w-full text-sm font-medium text-slate-500 transition hover:text-slate-700"
-            >
-              로그인 화면으로 돌아가기
-            </button>
-          </form>
-        ) : isFindEmail ? (
-          <form onSubmit={handleFindEmail} className="space-y-4">
-            <div>
-              <label htmlFor="lookupNickname" className="mb-1 block text-sm font-medium text-slate-700">
-                가입한 닉네임
-              </label>
-              <input
+              <button
+                type="button"
+                onClick={() => {
+                  setMode('signin');
+                  setError('');
+                  setMessage('');
+                  setVerificationCode('');
+                }}
+                className="w-full pt-2 text-center text-sm font-medium text-[#828282] transition hover:text-black"
+              >
+                로그인 화면으로 돌아가기
+              </button>
+            </form>
+          ) : isFindEmail ? (
+            <form onSubmit={handleFindEmail} className="mt-10 space-y-4">
+              <AuthField
                 id="lookupNickname"
+                label="가입한 닉네임"
                 type="text"
                 value={lookupNickname}
                 onChange={(event) => setLookupNickname(event.target.value.slice(0, NICKNAME_MAX_LENGTH))}
-                className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-slate-500"
                 placeholder="닉네임 입력"
+                autoComplete="nickname"
               />
-            </div>
 
-            {error ? <p className="text-sm text-red-600">{error}</p> : null}
-            {message ? <p className="text-sm text-emerald-600">{message}</p> : null}
+              <StatusMessage tone="error">{error}</StatusMessage>
+              <StatusMessage tone="success">{message}</StatusMessage>
 
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="w-full rounded-xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {isSubmitting ? '확인 중...' : '아이디 찾기'}
-            </button>
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className={primaryButtonClassName}
+              >
+                {isSubmitting ? '확인 중...' : '아이디 찾기'}
+              </button>
 
-            <button
-              type="button"
-              onClick={() => {
-                setMode('signin');
-                setError('');
-                setMessage('');
-              }}
-              className="w-full text-sm font-medium text-slate-500 transition hover:text-slate-700"
-            >
-              로그인 화면으로 돌아가기
-            </button>
-          </form>
-        ) : isResetRequest ? (
-          <form onSubmit={handleRequestReset} className="space-y-4">
-            <div>
-              <label htmlFor="resetEmail" className="mb-1 block text-sm font-medium text-slate-700">
-                가입 이메일
-              </label>
-              <input
+              <button
+                type="button"
+                onClick={() => {
+                  setMode('signin');
+                  setError('');
+                  setMessage('');
+                }}
+                className="w-full pt-2 text-center text-sm font-medium text-[#828282] transition hover:text-black"
+              >
+                로그인 화면으로 돌아가기
+              </button>
+            </form>
+          ) : isResetRequest ? (
+            <form onSubmit={handleRequestReset} className="mt-10 space-y-4">
+              <AuthField
                 id="resetEmail"
+                label="가입 이메일"
                 type="email"
                 value={resetEmail}
                 onChange={(event) => setResetEmail(event.target.value)}
-                className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-slate-500"
-                placeholder="you@example.com"
+                placeholder="email"
+                autoComplete="email"
               />
-            </div>
 
-            {error ? <p className="text-sm text-red-600">{error}</p> : null}
-            {message ? <p className="text-sm text-emerald-600">{message}</p> : null}
+              <StatusMessage tone="error">{error}</StatusMessage>
+              <StatusMessage tone="success">{message}</StatusMessage>
 
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="w-full rounded-xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {isSubmitting ? '보내는 중...' : '비밀번호 재설정 메일 보내기'}
-            </button>
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className={primaryButtonClassName}
+              >
+                {isSubmitting ? '보내는 중...' : '비밀번호 재설정 메일 보내기'}
+              </button>
 
-            <button
-              type="button"
-              onClick={() => {
-                setMode('signin');
-                setError('');
-                setMessage('');
-              }}
-              className="w-full text-sm font-medium text-slate-500 transition hover:text-slate-700"
-            >
-              로그인 화면으로 돌아가기
-            </button>
-          </form>
-        ) : isResetPassword ? (
-          <form onSubmit={handleResetPassword} className="space-y-4">
-            <div>
-              <label htmlFor="password" className="mb-1 block text-sm font-medium text-slate-700">
-                새 비밀번호
-              </label>
-              <input
+              <button
+                type="button"
+                onClick={() => {
+                  setMode('signin');
+                  setError('');
+                  setMessage('');
+                }}
+                className="w-full pt-2 text-center text-sm font-medium text-[#828282] transition hover:text-black"
+              >
+                로그인 화면으로 돌아가기
+              </button>
+            </form>
+          ) : isResetPassword ? (
+            <form onSubmit={handleResetPassword} className="mt-10 space-y-4">
+              <AuthField
                 id="password"
+                label="새 비밀번호"
                 type={showPassword ? 'text' : 'password'}
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
-                className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-slate-500"
                 placeholder="새 비밀번호를 입력하세요"
                 autoComplete="new-password"
+                trailingAction={(
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((prev) => !prev)}
+                    className="inline-flex items-center gap-1 text-xs font-medium text-[#828282] transition hover:text-black"
+                  >
+                    {showPassword ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                    {showPassword ? '비밀번호 숨기기' : '비밀번호 보기'}
+                  </button>
+                )}
               />
-              <button
-                type="button"
-                onClick={() => setShowPassword((prev) => !prev)}
-                className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-slate-500 hover:text-slate-700"
-              >
-                {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                {showPassword ? '비밀번호 숨기기' : '비밀번호 보기'}
-              </button>
-            </div>
 
-            <div>
-              <label htmlFor="confirmPassword" className="mb-1 block text-sm font-medium text-slate-700">
-                새 비밀번호 확인
-              </label>
-              <input
+              <AuthField
                 id="confirmPassword"
+                label="새 비밀번호 확인"
                 type={showConfirmPassword ? 'text' : 'password'}
                 value={confirmPassword}
                 onChange={(event) => setConfirmPassword(event.target.value)}
-                className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-slate-500"
                 placeholder="새 비밀번호를 다시 입력하세요"
                 autoComplete="new-password"
+                trailingAction={(
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword((prev) => !prev)}
+                    className="inline-flex items-center gap-1 text-xs font-medium text-[#828282] transition hover:text-black"
+                  >
+                    {showConfirmPassword ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                    {showConfirmPassword ? '비밀번호 확인 숨기기' : '비밀번호 확인 보기'}
+                  </button>
+                )}
               />
+
+              <StatusMessage tone="error">{error}</StatusMessage>
+              <StatusMessage tone="success">{message}</StatusMessage>
+
               <button
-                type="button"
-                onClick={() => setShowConfirmPassword((prev) => !prev)}
-                className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-slate-500 hover:text-slate-700"
+                type="submit"
+                disabled={isSubmitting}
+                className={primaryButtonClassName}
               >
-                {showConfirmPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                {showConfirmPassword ? '비밀번호 확인 숨기기' : '비밀번호 확인 보기'}
+                {isSubmitting ? '변경 중...' : '새 비밀번호 저장'}
               </button>
-            </div>
+            </form>
+          ) : (
+            <form onSubmit={handleSubmit} className={`space-y-4 ${isDefaultSignIn ? 'mt-14 md:mt-16' : 'mt-10'}`}>
+              {isSignUp ? (
+                <AuthField
+                  id="nickname"
+                  label="닉네임"
+                  type="text"
+                  value={nickname}
+                  onChange={(event) => {
+                    const nextValue = event.target.value.slice(0, NICKNAME_MAX_LENGTH);
+                    setNickname(nextValue);
+                    if (normalizeNickname(nextValue) !== nicknameCheckedValue) {
+                      setNicknameCheckedValue('');
+                      setNicknameCheckMessage('');
+                    }
+                  }}
+                  placeholder="닉네임"
+                  autoComplete="nickname"
+                  helper={`한글, 영문, 숫자, 밑줄(_) 가능 · ${NICKNAME_MAX_LENGTH}자 이하`}
+                  trailingAction={(
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={handleCheckNickname}
+                        disabled={isCheckingNickname || !normalizedNickname}
+                        className="rounded-lg border border-[#E0E0E0] px-3 py-2 text-xs font-medium text-black transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        {isCheckingNickname ? '확인 중...' : '닉네임 중복 확인'}
+                      </button>
+                      {isNicknameVerified ? <span className="text-xs font-medium text-emerald-600">확인 완료</span> : null}
+                    </div>
+                  )}
+                />
+              ) : null}
 
-            {error ? <p className="text-sm text-red-600">{error}</p> : null}
-            {message ? <p className="text-sm text-emerald-600">{message}</p> : null}
-
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="w-full rounded-xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {isSubmitting ? '변경 중...' : '새 비밀번호 저장'}
-            </button>
-          </form>
-        ) : (
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {isSignUp && (
-            <div>
-              <label htmlFor="nickname" className="mb-1 block text-sm font-medium text-slate-700">
-                닉네임
-              </label>
-              <input
-                id="nickname"
-                type="text"
-                value={nickname}
-                onChange={(event) => {
-                  const nextValue = event.target.value.slice(0, NICKNAME_MAX_LENGTH);
-                  setNickname(nextValue);
-                  if (normalizeNickname(nextValue) !== nicknameCheckedValue) {
-                    setNicknameCheckedValue('');
-                    setNicknameCheckMessage('');
-                  }
-                }}
-                className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-slate-500"
-                placeholder="앱에서 표시될 이름"
-                autoComplete="nickname"
+              <AuthField
+                id="email"
+                label="이메일"
+                type="email"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                placeholder="email"
+                autoComplete="email"
               />
-              <div className="mt-2 flex items-center gap-2">
+
+              <AuthField
+                id="password"
+                label="비밀번호"
+                type={showPassword ? 'text' : 'password'}
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                placeholder="password"
+                autoComplete={isSignUp ? 'new-password' : 'current-password'}
+                helper={isSignUp ? '영문, 숫자, 특수문자를 포함한 8자 이상' : undefined}
+                trailingAction={(
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((prev) => !prev)}
+                    className="inline-flex items-center gap-1 text-xs font-medium text-[#828282] transition hover:text-black"
+                  >
+                    {showPassword ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                    {showPassword ? '비밀번호 숨기기' : '비밀번호 보기'}
+                  </button>
+                )}
+              />
+
+              {isSignUp ? (
+                <AuthField
+                  id="confirmPassword"
+                  label="비밀번호 확인"
+                  type={showConfirmPassword ? 'text' : 'password'}
+                  value={confirmPassword}
+                  onChange={(event) => setConfirmPassword(event.target.value)}
+                  placeholder="비밀번호 확인"
+                  autoComplete="new-password"
+                  trailingAction={(
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmPassword((prev) => !prev)}
+                      className="inline-flex items-center gap-1 text-xs font-medium text-[#828282] transition hover:text-black"
+                    >
+                      {showConfirmPassword ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                      {showConfirmPassword ? '비밀번호 확인 숨기기' : '비밀번호 확인 보기'}
+                    </button>
+                  )}
+                />
+              ) : null}
+
+              {nicknameCheckMessage ? <StatusMessage tone="success">{nicknameCheckMessage}</StatusMessage> : null}
+              <StatusMessage tone="error">{error}</StatusMessage>
+              <StatusMessage tone="success">{message}</StatusMessage>
+
+              <div className="relative">
                 <button
-                  type="button"
-                  onClick={handleCheckNickname}
-                  disabled={isCheckingNickname || !normalizedNickname}
-                  className="rounded-xl border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                  type="submit"
+                  disabled={isSubmitting}
+                  className={primaryButtonClassName}
                 >
-                  {isCheckingNickname ? '확인 중...' : '닉네임 중복 확인'}
+                  {isSubmitting
+                    ? '처리 중...'
+                    : isSignUp
+                    ? '회원가입하기'
+                    : '로그인하기'}
                 </button>
-                {isNicknameVerified ? (
-                  <span className="text-xs font-semibold text-emerald-600">확인 완료</span>
-                ) : null}
               </div>
-              <p className="mt-1 text-xs text-slate-500">한글, 영문, 숫자, 밑줄(_) 가능 · {NICKNAME_MAX_LENGTH}자 이하</p>
-              {nicknameCheckMessage ? <p className="mt-1 text-xs text-emerald-600">{nicknameCheckMessage}</p> : null}
-            </div>
+              {isDefaultSignIn ? (
+                <>
+                  <div className="flex items-center gap-4 pt-4">
+                    <div className="h-px flex-1 bg-[#E0E0E0]" />
+                    <span className="text-center text-sm font-normal leading-[140%] text-[#828282]">또는</span>
+                    <div className="h-px flex-1 bg-[#E0E0E0]" />
+                  </div>
+
+                  <div className="flex items-center justify-center gap-5 pt-3 text-center">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMode('find-email');
+                        setError('');
+                        setMessage('');
+                      }}
+                      className={`${linkButtonClassName} font-['IBM_Plex_Sans_JP',sans-serif]`}
+                    >
+                      아이디 찾기
+                    </button>
+                    <span className="text-sm text-black">|</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMode('reset-request');
+                        setError('');
+                        setMessage('');
+                      }}
+                      className={`${linkButtonClassName} font-['IBM_Plex_Sans_JP',sans-serif]`}
+                    >
+                      비밀번호 찾기
+                    </button>
+                    <span className="text-sm text-black">|</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMode('signup');
+                        setError('');
+                        setMessage('');
+                        setVerificationCode('');
+                      }}
+                      className={`${linkButtonClassName} font-['IBM_Plex_Sans_JP',sans-serif]`}
+                    >
+                      회원가입
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <div className="flex items-center justify-center gap-3 pt-2 text-sm">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMode('signin');
+                      setError('');
+                      setMessage('');
+                      setVerificationCode('');
+                    }}
+                    className="font-medium text-[#828282] transition hover:text-black"
+                  >
+                    로그인
+                  </button>
+                  <span className="text-[#828282]">/</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMode('signup');
+                      setError('');
+                      setMessage('');
+                      setVerificationCode('');
+                    }}
+                    className="font-medium text-[#828282] transition hover:text-black"
+                  >
+                    회원가입
+                  </button>
+                </div>
+              )}
+            </form>
           )}
-
-          <div>
-            <label htmlFor="email" className="mb-1 block text-sm font-medium text-slate-700">
-              이메일
-            </label>
-            <input
-              id="email"
-              type="email"
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-slate-500"
-              placeholder="you@example.com"
-              autoComplete="email"
-            />
           </div>
-
-          <div>
-            <label htmlFor="password" className="mb-1 block text-sm font-medium text-slate-700">
-              비밀번호
-            </label>
-            <input
-              id="password"
-              type={showPassword ? 'text' : 'password'}
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-slate-500"
-              placeholder="비밀번호를 입력하세요"
-              autoComplete={isSignUp ? 'new-password' : 'current-password'}
-            />
-            <button
-              type="button"
-              onClick={() => setShowPassword((prev) => !prev)}
-              className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-slate-500 hover:text-slate-700"
-            >
-              {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-              {showPassword ? '비밀번호 숨기기' : '비밀번호 보기'}
-            </button>
-            {isSignUp ? (
-              <p className="mt-1 text-xs text-slate-500">영문, 숫자, 특수문자를 포함한 8자 이상</p>
-            ) : null}
-          </div>
-
-          {isSignUp && (
-            <div>
-              <label htmlFor="confirmPassword" className="mb-1 block text-sm font-medium text-slate-700">
-                비밀번호 확인
-              </label>
-              <input
-                id="confirmPassword"
-                type={showConfirmPassword ? 'text' : 'password'}
-                value={confirmPassword}
-                onChange={(event) => setConfirmPassword(event.target.value)}
-                className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-slate-500"
-                placeholder="비밀번호를 다시 입력하세요"
-                autoComplete="new-password"
-              />
-              <button
-                type="button"
-                onClick={() => setShowConfirmPassword((prev) => !prev)}
-                className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-slate-500 hover:text-slate-700"
-              >
-                {showConfirmPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                {showConfirmPassword ? '비밀번호 확인 숨기기' : '비밀번호 확인 보기'}
-              </button>
-            </div>
-          )}
-
-          {error ? <p className="text-sm text-red-600">{error}</p> : null}
-          {message ? <p className="text-sm text-emerald-600">{message}</p> : null}
-
-          <button
-            type="submit"
-            disabled={isSubmitting}
-            className="w-full rounded-xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {isSubmitting
-              ? '처리 중...'
-              : isSignUp
-                ? '회원가입하기'
-                : '로그인하기'}
-          </button>
-
-          {!isSignUp && resolvedVerificationEmail ? (
-            <button
-              type="button"
-              onClick={handleResendVerification}
-              disabled={isResending}
-              className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {isResending ? '인증 메일 다시 보내는 중...' : '인증 메일 다시 보내기'}
-            </button>
-          ) : null}
-
-          {!isSignUp ? (
-            <div className="flex items-center justify-between gap-3 text-xs">
-              <button
-                type="button"
-                onClick={() => {
-                  setMode('find-email');
-                  setError('');
-                  setMessage('');
-                }}
-                className="font-medium text-slate-500 hover:text-slate-700"
-              >
-                아이디 찾기
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setMode('reset-request');
-                  setError('');
-                  setMessage('');
-                }}
-                className="font-medium text-slate-500 hover:text-slate-700"
-              >
-                비밀번호 찾기
-              </button>
-            </div>
-          ) : null}
-        </form>
-        )}
+        </div>
       </div>
     </div>
   );

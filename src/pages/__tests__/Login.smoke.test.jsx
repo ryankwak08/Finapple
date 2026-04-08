@@ -50,7 +50,7 @@ describe('Login smoke', () => {
       </MemoryRouter>
     );
 
-    expect(screen.getByText('FinApple 로그인')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /Finapple에 오신 것을\s*환영합니다/ })).toBeInTheDocument();
     expect(screen.getByLabelText('이메일')).toBeInTheDocument();
     expect(screen.getByLabelText('비밀번호')).toBeInTheDocument();
 

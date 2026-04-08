@@ -13,19 +13,7 @@ const PREMIUM_FREEZER_GRANT_VERSION = 1;
 const PROGRESS_UPDATED_EVENT = 'finapple:progress-updated';
 const FREEZER_HISTORY_LIMIT = 5;
 
-const buildFreezerExpiryAt = (activatedAt) => {
-  return new Date(new Date(activatedAt).getTime() + (24 * 60 * 60 * 1000)).toISOString();
-};
-
 const trimFreezerHistory = (history = []) => history.slice(0, FREEZER_HISTORY_LIMIT);
-
-const finalizeFreezerHistoryEntry = (history = [], activatedAt, updates) => (
-  trimFreezerHistory(history.map((entry) => (
-    entry.activatedAt === activatedAt
-      ? { ...entry, ...updates }
-      : entry
-  )))
-);
 
 const clearFreezerShieldState = (progress, nextHistory = progress.streak_freezer_history || []) => ({
   ...progress,
@@ -95,42 +83,57 @@ const shiftDate = (dateString, days) => {
   return date.toISOString().split('T')[0];
 };
 
+const consumeAutoFreezers = (progress, today) => {
+  const lastActiveDate = progress.last_active_date;
+  if (!lastActiveDate) {
+    return { next: progress, consumedDays: 0 };
+  }
+
+  const daysBetween = getDaysBetween(lastActiveDate, today);
+  if (daysBetween <= 1) {
+    return { next: progress, consumedDays: 0 };
+  }
+
+  const missedDays = daysBetween - 1;
+  const availableFreezers = progress.streak_freezers || 0;
+  const consumedDays = Math.min(missedDays, availableFreezers);
+
+  if (consumedDays <= 0) {
+    return { next: progress, consumedDays: 0 };
+  }
+
+  const now = new Date().toISOString();
+  const historyEntries = Array.from({ length: consumedDays }, (_, index) => ({
+    activatedAt: now,
+    status: 'used_auto',
+    consumedAt: `${shiftDate(lastActiveDate, index + 1)}T00:00:00.000Z`,
+  }));
+
+  return {
+    consumedDays,
+    next: {
+      ...progress,
+      streak_freezers: availableFreezers - consumedDays,
+      streak_freezer_history: trimFreezerHistory([
+        ...historyEntries,
+        ...(progress.streak_freezer_history || []),
+      ]),
+      last_active_date: shiftDate(lastActiveDate, consumedDays),
+    },
+  };
+};
+
 const syncDailyProgress = (progress, premiumUser, adsDisabled) => {
   const today = TODAY();
-  const activeShieldActivatedAt = progress.streak_freezer_activated_at || new Date().toISOString();
-  const expectedShieldExpiresAt = progress.streak_freezer_shield_active
-    ? buildFreezerExpiryAt(activeShieldActivatedAt)
-    : null;
-  const activeShieldExpiresAt = progress.streak_freezer_shield_active
-    ? expectedShieldExpiresAt
-    : null;
-  const activeShieldExpired = Boolean(
-    progress.streak_freezer_shield_active &&
-    activeShieldExpiresAt &&
-    Date.now() > new Date(activeShieldExpiresAt).getTime()
-  );
   const next = {
     ...progress,
     streak_count: progress.streak_count || 1,
     best_streak: progress.best_streak || progress.streak_count || 1,
     streak_freezers: progress.streak_freezers ?? (premiumUser ? PREMIUM_FREEZER_COUNT : 0),
-    streak_freezer_shield_active: Boolean(progress.streak_freezer_shield_active) && !activeShieldExpired,
-    streak_freezer_activated_at: progress.streak_freezer_shield_active && !activeShieldExpired
-      ? activeShieldActivatedAt
-      : null,
-    streak_freezer_expires_at: progress.streak_freezer_shield_active && !activeShieldExpired
-      ? activeShieldExpiresAt
-      : null,
-    streak_freezer_history: activeShieldExpired && progress.streak_freezer_activated_at
-      ? finalizeFreezerHistoryEntry(
-          progress.streak_freezer_history || [],
-          progress.streak_freezer_activated_at,
-          {
-            status: 'expired',
-            expiredAt: progress.streak_freezer_expires_at || new Date().toISOString(),
-          },
-        )
-      : (progress.streak_freezer_history || []),
+    streak_freezer_shield_active: false,
+    streak_freezer_activated_at: null,
+    streak_freezer_expires_at: null,
+    streak_freezer_history: progress.streak_freezer_history || [],
     last_active_date: progress.last_active_date || today,
     ads_disabled: adsDisabled,
   };
@@ -143,35 +146,15 @@ const syncDailyProgress = (progress, premiumUser, adsDisabled) => {
     next.best_streak = Math.max(next.best_streak, 1);
     changed = true;
   } else {
-    const daysBetween = getDaysBetween(progress.last_active_date, today);
+    const freezerSync = consumeAutoFreezers(next, today);
+    Object.assign(next, freezerSync.next);
 
-    if (daysBetween > 1) {
-      if (daysBetween === 2 && next.streak_freezer_shield_active) {
-        const consumedHistory = finalizeFreezerHistoryEntry(
-          next.streak_freezer_history,
-          next.streak_freezer_activated_at,
-          {
-            status: 'used',
-            consumedAt: new Date().toISOString(),
-          },
-        );
-        Object.assign(next, clearFreezerShieldState(next, consumedHistory));
-        next.last_active_date = shiftDate(today, -1);
-      } else {
-        next.streak_count = 1;
-        if (next.streak_freezer_shield_active) {
-          const expiredHistory = finalizeFreezerHistoryEntry(
-            next.streak_freezer_history,
-            next.streak_freezer_activated_at,
-            {
-              status: 'expired',
-              expiredAt: next.streak_freezer_expires_at || new Date().toISOString(),
-            },
-          );
-          Object.assign(next, clearFreezerShieldState(next, expiredHistory));
-        }
-      }
+    const daysBetweenAfterFreezer = getDaysBetween(next.last_active_date, today);
+    if (daysBetweenAfterFreezer > 1) {
+      next.streak_count = 1;
       next.best_streak = Math.max(progress.best_streak || 0, next.streak_count);
+      changed = true;
+    } else if (freezerSync.consumedDays > 0) {
       changed = true;
     }
   }
@@ -182,12 +165,9 @@ const syncDailyProgress = (progress, premiumUser, adsDisabled) => {
   }
 
   if (
-    progress.streak_freezer_shield_active &&
-    (
-      progress.streak_freezer_activated_at !== next.streak_freezer_activated_at ||
-      progress.streak_freezer_expires_at !== next.streak_freezer_expires_at ||
-      progress.streak_freezer_expires_at !== expectedShieldExpiresAt
-    )
+    progress.streak_freezer_shield_active ||
+    progress.streak_freezer_activated_at ||
+    progress.streak_freezer_expires_at
   ) {
     changed = true;
   }
@@ -245,6 +225,43 @@ export default function useProgress() {
     safeStorage.setItem(STORAGE_KEY, JSON.stringify(next));
     window.dispatchEvent(new CustomEvent(PROGRESS_UPDATED_EVENT, { detail: next }));
   }, []);
+
+  const getLatestProgressSnapshot = useCallback(() => {
+    const stored = safeStorage.getItem(STORAGE_KEY);
+    if (!stored) {
+      return progress;
+    }
+
+    try {
+      const parsed = JSON.parse(stored);
+      if (!parsed || typeof parsed !== 'object') {
+        return progress;
+      }
+
+      return {
+        ...getDefaultProgress(parsed.user_email || user?.email || 'guest'),
+        ...parsed,
+        review_notes: (parsed.review_notes || []).map(normalizeReviewNote),
+      };
+    } catch {
+      return progress;
+    }
+  }, [progress, user?.email]);
+
+  const applyProgressUpdate = useCallback((updater) => {
+    const current = getLatestProgressSnapshot();
+    if (!current) {
+      return null;
+    }
+
+    const next = updater(current);
+    if (!next) {
+      return current;
+    }
+
+    persistProgress(next);
+    return next;
+  }, [getLatestProgressSnapshot, persistProgress]);
 
   const loadProgress = useCallback(async () => {
     try {
@@ -323,51 +340,18 @@ export default function useProgress() {
     };
   }, []);
 
-  useEffect(() => {
-    if (!progress?.streak_freezer_shield_active || !progress.streak_freezer_expires_at) {
-      return;
-    }
-
-    const remainingMs = new Date(progress.streak_freezer_expires_at).getTime() - Date.now();
-
-    if (remainingMs <= 0) {
-      const expiredHistory = finalizeFreezerHistoryEntry(
-        progress.streak_freezer_history || [],
-        progress.streak_freezer_activated_at,
-        {
-          status: 'expired',
-          expiredAt: progress.streak_freezer_expires_at,
-        },
-      );
-      persistProgress(clearFreezerShieldState(progress, expiredHistory));
-      return;
-    }
-
-    const timeoutId = window.setTimeout(() => {
-      const expiredHistory = finalizeFreezerHistoryEntry(
-        progress.streak_freezer_history || [],
-        progress.streak_freezer_activated_at,
-        {
-          status: 'expired',
-          expiredAt: progress.streak_freezer_expires_at,
-        },
-      );
-      persistProgress(clearFreezerShieldState(progress, expiredHistory));
-    }, remainingMs + 250);
-
-    return () => {
-      window.clearTimeout(timeoutId);
-    };
-  }, [persistProgress, progress]);
-
   const loseHeart = useCallback(async () => {
     if (getIsPremium(user)) return progress?.hearts ?? 5;
-    if (!progress || progress.hearts <= 0) return 0;
-    const newHearts = progress.hearts - 1;
-    const updated = { ...progress, hearts: newHearts };
-    persistProgress(updated);
-    return newHearts;
-  }, [persistProgress, progress, user]);
+    const next = applyProgressUpdate((current) => {
+      if (!current || current.hearts <= 0) {
+        return current;
+      }
+
+      return { ...current, hearts: current.hearts - 1 };
+    });
+
+    return next?.hearts ?? 0;
+  }, [applyProgressUpdate, progress?.hearts, user]);
 
   const recordWrongAnswer = useCallback(async ({
     quizId,
@@ -378,215 +362,176 @@ export default function useProgress() {
     selectedAnswer,
     questionType = 'quiz',
   }) => {
-    if (!progress || !question) return;
+    if (!question) return;
 
-    const reviewId = createQuestionReviewId(quizId, question);
-    const existingNotes = progress.review_notes || [];
-    const existing = existingNotes.find((entry) => entry.id === reviewId);
-    const nextEntry = {
-      id: reviewId,
-      quizId,
-      quizTitle,
-      unitId,
-      unitTitle,
-      question,
-      selectedAnswer,
-      questionType,
-      attempts: (existing?.attempts || 0) + 1,
-      status: 'wrong',
-      resolvedAt: null,
-      updatedAt: new Date().toISOString(),
-      createdAt: existing?.createdAt || new Date().toISOString(),
-    };
+    applyProgressUpdate((current) => {
+      if (!current) return current;
 
-    const reviewNotes = existing
-      ? existingNotes.map((entry) => entry.id === reviewId ? nextEntry : entry)
-      : [nextEntry, ...existingNotes];
+      const reviewId = createQuestionReviewId(quizId, question);
+      const existingNotes = current.review_notes || [];
+      const existing = existingNotes.find((entry) => entry.id === reviewId);
+      const nextEntry = {
+        id: reviewId,
+        quizId,
+        quizTitle,
+        unitId,
+        unitTitle,
+        question,
+        selectedAnswer,
+        questionType,
+        attempts: (existing?.attempts || 0) + 1,
+        status: 'wrong',
+        resolvedAt: null,
+        updatedAt: new Date().toISOString(),
+        createdAt: existing?.createdAt || new Date().toISOString(),
+      };
 
-    persistProgress({ ...progress, review_notes: reviewNotes });
-  }, [persistProgress, progress]);
+      const reviewNotes = existing
+        ? existingNotes.map((entry) => entry.id === reviewId ? nextEntry : entry)
+        : [nextEntry, ...existingNotes];
+
+      return { ...current, review_notes: reviewNotes };
+    });
+  }, [applyProgressUpdate]);
 
   const resolveWrongAnswer = useCallback(async (reviewId) => {
-    if (!progress) return;
-    const reviewNotes = (progress.review_notes || []).map((entry) => (
-      entry.id === reviewId
-        ? {
-            ...entry,
-            status: 'resolved',
-            resolvedAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-          }
-        : entry
-    ));
-    persistProgress({ ...progress, review_notes: reviewNotes });
-  }, [persistProgress, progress]);
+    applyProgressUpdate((current) => {
+      if (!current) return current;
+      const reviewNotes = (current.review_notes || []).map((entry) => (
+        entry.id === reviewId
+          ? {
+              ...entry,
+              status: 'resolved',
+              resolvedAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+            }
+          : entry
+      ));
+      return { ...current, review_notes: reviewNotes };
+    });
+  }, [applyProgressUpdate]);
 
   const completeQuiz = useCallback(async (quizId, score, xpReward) => {
-    if (!progress) return;
-    const completed = progress.completed_quizzes || [];
-    const scores = progress.quiz_scores || {};
-    const isNew = !completed.includes(quizId);
-    const bestScore = Math.max(scores[quizId] || 0, score);
-    
-    const updates = {
-      completed_quizzes: isNew ? [...completed, quizId] : completed,
-      quiz_scores: { ...scores, [quizId]: bestScore },
-      xp: isNew ? (progress.xp || 0) + xpReward : progress.xp
-    };
+    applyProgressUpdate((current) => {
+      if (!current) return current;
+      const completed = current.completed_quizzes || [];
+      const scores = current.quiz_scores || {};
+      const isNew = !completed.includes(quizId);
+      const bestScore = Math.max(scores[quizId] || 0, score);
 
-    const updated = { ...progress, ...updates };
-    persistProgress(updated);
-  }, [persistProgress, progress]);
+      return {
+        ...current,
+        completed_quizzes: isNew ? [...completed, quizId] : completed,
+        quiz_scores: { ...scores, [quizId]: bestScore },
+        xp: isNew ? (current.xp || 0) + xpReward : (current.xp || 0),
+      };
+    });
+  }, [applyProgressUpdate]);
 
   const recordQuizActivity = useCallback(async () => {
-    if (!progress) {
-      return;
-    }
+    applyProgressUpdate((current) => {
+      if (!current) return current;
 
-    const today = TODAY();
-    const lastActiveDate = progress.last_active_date;
+      const today = TODAY();
+      const freezerApplied = consumeAutoFreezers(current, today);
+      const base = freezerApplied.next;
+      const lastActiveDate = base.last_active_date;
 
-    if (!lastActiveDate) {
-      persistProgress({
-        ...progress,
+      if (!lastActiveDate) {
+        return {
+          ...base,
+          last_active_date: today,
+          streak_count: 1,
+          best_streak: Math.max(base.best_streak || 1, 1),
+        };
+      }
+
+      const daysBetween = getDaysBetween(lastActiveDate, today);
+
+      if (daysBetween <= 0) {
+        return base;
+      }
+
+      if (daysBetween === 1) {
+        const nextStreakCount = (base.streak_count || 0) + 1;
+        return {
+          ...base,
+          last_active_date: today,
+          streak_count: nextStreakCount,
+          best_streak: Math.max(base.best_streak || 0, nextStreakCount),
+        };
+      }
+
+      return {
+        ...clearFreezerShieldState(base),
         last_active_date: today,
         streak_count: 1,
-        best_streak: Math.max(progress.best_streak || 1, 1),
-      });
-      return;
-    }
-
-    const daysBetween = getDaysBetween(lastActiveDate, today);
-
-    if (daysBetween <= 0) {
-      return;
-    }
-
-    if (daysBetween === 1) {
-      const nextStreakCount = (progress.streak_count || 0) + 1;
-      persistProgress({
-        ...progress,
-        last_active_date: today,
-        streak_count: nextStreakCount,
-        best_streak: Math.max(progress.best_streak || 0, nextStreakCount),
-      });
-      return;
-    }
-
-    if (daysBetween === 2 && progress.streak_freezer_shield_active) {
-      const consumedHistory = finalizeFreezerHistoryEntry(
-        progress.streak_freezer_history || [],
-        progress.streak_freezer_activated_at,
-        {
-          status: 'used',
-          consumedAt: new Date().toISOString(),
-        },
-      );
-      const nextStreakCount = (progress.streak_count || 0) + 1;
-      persistProgress({
-        ...clearFreezerShieldState(progress, consumedHistory),
-        last_active_date: today,
-        streak_count: nextStreakCount,
-        best_streak: Math.max(progress.best_streak || 0, nextStreakCount),
-      });
-      return;
-    }
-
-    persistProgress({
-      ...progress,
-      last_active_date: today,
-      streak_count: 1,
-      best_streak: Math.max(progress.best_streak || 1, 1),
+        best_streak: Math.max(base.best_streak || 1, 1),
+      };
     });
-  }, [persistProgress, progress]);
+  }, [applyProgressUpdate]);
 
   const purchaseShopItem = useCallback(async (item) => {
-    if (!progress) {
+    const current = getLatestProgressSnapshot();
+    if (!current) {
       throw new Error('진행 정보를 불러오는 중입니다.');
     }
 
-    const currentXp = progress.xp || 0;
+    const currentXp = current.xp || 0;
     if (currentXp < item.price) {
       throw new Error(`${item.price.toLocaleString()} XP가 필요해요.`);
     }
 
-    const inventory = { ...(progress.inventory || {}) };
-    inventory[item.id] = (inventory[item.id] || 0) + 1;
+    let snapshot;
+    applyProgressUpdate((base) => {
+      const inventory = { ...(base.inventory || {}) };
+      inventory[item.id] = (inventory[item.id] || 0) + 1;
 
-    let nextProgress = {
-      ...progress,
-      xp: currentXp - item.price,
-      inventory,
-    };
-
-    if (item.rewardType === 'streak_freezer') {
-      nextProgress = {
-        ...nextProgress,
-        streak_freezers: (progress.streak_freezers || 0) + (item.rewardValue || 1),
+      let nextProgress = {
+        ...base,
+        xp: Math.max(0, (base.xp || 0) - item.price),
+        inventory,
       };
-    }
 
-    persistProgress(nextProgress);
-    return nextProgress;
-  }, [persistProgress, progress]);
+      if (item.rewardType === 'streak_freezer') {
+        nextProgress = {
+          ...nextProgress,
+          streak_freezers: (base.streak_freezers || 0) + (item.rewardValue || 1),
+        };
+      }
+
+      snapshot = nextProgress;
+      return nextProgress;
+    });
+
+    return snapshot;
+  }, [applyProgressUpdate, getLatestProgressSnapshot]);
 
   const activateStreakFreezer = useCallback(async () => {
-    if (!progress) {
-      throw new Error('진행 정보를 불러오는 중입니다.');
-    }
-
-    if ((progress.streak_freezers || 0) <= 0) {
-      throw new Error('사용 가능한 Streak Freezer가 없어요.');
-    }
-
-    if (progress.streak_freezer_shield_active) {
-      throw new Error('이미 Freezer가 적용되어 있어요.');
-    }
-
-    const activatedAt = new Date().toISOString();
-    const expiresAt = buildFreezerExpiryAt(activatedAt);
-    const nextProgress = {
-      ...progress,
-      streak_freezers: Math.max((progress.streak_freezers || 0) - 1, 0),
-      streak_freezer_shield_active: true,
-      streak_freezer_activated_at: activatedAt,
-      streak_freezer_expires_at: expiresAt,
-      streak_freezer_history: trimFreezerHistory([
-        {
-          activatedAt,
-          expiresAt,
-          status: 'active',
-        },
-        ...(progress.streak_freezer_history || []),
-      ]),
-    };
-
-    persistProgress(nextProgress);
-    return nextProgress;
-  }, [persistProgress, progress]);
+    throw new Error('Streak Freezer는 스트릭이 깨질 때 자동으로 사용됩니다.');
+  }, []);
 
   const claimLeagueReward = useCallback(async (rank, seasonKey) => {
-    if (!progress || !seasonKey) {
+    if (!seasonKey) {
       return 0;
     }
 
-    if (progress.league_reward_claimed_season_key === seasonKey) {
+    const current = getLatestProgressSnapshot();
+    if (!current || current.league_reward_claimed_season_key === seasonKey) {
       return 0;
     }
 
     const rewardXp = getLeagueRewardForRank(rank);
-    const nextProgress = {
-      ...progress,
-      xp: (progress.xp || 0) + rewardXp,
-      leaderboard_xp_baseline: (progress.leaderboard_xp_baseline || 0) + rewardXp,
+    applyProgressUpdate((base) => ({
+      ...base,
+      xp: (base.xp || 0) + rewardXp,
+      leaderboard_xp_baseline: (base.leaderboard_xp_baseline || 0) + rewardXp,
       league_reward_claimed_season_key: seasonKey,
       league_reward_claimed_rank: rank || null,
       league_reward_claimed_xp: rewardXp,
-    };
-
-    persistProgress(nextProgress);
+    }));
     return rewardXp;
-  }, [persistProgress, progress]);
+  }, [applyProgressUpdate, getLatestProgressSnapshot]);
 
   const isUnitLocked = useCallback((unitId) => {
     if (unitId === 'unit1') return false;

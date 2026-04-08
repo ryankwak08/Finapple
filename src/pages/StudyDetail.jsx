@@ -4,28 +4,48 @@ import { ArrowLeft, BookOpen, ChevronDown, ChevronUp, PlayCircle } from 'lucide-
 import { getStudyTopicById } from '../lib/studyData';
 import { getQuizUnitCatalogByStudyTopicId } from '../lib/quizCatalog';
 import ConceptTag from '../components/study/ConceptTag';
+import ConsumptionHabitTest from '../components/study/ConsumptionHabitTest';
+import InvestmentProfileTest from '../components/study/InvestmentProfileTest';
+
+const TOSS_FEED_SOURCE_URL = 'https://toss.im/tossfeed';
+const TOSS_FEED_TOPIC_IDS = new Set([
+  'housing-support-2026',
+  'youth-policy-2026',
+  'year-end-tax-settlement-2026',
+]);
 
 const buildSummaryBullets = (topic) => {
-  const bullets = [];
-
-  (topic.goals || []).slice(0, 2).forEach((goal) => {
-    bullets.push(goal);
-  });
-
-  (topic.learningPoints || []).slice(0, 4).forEach((point) => {
-    bullets.push(point.title);
-  });
-
-  return bullets.slice(0, 6);
+  return (topic.summary || '')
+    .split(/(?<=[.!?।]|다\.)\s+/)
+    .map((sentence) => sentence.trim())
+    .filter(Boolean);
 };
 
 export default function StudyDetail() {
   const navigate = useNavigate();
   const { topicId } = useParams();
   const [showSummary, setShowSummary] = useState(false);
+  const [showSourceViewer, setShowSourceViewer] = useState(false);
   const topic = getStudyTopicById(topicId);
   const linkedUnit = getQuizUnitCatalogByStudyTopicId(topicId);
   const summaryBullets = useMemo(() => (topic ? buildSummaryBullets(topic) : []), [topic]);
+  const sourceMeta = useMemo(() => {
+    if (!topic) {
+      return null;
+    }
+
+    if (TOSS_FEED_TOPIC_IDS.has(topic.id)) {
+      return {
+        label: '출처: Toss Feed',
+        url: TOSS_FEED_SOURCE_URL,
+      };
+    }
+
+    return {
+      label: '출처: 한국개발연구원(KDI) 「생애주기별 경제교육(청년기 편)」',
+      url: '',
+    };
+  }, [topic]);
 
   if (!topic) {
     return (
@@ -78,6 +98,43 @@ export default function StudyDetail() {
               </div>
             ))}
           </div>
+        </section>
+      ) : null}
+
+      {topic.pdfUrl ? (
+        <section className="mb-6 rounded-2xl border border-border bg-card p-4">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h2 className="text-[13px] font-bold uppercase tracking-wider text-muted-foreground">원문 자료</h2>
+              <p className="mt-1 text-[11px] text-muted-foreground">{sourceMeta?.label}</p>
+              {sourceMeta?.url ? (
+                <a
+                  href={sourceMeta.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="mt-0.5 inline-block text-[11px] font-semibold text-primary underline-offset-2 hover:underline"
+                >
+                  원문 출처 보기
+                </a>
+              ) : null}
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowSourceViewer((prev) => !prev)}
+              className="inline-flex items-center gap-1 rounded-lg border border-border bg-background px-3 py-1.5 text-[12px] font-semibold text-foreground hover:bg-muted"
+            >
+              {showSourceViewer ? '원문 닫기' : '원문 보기'}
+            </button>
+          </div>
+          {showSourceViewer ? (
+            <div className="mt-3 overflow-hidden rounded-xl border border-border">
+              <iframe
+                src={`${topic.pdfUrl}#view=FitH`}
+                title={`${topic.title} 원문 PDF`}
+                className="h-[70vh] w-full min-h-[480px]"
+              />
+            </div>
+          ) : null}
         </section>
       ) : null}
 
@@ -137,9 +194,15 @@ export default function StudyDetail() {
                   <h3 className="text-[14px] font-bold text-foreground">{point.title}</h3>
                 </div>
                 <div className="px-4 py-3">
-                  <p className="whitespace-pre-line text-[13px] leading-relaxed text-foreground/80">
-                    {point.content}
-                  </p>
+                  {point.title === '내 소비습관 진단하기' ? (
+                    <ConsumptionHabitTest />
+                  ) : point.title === '나의 투자성향 파악하기' ? (
+                    <InvestmentProfileTest />
+                  ) : (
+                    <p className="whitespace-pre-line text-[13px] leading-relaxed text-foreground/80">
+                      {point.content}
+                    </p>
+                  )}
                 </div>
               </article>
             ))}
@@ -165,7 +228,7 @@ export default function StudyDetail() {
             <h2 className="text-[13px] font-bold uppercase tracking-wider text-primary">읽고 바로 퀴즈 풀기</h2>
           </div>
           <p className="mb-4 text-[13px] leading-relaxed text-foreground">
-            이 주제는 퀴즈 유닛과 연결되어 있어요. 각 퀴즈에 들어가면 이 학습 내용을 잘게 나눈 뒤 바로 문제를 풀게 됩니다.
+            이 주제는 퀴즈 단원과 연결되어 있어요. 각 퀴즈에 들어가면 이 학습 내용을 잘게 나눈 뒤 바로 문제를 풀게 됩니다.
           </p>
           <div className="grid gap-2">
             {linkedUnit.quizzes.map((quiz) => (

@@ -5,29 +5,21 @@ import Quiz from '../Quiz';
 
 vi.mock('../../lib/useProgress', () => ({
   default: () => ({
-    progress: { xp: 240, hearts: 5 },
+    progress: { xp: 120, hearts: 3 },
     loading: false,
     isPremium: false,
-    isUnitLocked: vi.fn(() => false),
-    isQuizCompleted: vi.fn(() => false),
-    getQuizScore: vi.fn(() => null),
+    isUnitLocked: () => false,
+    isQuizCompleted: () => false,
+    getQuizScore: () => null,
   }),
 }));
 
-vi.mock('../../components/CourseSelector', () => ({
-  default: () => <div>Course Selector</div>,
-}));
-
-vi.mock('../../components/quiz/HeartDisplay', () => ({
-  default: ({ hearts }) => <div>hearts:{hearts}</div>,
-}));
-
 vi.mock('../../components/quiz/QuizRoadmap', () => ({
-  default: () => <div>Quiz Roadmap</div>,
+  default: () => <div>시사 용어 10개 외우기</div>,
 }));
 
 describe('Quiz smoke', () => {
-  it('renders selected course quiz overview', () => {
+  it('renders quiz tab layout', () => {
     render(
       <MemoryRouter initialEntries={['/quiz?course=youth']}>
         <Routes>
@@ -37,7 +29,7 @@ describe('Quiz smoke', () => {
     );
 
     expect(screen.getByText('청년기 편')).toBeInTheDocument();
-    expect(screen.getByText('Quiz Roadmap')).toBeInTheDocument();
-    expect(screen.getAllByText('hearts:5')).toHaveLength(1);
+    expect(screen.getByText('학습한 내용을 퀴즈로 확인해보세요')).toBeInTheDocument();
+    expect(screen.getAllByText('시사 용어 10개 외우기').length).toBeGreaterThan(0);
   });
 });

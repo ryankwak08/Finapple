@@ -14,6 +14,8 @@ import { Switch } from '@/components/ui/switch';
 import useProgress from '../lib/useProgress';
 import { safeStorage } from '@/lib/safeStorage';
 
+const getUsageStorageKey = (email) => `totalUsageSeconds:${email || 'guest'}`;
+
 function formatTime(seconds) {
   if (seconds < 60) return `${seconds}초`;
   if (seconds < 3600) return `${Math.floor(seconds / 60)}분`;
@@ -71,13 +73,16 @@ export default function Profile() {
       setUser(u);
       setNicknameInput(u?.user_metadata?.nickname || u?.user_metadata?.full_name || '');
       setIsPremium(getIsPremium(u));
+      const usageKey = getUsageStorageKey(u?.email || 'guest');
+      const stored = parseInt(safeStorage.getItem(usageKey) || '0');
+      setTotalTime(stored);
     }).catch(() => {
       setUser(null);
       setIsPremium(false);
+      const usageKey = getUsageStorageKey('guest');
+      const stored = parseInt(safeStorage.getItem(usageKey) || '0');
+      setTotalTime(stored);
     });
-
-    const stored = parseInt(safeStorage.getItem('totalUsageSeconds') || '0');
-    setTotalTime(stored);
   }, []);
 
   const handleSaveNickname = async () => {
@@ -310,10 +315,8 @@ export default function Profile() {
             <p className="text-[11px] text-muted-foreground">Streak Freezer</p>
             <p className="text-[20px] font-extrabold text-foreground leading-tight mt-1">{streakStatus.streakFreezers}개</p>
             <p className="text-[12px] text-muted-foreground mt-1">
-              {streakStatus.freezerShieldActive
-                ? '다음 1일 공백 보호 적용 중'
-                : streakStatus.adsDisabled
-                ? '광고 제거 적용 중'
+              {streakStatus.adsDisabled
+                ? '스트릭이 깨질 상황에서 자동 보호 적용'
                 : '광고 제거 미적용'}
             </p>
           </div>

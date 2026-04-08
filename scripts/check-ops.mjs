@@ -50,7 +50,6 @@ const optionalEnvChecklist = [
   'VITE_BACKEND_URL',
   'TOSS_SECRET_KEY',
   'OPENAI_API_KEY',
-  'KAKAO_ADMIN_KEY',
 ];
 
 const getMissing = (keys) => keys.filter((key) => !process.env[key]);

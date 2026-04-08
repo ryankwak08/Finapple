@@ -9,6 +9,8 @@ import PageTransition from './PageTransition';
 import PremiumBadge from './PremiumBadge';
 import { safeStorage } from '@/lib/safeStorage';
 
+const getUsageStorageKey = (email) => `totalUsageSeconds:${email || 'guest'}`;
+
 export default function AppShell() {
   const [user, setUser] = useState(null);
   const location = useLocation();
@@ -30,6 +32,14 @@ export default function AppShell() {
   useEffect(() => {
     getCurrentUser().then(u => setUser(u)).catch(() => {});
     const start = Date.now();
+    let usageEmail = 'guest';
+    getCurrentUser()
+      .then((u) => {
+        usageEmail = u?.email || 'guest';
+      })
+      .catch(() => {
+        usageEmail = 'guest';
+      });
     const handleProfileUpdate = (e) => {
       setUser(prev => (
         prev
@@ -44,8 +54,9 @@ export default function AppShell() {
     window.addEventListener('profilePictureUpdated', handleProfileUpdate);
     return () => {
       const elapsed = Math.floor((Date.now() - start) / 1000);
-      const prev = parseInt(safeStorage.getItem('totalUsageSeconds') || '0');
-      safeStorage.setItem('totalUsageSeconds', String(prev + elapsed));
+      const usageKey = getUsageStorageKey(usageEmail);
+      const prev = parseInt(safeStorage.getItem(usageKey) || '0');
+      safeStorage.setItem(usageKey, String(prev + elapsed));
       window.removeEventListener('profilePictureUpdated', handleProfileUpdate);
     };
   }, []);

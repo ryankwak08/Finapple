@@ -6,18 +6,24 @@ import useProgress from '../lib/useProgress';
 import HeartDisplay from '../components/quiz/HeartDisplay';
 import QuestionCard from '../components/quiz/QuestionCard';
 import QuizResult from '../components/quiz/QuizResult';
+import ConsumptionHabitTest from '../components/study/ConsumptionHabitTest';
+import InvestmentProfileTest from '../components/study/InvestmentProfileTest';
 import { generateAiQuiz } from '@/api/quizClient';
 import useSoundEffects from '@/hooks/useSoundEffects';
 import { getLessonChunkForQuiz } from '@/lib/studyData';
 
+const KDI_SOURCE_LABEL = '출처: KDI 생애주기별 경제교육(청년기 편)';
+
 export default function QuizPlay() {
   const navigate = useNavigate();
   const { quizId } = useParams();
+  const isLastUnit16Quiz = quizId === 'unit16-quiz3';
   const course = new URLSearchParams(window.location.search).get('course') || 'youth';
   const backUrl = `/quiz?course=${course}`;
   const {
     progress,
     isPremium,
+    isUnitLocked,
     loseHeart,
     recordWrongAnswer,
     completeQuiz,
@@ -38,6 +44,7 @@ export default function QuizPlay() {
   const [isAdvancing, setIsAdvancing] = useState(false);
   const [hasRequestedQuiz, setHasRequestedQuiz] = useState(false);
   const [quizSource, setQuizSource] = useState(null);
+  const [showSourceViewer, setShowSourceViewer] = useState(false);
   const autoNextTimerRef = useRef(null);
   const { playCorrectSound, playWrongSound, playSuccessSound } = useSoundEffects();
 
@@ -50,6 +57,7 @@ export default function QuizPlay() {
     [quizData?.studyTopicId, quizId]
   );
   const reviewCount = getReviewNotesForQuiz(quizId).length;
+  const sourcePdfUrl = lessonChunk?.topic?.pdfUrl || '';
 
   useEffect(() => {
     setQuestions(null);
@@ -65,6 +73,7 @@ export default function QuizPlay() {
     setIsAdvancing(false);
     setQuizSource(null);
     setHasRequestedQuiz(false);
+    setShowSourceViewer(false);
   }, [quizId]);
 
   useEffect(() => {
@@ -75,7 +84,7 @@ export default function QuizPlay() {
       return undefined;
     }
 
-     if (lessonChunk && !hasRequestedQuiz) {
+    if (lessonChunk && !hasRequestedQuiz) {
       setLoading(false);
       return undefined;
     }
@@ -121,6 +130,20 @@ export default function QuizPlay() {
       }
     };
   }, []);
+
+  useEffect(() => {
+    if (!finished || !isLastUnit16Quiz || score < 3 || showCongrats) {
+      return undefined;
+    }
+
+    const timer = window.setTimeout(() => {
+      setShowCongrats(true);
+    }, 300);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [finished, isLastUnit16Quiz, score, showCongrats]);
 
   const quizSourceLabel = quizSource?.source === 'fallback'
     ? '기본 문항 사용 중'
@@ -174,6 +197,24 @@ export default function QuizPlay() {
     );
   }
 
+  if (isUnitLocked(quizData.unitId)) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center px-6 text-center">
+        <div className="mb-4 text-5xl">🔒</div>
+        <h2 className="text-xl font-extrabold text-foreground">잠긴 단원입니다</h2>
+        <p className="mt-2 text-[14px] text-muted-foreground">
+          이전 단원을 완료해야 이 퀴즈에 도전할 수 있어요.
+        </p>
+        <Link
+          to={backUrl}
+          className="mt-6 rounded-2xl bg-primary px-6 py-3 text-[14px] font-bold text-primary-foreground"
+        >
+          퀴즈 목록으로 돌아가기
+        </Link>
+      </div>
+    );
+  }
+
   if (lessonChunk && !hasRequestedQuiz) {
     return (
       <div className="min-h-screen px-4 pb-8 pt-8 sm:px-5 sm:pt-10">
@@ -198,6 +239,33 @@ export default function QuizPlay() {
           <h1 className="text-xl font-extrabold leading-snug text-foreground sm:text-2xl">{lessonChunk.title}</h1>
           <p className="mt-2 text-[13px] leading-relaxed text-muted-foreground">{lessonChunk.summary}</p>
         </div>
+
+        {sourcePdfUrl ? (
+          <div className="mb-4 rounded-2xl border border-border bg-card p-4">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-[11px] text-muted-foreground">{KDI_SOURCE_LABEL}</p>
+                <p className="mt-0.5 text-[12px] font-semibold text-foreground">원문 PDF</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowSourceViewer((prev) => !prev)}
+                className="inline-flex items-center rounded-lg border border-border bg-background px-3 py-1.5 text-[12px] font-semibold text-foreground hover:bg-muted"
+              >
+                {showSourceViewer ? '원문 닫기' : '원문 보기'}
+              </button>
+            </div>
+            {showSourceViewer ? (
+              <div className="mt-3 overflow-hidden rounded-xl border border-border">
+                <iframe
+                  src={`${sourcePdfUrl}#view=FitH`}
+                  title={`${lessonChunk.title} 원문 PDF`}
+                  className="h-[65vh] w-full min-h-[420px]"
+                />
+              </div>
+            ) : null}
+          </div>
+        ) : null}
 
         {lessonChunk.goals?.length ? (
           <div className="mb-4 rounded-2xl border border-border bg-card p-4">
@@ -235,7 +303,13 @@ export default function QuizPlay() {
                 <h3 className="font-bold text-[14px] text-foreground">{point.title}</h3>
               </div>
               <div className="px-4 py-3">
-                <p className="text-[13px] text-foreground/80 leading-relaxed whitespace-pre-line">{point.content}</p>
+                {point.title === '내 소비습관 진단하기' ? (
+                  <ConsumptionHabitTest />
+                ) : point.title === '나의 투자성향 파악하기' ? (
+                  <InvestmentProfileTest />
+                ) : (
+                  <p className="text-[13px] text-foreground/80 leading-relaxed whitespace-pre-line">{point.content}</p>
+                )}
               </div>
             </div>
           ))}
@@ -252,13 +326,8 @@ export default function QuizPlay() {
     );
   }
 
-  const isLastUnit16Quiz = quizId === 'unit16-quiz3';
-
   if (finished) {
     const isNew = !isQuizCompleted(quizId);
-    if (isLastUnit16Quiz && score >= 3 && !showCongrats) {
-      setTimeout(() => setShowCongrats(true), 300);
-    }
     if (showCongrats) {
       return (
         <div className="fixed inset-0 bg-gradient-to-br from-yellow-50 to-green-50 dark:from-yellow-900/20 dark:to-green-900/20 flex flex-col items-center justify-center px-6 z-50">
@@ -271,15 +340,15 @@ export default function QuizPlay() {
             </div>
             <h1 className="text-3xl font-extrabold text-foreground mb-2">🏆 커리큘럼 완료!</h1>
             <p className="text-lg font-bold text-primary mb-2">KDI 청년기 생애주기 경제교육</p>
-            <p className="text-muted-foreground text-[14px] mb-1">16개 유닛을 모두 완주했습니다!</p>
-            <p className="text-muted-foreground text-[13px] mb-6">합리적 소비부터 노후 준비까지,<br/>경제 생활의 모든 것을 배웠어요.</p>
+            <p className="text-muted-foreground text-[14px] mb-1">16개 단원을 모두 완주했습니다!</p>
+            <p className="text-muted-foreground text-[13px] mb-6">합리적 소비부터 노후 준비까지,<br/>청년 경제 생활에 필요한 모든 것을 배웠어요.</p>
             <div className="bg-white dark:bg-card rounded-2xl p-4 mb-6 shadow-sm border border-border">
               <div className="flex items-center gap-2 justify-center mb-2">
                 <Sparkles className="w-5 h-5 text-yellow-500" />
                 <span className="font-bold text-foreground text-[14px]">수고하셨습니다!</span>
                 <Sparkles className="w-5 h-5 text-yellow-500" />
               </div>
-              <p className="text-muted-foreground text-[12px] text-center">배운 지식을 실생활에 활용해<br/>더 나은 경제생활을 시작해보세요 💪</p>
+              <p className="text-muted-foreground text-[12px] text-center">배운 지식을 실생활에 활용해<br/>더 나은 경제생활을 시작해보세요.<br/>Finapple이 응원합니다!💪</p>
             </div>
             <Link
               to={backUrl}

@@ -1,24 +1,9 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { lifeStudyTopicsCatalog } from '../lib/studyCatalog';
 import TopicCard from '../components/study/TopicCard';
 import useProgress from '../lib/useProgress';
 import PullToRefresh from '../components/PullToRefresh';
 import { Globe2, Star, Flame, Snowflake } from 'lucide-react';
-import useSoundEffects from '@/hooks/useSoundEffects';
-import PremiumBadge from '@/components/PremiumBadge';
-
-function formatCountdown(targetTime, now) {
-  if (!targetTime) return '';
-  const remainingMs = new Date(targetTime).getTime() - now;
-  if (remainingMs <= 0) return '00:00:00';
-
-  const totalSeconds = Math.floor(remainingMs / 1000);
-  const hours = Math.floor(totalSeconds / 3600);
-  const minutes = Math.floor((totalSeconds % 3600) / 60);
-  const seconds = totalSeconds % 60;
-
-  return [hours, minutes, seconds].map((value) => String(value).padStart(2, '0')).join(':');
-}
 
 function formatHistoryTime(value) {
   if (!value) return '';
@@ -31,14 +16,10 @@ function formatHistoryTime(value) {
   }).format(new Date(value));
 }
 
-function buildLocalFreezerExpiryAt(activatedAt) {
-  return new Date(new Date(activatedAt).getTime() + (24 * 60 * 60 * 1000)).toISOString();
-}
-
 function getFreezerHistoryLabel(entry) {
-  if (entry.status === 'used') {
+  if (entry.status === 'used' || entry.status === 'used_auto') {
     return {
-      title: '스트릭 보호 성공',
+      title: entry.status === 'used_auto' ? '자동 보호 사용' : '스트릭 보호 성공',
       detail: entry.consumedAt ? `${formatHistoryTime(entry.consumedAt)}에 보호 완료` : '스트릭이 안전하게 유지됐어요',
       className: 'border-emerald-200 bg-emerald-50 text-emerald-700',
     };
@@ -60,55 +41,21 @@ function getFreezerHistoryLabel(entry) {
 }
 
 export default function Study() {
-  const { progress, loading, user, isPremium, getStreakStatus, activateStreakFreezer } = useProgress();
-  const { playSuccessSound } = useSoundEffects();
-  const [now, setNow] = useState(() => Date.now());
+  const { progress, loading, user, isPremium, getStreakStatus } = useProgress();
   const groupedTopics = useMemo(() => ({
     finance: lifeStudyTopicsCatalog.filter((topic) => topic.category === '금융 상식'),
     issues: lifeStudyTopicsCatalog.filter((topic) => topic.category === '세계 이슈'),
   }), []);
   const streakStatus = getStreakStatus();
-  const canUseFreezer = streakStatus.streakFreezers > 0 && !streakStatus.freezerShieldActive;
   const freezerHistory = streakStatus.freezerHistory.slice(0, 3);
-  const freezerCountdownTarget = streakStatus.freezerExpiresAt || (
-    streakStatus.freezerShieldActive && streakStatus.freezerActivatedAt
-      ? buildLocalFreezerExpiryAt(streakStatus.freezerActivatedAt)
-      : null
-  );
-  const remainingShieldTime = streakStatus.freezerShieldActive
-    ? formatCountdown(freezerCountdownTarget, now)
-    : '';
   const displayName =
     user?.user_metadata?.nickname?.trim() ||
     user?.user_metadata?.full_name?.trim() ||
     user?.email?.split('@')[0] ||
     '학습자';
 
-  useEffect(() => {
-    if (!streakStatus.freezerShieldActive) {
-      return;
-    }
-
-    const intervalId = window.setInterval(() => {
-      setNow(Date.now());
-    }, 1000);
-
-    return () => {
-      window.clearInterval(intervalId);
-    };
-  }, [streakStatus.freezerShieldActive]);
-
   const handleRefresh = async () => {
     await new Promise(r => setTimeout(r, 800));
-  };
-
-  const handleActivateFreezer = async () => {
-    try {
-      await activateStreakFreezer();
-      await playSuccessSound();
-    } catch (error) {
-      alert(error.message || 'Freezer를 적용하지 못했어요.');
-    }
   };
 
   return (
@@ -142,21 +89,7 @@ export default function Study() {
                 오늘 하나만 읽어도 다음 선택이 훨씬 쉬워져요
               </p>
             </div>
-            {isPremium && <PremiumBadge compact />}
           </div>
-          {streakStatus.freezerShieldActive ? (
-            <div className="mt-4 rounded-2xl border border-sky-200 bg-sky-50/90 px-4 py-3">
-              <div className="flex items-center justify-between gap-3 flex-wrap">
-                <div>
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-sky-700/70">Freezer Countdown</p>
-                  <p className="mt-1 text-[12px] text-sky-700/80">
-                    {freezerCountdownTarget ? `${formatHistoryTime(freezerCountdownTarget)}까지 스트릭을 보호해요` : '다음 공백 1일을 보호해요'}
-                  </p>
-                </div>
-                <p className="font-mono text-[22px] font-black tracking-[0.16em] text-sky-700">{remainingShieldTime}</p>
-              </div>
-            </div>
-          ) : null}
           <div className="mt-4 grid grid-cols-1 gap-3 min-[390px]:grid-cols-2 xl:grid-cols-3">
             <div className="rounded-xl bg-background/80 border border-border px-4 py-3">
               <div className="flex items-center gap-2">
@@ -173,22 +106,10 @@ export default function Study() {
               </div>
               <p className="mt-1 text-[20px] font-extrabold text-foreground">{streakStatus.streakFreezers}개</p>
               <p className="text-[11px] text-muted-foreground">
-                {streakStatus.freezerShieldActive
-                  ? '다음 1일 공백 보호가 적용 중이에요'
-                  : isPremium
-                  ? '필요할 때 직접 사용해 스트릭을 지켜요'
-                  : '프리미엄에서 이용 가능'}
+                {isPremium
+                  ? '스트릭이 깨질 상황이면 자동으로 사용돼요'
+                  : '프리미엄에서 자동 보호 기능을 이용할 수 있어요'}
               </p>
-              {isPremium ? (
-                <button
-                  type="button"
-                  onClick={handleActivateFreezer}
-                  disabled={!canUseFreezer}
-                  className="mt-3 w-full rounded-xl bg-sky-500 px-3 py-2 text-[12px] font-bold text-white disabled:cursor-not-allowed disabled:bg-sky-200"
-                >
-                  {streakStatus.freezerShieldActive ? '적용 완료' : '지금 Freezer 사용'}
-                </button>
-              ) : null}
               {freezerHistory.length > 0 ? (
                 <div className="mt-3 space-y-2">
                   <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">최근 Freezer 이력</p>
@@ -226,6 +147,18 @@ export default function Study() {
         <div className="mb-3">
           <h2 className="text-[13px] font-black uppercase tracking-[0.18em] text-foreground">실생활 금융 상식</h2>
           <p className="mt-1 text-[12px] text-muted-foreground">바로 써먹을 수 있는 정책, 세금, 주거 정보를 먼저 챙겨요</p>
+          <p className="mt-1 text-[11px] text-muted-foreground">
+            출처: Toss Feed (
+            <a
+              href="https://toss.im/tossfeed"
+              target="_blank"
+              rel="noreferrer"
+              className="font-semibold text-primary underline-offset-2 hover:underline"
+            >
+              toss.im/tossfeed
+            </a>
+            )
+          </p>
         </div>
         <div className="grid gap-4 xl:grid-cols-2 2xl:grid-cols-3">
           {groupedTopics.finance.map((topic, i) => (

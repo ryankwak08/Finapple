@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 import { useAuth } from '@/lib/AuthContext';
@@ -8,6 +8,14 @@ import {
   createTossCheckoutSession,
   getBankTransferInstructions,
 } from '@/api/paymentClient';
+import { isNativeIOSApp } from '@/lib/runtimePlatform';
+import {
+  canUseRevenueCat,
+  getRevenueCatPaywall,
+  hasActivePremiumEntitlement,
+  purchaseRevenueCatPackage,
+  restoreRevenueCatPurchases,
+} from '@/services/revenueCatService';
 
 const isRunningInIframe = () => { try { return window.self !== window.top; } catch { return true; } };
 
@@ -16,6 +24,48 @@ export default function Premium() {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState('toss'); // 'toss' | 'bank'
+  const [iosPackage, setIosPackage] = useState(null);
+  const [iosError, setIosError] = useState('');
+  const [restoring, setRestoring] = useState(false);
+  const nativeIOS = isNativeIOSApp();
+  const revenueCatEnabled = canUseRevenueCat();
+  const priceLabel = nativeIOS
+    ? (iosPackage?.product?.priceString || 'App Store 연동 예정')
+    : `₩${PREMIUM_MONTHLY_PRICE.toLocaleString()}`;
+  const hasPremiumAccess = Boolean(user?.user_metadata?.is_premium || user?.is_premium);
+
+  useEffect(() => {
+    if (!nativeIOS) {
+      return;
+    }
+
+    let cancelled = false;
+
+    const loadPaywall = async () => {
+      if (!revenueCatEnabled) {
+        setIosError('RevenueCat iOS 키가 아직 설정되지 않았어요. App Store Connect와 RevenueCat 설정을 먼저 연결해주세요.');
+        return;
+      }
+
+      try {
+        setIosError('');
+        const paywall = await getRevenueCatPaywall(user);
+        if (!cancelled) {
+          setIosPackage(paywall?.selectedPackage || null);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setIosError(error.message || '인앱 구독 상품을 불러오지 못했습니다.');
+        }
+      }
+    };
+
+    void loadPaywall();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [nativeIOS, revenueCatEnabled, user]);
 
   const handleGoBack = () => {
     if (window.history.length > 1) {
@@ -26,6 +76,29 @@ export default function Premium() {
   };
 
   const handleCheckout = async () => {
+    if (nativeIOS) {
+      if (!revenueCatEnabled) {
+        alert('RevenueCat iOS 설정이 아직 완료되지 않았습니다. 환경변수와 App Store Connect 상품을 먼저 연결해주세요.');
+        return;
+      }
+
+      setLoading(true);
+      try {
+        await purchaseRevenueCatPackage({ user, aPackage: iosPackage });
+        alert('인앱 구독이 반영되었습니다. 프리미엄 권한을 확인해보세요.');
+      } catch (error) {
+        if (error?.userCancelled) {
+          return;
+        }
+
+        console.error('iOS subscription failed:', error);
+        alert(error.message || '인앱 구독 처리 중 오류가 발생했습니다.');
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+
     if (isRunningInIframe()) {
       alert("결제는 배포된 앱에서만 이용 가능합니다. 앱을 publish 후 이용해주세요.");
       return;
@@ -64,6 +137,23 @@ export default function Premium() {
     }
   };
 
+  const handleRestorePurchases = async () => {
+    setRestoring(true);
+    try {
+      const customerInfo = await restoreRevenueCatPurchases(user);
+      if (hasActivePremiumEntitlement(customerInfo)) {
+        alert('기존 구독을 복원했어요. 프리미엄 권한이 다시 적용됩니다.');
+      } else {
+        alert('복원 가능한 활성 구독을 찾지 못했습니다.');
+      }
+    } catch (error) {
+      console.error('Restore purchases failed:', error);
+      alert(error.message || '구독 복원 중 오류가 발생했습니다.');
+    } finally {
+      setRestoring(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background pb-24">
       <div className="px-5 pt-12 pb-8 flex items-center gap-3">
@@ -82,7 +172,7 @@ export default function Premium() {
 
         <div className="bg-card rounded-2xl border border-border p-6 shadow-lg">
           <div className="flex items-end gap-1 mb-6">
-            <span className="text-4xl font-bold text-foreground">₩9,900</span>
+            <span className="text-4xl font-bold text-foreground">{priceLabel}</span>
             <span className="text-muted-foreground mb-1">/월</span>
           </div>
 
@@ -99,45 +189,79 @@ export default function Premium() {
             ))}
           </ul>
 
-          <div className="space-y-3 mb-6">
-            <label className="block text-sm font-semibold text-foreground mb-2">결제 수단 선택</label>
-            <div className="space-y-2">
-              <button
-                onClick={() => setPaymentMethod('toss')}
-                className={`w-full py-3 px-4 rounded-xl font-semibold text-sm transition-all ${
-                  paymentMethod === 'toss'
-                    ? 'bg-primary text-primary-foreground border-2 border-primary'
-                    : 'bg-card border-2 border-border text-foreground hover:border-primary/50'
-                }`}
-              >
-                💳 토스페이먼츠 결제
-              </button>
-              <button
-                onClick={() => setPaymentMethod('bank')}
-                className={`w-full py-3 px-4 rounded-xl font-semibold text-sm transition-all ${
-                  paymentMethod === 'bank'
-                    ? 'bg-primary text-primary-foreground border-2 border-primary'
-                    : 'bg-card border-2 border-border text-foreground hover:border-primary/50'
-                }`}
-              >
-                🏦 계좌이체
-              </button>
+          {nativeIOS ? (
+            <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+              <p className="font-semibold">iOS 앱 결제 안내</p>
+              <p className="mt-2 leading-relaxed">
+                프리미엄은 디지털 학습 콘텐츠 해금 상품이라 iPhone 앱에서는 외부 결제 대신 App Store 인앱 구독을 사용해야 합니다.
+                RevenueCat로 App Store 구독을 연결했고, 현재 상품 조회와 구매/복원 흐름을 이 화면에서 사용합니다.
+              </p>
+              {iosPackage?.product?.title ? (
+                <p className="mt-2 text-xs text-amber-800">
+                  상품: {iosPackage.product.title}
+                </p>
+              ) : null}
+              {iosError ? (
+                <p className="mt-2 text-xs text-red-700">{iosError}</p>
+              ) : null}
             </div>
-          </div>
+          ) : (
+            <div className="space-y-3 mb-6">
+              <label className="block text-sm font-semibold text-foreground mb-2">결제 수단 선택</label>
+              <div className="space-y-2">
+                <button
+                  onClick={() => setPaymentMethod('toss')}
+                  className={`w-full py-3 px-4 rounded-xl font-semibold text-sm transition-all ${
+                    paymentMethod === 'toss'
+                      ? 'bg-primary text-primary-foreground border-2 border-primary'
+                      : 'bg-card border-2 border-border text-foreground hover:border-primary/50'
+                  }`}
+                >
+                  💳 토스페이먼츠 결제
+                </button>
+                <button
+                  onClick={() => setPaymentMethod('bank')}
+                  className={`w-full py-3 px-4 rounded-xl font-semibold text-sm transition-all ${
+                    paymentMethod === 'bank'
+                      ? 'bg-primary text-primary-foreground border-2 border-primary'
+                      : 'bg-card border-2 border-border text-foreground hover:border-primary/50'
+                  }`}
+                >
+                  🏦 계좌이체
+                </button>
+              </div>
+            </div>
+          )}
 
           <button
             onClick={handleCheckout}
-            disabled={loading}
+            disabled={loading || (nativeIOS && (!revenueCatEnabled || !iosPackage))}
             className="w-full bg-primary text-primary-foreground font-bold py-4 rounded-xl text-lg hover:opacity-90 transition-all active:scale-95 disabled:opacity-50"
           >
-            {paymentMethod === 'bank' 
+            {nativeIOS
+              ? loading
+                ? '구독 처리 중...'
+                : hasPremiumAccess
+                ? '이미 프리미엄 이용 중'
+                : 'App Store로 구독하기'
+              : paymentMethod === 'bank' 
               ? "계좌이체 안내 보기" 
               : loading 
               ? "처리 중..." 
               : "토스페이먼츠로 결제하기"}
           </button>
 
-          {paymentMethod === 'bank' && (
+          {nativeIOS ? (
+            <button
+              onClick={handleRestorePurchases}
+              disabled={restoring || !revenueCatEnabled}
+              className="mt-3 w-full rounded-xl border border-border bg-background py-3 text-sm font-semibold text-foreground transition-colors hover:bg-muted disabled:opacity-50"
+            >
+              {restoring ? '구독 복원 중...' : '기존 구독 복원'}
+            </button>
+          ) : null}
+
+          {!nativeIOS && paymentMethod === 'bank' && (
             <div className="mt-6 p-4 border border-slate-200 rounded-xl bg-slate-50 text-xs text-slate-600">
               <strong className="text-sm text-foreground">계좌이체 선결제</strong>
               <p className="mt-2">아래 정보를 통해 지정된 은행 계좌로 금액을 송금하세요. 송금 완료 후 고객센터에 등록하시면 프리미엄 계정으로 즉시 전환됩니다.</p>
@@ -157,7 +281,7 @@ export default function Premium() {
           )}
 
           <p className="text-center text-xs text-muted-foreground mt-3">
-            언제든 취소 가능 · 토스페이먼츠 보안 결제
+            {nativeIOS ? 'App Store 구독 관리에서 언제든 변경하거나 취소할 수 있어요.' : '언제든 취소 가능 · 토스페이먼츠 보안 결제'}
           </p>
         </div>
       </div>

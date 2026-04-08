@@ -40,7 +40,6 @@ const serverEnvChecklist = [
   { key: 'SUPABASE_SERVICE_ROLE_KEY', configured: Boolean(supabaseServiceRoleKey), level: 'required' },
   { key: 'FRONTEND_URL', configured: Boolean(FRONTEND_URL), level: 'recommended' },
   { key: 'TOSS_SECRET_KEY', configured: Boolean(tossSecretKey), level: 'recommended' },
-  { key: 'KAKAO_ADMIN_KEY', configured: Boolean(kakaoAdminKey), level: 'optional' },
   { key: 'OPENAI_API_KEY', configured: Boolean(openAiApiKey), level: 'recommended' },
 ];
 
@@ -171,7 +170,6 @@ app.get('/api/health', (_req, res) => {
       openaiConfigured: Boolean(openAiApiKey),
       supabaseConfigured: Boolean(supabaseAdmin),
       tossConfigured: Boolean(tossSecretKey),
-      kakaoConfigured: Boolean(kakaoAdminKey),
     },
   });
 });
