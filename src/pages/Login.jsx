@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Eye, EyeOff } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
-import { findMaskedEmailByNickname, initializePasswordRecovery, requestPasswordReset, resendSignupConfirmation, signInWithEmail, signOut, signUpWithEmail, updatePassword, verifySignupEmailOtp } from '@/services/authService';
+import { findMaskedEmailByNickname, initializePasswordRecovery, requestPasswordReset, resendSignupConfirmation, signInWithEmail, signInWithOAuthProvider, signOut, signUpWithEmail, updatePassword, verifySignupEmailOtp } from '@/services/authService';
 import { isNicknameAvailable } from '@/services/profileService';
 import { NICKNAME_MAX_LENGTH, normalizeNickname, validateNickname, validatePassword } from '@/lib/profileRules';
 import { useAuth } from '@/lib/AuthContext';
@@ -12,6 +12,37 @@ const inputClassName = 'h-10 w-full rounded-lg border border-[#E0E0E0] bg-white 
 const primaryButtonClassName = 'flex h-10 w-full items-center justify-center rounded-lg bg-black px-4 text-sm font-medium leading-[140%] text-white transition hover:bg-black/90 disabled:cursor-not-allowed disabled:opacity-60';
 const secondaryButtonClassName = 'flex h-10 w-full items-center justify-center rounded-lg border border-[#E0E0E0] bg-white px-4 text-sm font-medium text-black transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60';
 const linkButtonClassName = 'font-medium text-[12px] text-black transition hover:opacity-70';
+const socialButtonClassName = 'flex h-11 w-full items-center justify-center rounded-lg border border-[#DCDCDC] bg-white px-4 text-sm font-medium text-black transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60';
+
+const POLICY_CONTENT = {
+  terms: {
+    title: '이용약관',
+    effectiveDate: '2026년 4월 8일',
+    paragraphs: [
+      '본 약관은 Finapple(이하 "서비스")의 이용과 관련하여 서비스 제공자와 이용자 간의 권리, 의무 및 책임사항을 규정합니다.',
+      '이용자는 본 약관에 동의한 후 서비스를 이용할 수 있으며, 약관에 동의하지 않는 경우 서비스 가입 및 이용이 제한될 수 있습니다.',
+      '서비스 제공자는 관련 법령을 위반하지 않는 범위에서 약관을 변경할 수 있으며, 변경 시 앱 또는 웹사이트를 통해 사전 고지합니다.',
+      '이용자는 계정 정보를 안전하게 관리할 책임이 있으며, 계정 도용 또는 보안 문제를 인지한 경우 즉시 서비스 제공자에게 알려야 합니다.',
+      '서비스 제공자는 안정적인 서비스 운영을 위해 시스템 점검, 업데이트, 정책 변경 등을 수행할 수 있습니다.',
+      '이용자가 관련 법령 또는 본 약관을 위반하는 경우 서비스 이용이 제한되거나 계정이 정지될 수 있습니다.',
+      '본 약관에 명시되지 않은 사항은 관계 법령 및 일반 상관례에 따릅니다.',
+    ],
+  },
+  privacy: {
+    title: '개인정보 처리방침',
+    effectiveDate: '2026년 4월 8일',
+    paragraphs: [
+      'Finapple은 이용자의 개인정보를 중요하게 생각하며, 관련 법령을 준수합니다. 본 방침은 서비스에서 처리하는 개인정보 항목 및 이용 목적을 안내합니다.',
+      '수집 항목: 이메일, 닉네임, 서비스 이용 기록(학습/퀴즈 진행 상태), 결제 상태(프리미엄 여부) 등 서비스 제공에 필요한 최소한의 정보.',
+      '수집 목적: 회원 식별, 로그인 및 계정 관리, 학습 진도 저장, 고객 문의 대응, 서비스 품질 개선.',
+      '보유 기간: 회원 탈퇴 시 지체 없이 파기하되, 관련 법령에 따라 보관이 필요한 정보는 해당 기간 동안 별도 보관합니다.',
+      '제3자 제공: 원칙적으로 이용자 동의 없이 개인정보를 외부에 제공하지 않습니다. 다만 법령상 의무가 있는 경우 예외가 적용될 수 있습니다.',
+      '이용자는 개인정보 열람, 정정, 삭제, 처리정지 요청 등 법령이 보장하는 권리를 행사할 수 있습니다.',
+      '서비스는 개인정보 보호를 위해 접근 통제, 암호화, 권한 관리 등 안전성 확보 조치를 적용하기 위해 노력합니다.',
+      '본 처리방침이 변경되는 경우 서비스 내 공지 또는 별도 고지를 통해 안내합니다.',
+    ],
+  },
+};
 
 const hasPasswordRecoveryContext = () => {
   const searchParams = new URLSearchParams(window.location.search);
@@ -75,6 +106,44 @@ function AuthField({
   );
 }
 
+function PolicyModal({ type, onClose }) {
+  if (!type) {
+    return null;
+  }
+
+  const content = POLICY_CONTENT[type];
+  if (!content) {
+    return null;
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 py-6">
+      <div className="max-h-[88vh] w-full max-w-2xl overflow-hidden rounded-2xl bg-white shadow-[0_24px_80px_rgba(0,0,0,0.3)]">
+        <div className="flex items-center justify-between border-b border-[#EAEAEA] px-5 py-4">
+          <div>
+            <h2 className="text-lg font-semibold text-black">{content.title}</h2>
+            <p className="text-xs text-[#707070]">시행일: {content.effectiveDate}</p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-md px-2 py-1 text-sm font-medium text-[#666] transition hover:bg-slate-100 hover:text-black"
+          >
+            닫기
+          </button>
+        </div>
+        <div className="max-h-[calc(88vh-76px)] overflow-y-auto px-5 py-4">
+          <div className="space-y-4 text-sm leading-relaxed text-[#2D2D2D]">
+            {content.paragraphs.map((paragraph, index) => (
+              <p key={index}>{paragraph}</p>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function Login() {
   const navigate = useNavigate();
   const { checkAppState, isAuthenticated, authError, user } = useAuth();
@@ -97,6 +166,14 @@ export default function Login() {
   const [isCheckingNickname, setIsCheckingNickname] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [isSocialLoading, setIsSocialLoading] = useState('');
+  const [policyModalType, setPolicyModalType] = useState(null);
+  const [agreements, setAgreements] = useState({
+    terms: false,
+    privacy: false,
+    age: false,
+    marketing: false,
+  });
   const resolvedVerificationEmail = useMemo(
     () => verificationEmail || authError?.email || user?.email || email,
     [authError?.email, email, user?.email, verificationEmail]
@@ -110,6 +187,27 @@ export default function Login() {
   const normalizedNickname = normalizeNickname(nickname);
   const isNicknameVerified = normalizedNickname.length > 0 && nicknameCheckedValue === normalizedNickname;
   const isDefaultSignIn = mode === 'signin';
+  const areRequiredAgreementsChecked = agreements.terms && agreements.privacy && agreements.age;
+
+  const toggleAgreement = (key) => {
+    setAgreements((prev) => ({
+      ...prev,
+      [key]: !prev[key],
+    }));
+  };
+
+  const handleSocialSignIn = async (provider) => {
+    setError('');
+    setMessage('');
+    setIsSocialLoading(provider);
+
+    try {
+      await signInWithOAuthProvider(provider);
+    } catch (socialError) {
+      setError(socialError.message || '소셜 로그인 중 오류가 발생했습니다.');
+      setIsSocialLoading('');
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -350,6 +448,11 @@ export default function Login() {
         setError(passwordError);
         return;
       }
+
+      if (!areRequiredAgreementsChecked) {
+        setError('회원가입을 위해 필수 약관에 동의해주세요.');
+        return;
+      }
     }
 
     if (isSignUp && password !== confirmPassword) {
@@ -367,7 +470,12 @@ export default function Login() {
           throw new Error('이미 사용 중인 닉네임이에요. 다른 닉네임을 입력해주세요.');
         }
 
-        await signUpWithEmail(email, password, nickname);
+        await signUpWithEmail(email, password, nickname, {
+          termsAgreedAt: new Date().toISOString(),
+          privacyAgreedAt: new Date().toISOString(),
+          ageConfirmedAt: new Date().toISOString(),
+          marketingOptIn: agreements.marketing,
+        });
         setVerificationEmail(email);
         setMessage(`${email}로 인증 코드 메일을 보냈어요.`);
         setMode('verify');
@@ -376,6 +484,12 @@ export default function Login() {
         setNicknameCheckMessage('');
         setConfirmPassword('');
         setPassword('');
+        setAgreements({
+          terms: false,
+          privacy: false,
+          age: false,
+          marketing: false,
+        });
       } else {
         await signInWithEmail(email, password);
         await checkAppState();
@@ -398,7 +512,9 @@ export default function Login() {
   };
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-[linear-gradient(180deg,#ffffff_0%,#f6f7fb_100%)] px-4 py-6 md:px-8 md:py-10">
+    <>
+      <PolicyModal type={policyModalType} onClose={() => setPolicyModalType(null)} />
+      <div className="relative min-h-screen overflow-hidden bg-[linear-gradient(180deg,#ffffff_0%,#f6f7fb_100%)] px-4 py-6 md:px-8 md:py-10">
       <div className="pointer-events-none absolute left-1/2 top-[-120px] h-[420px] w-[620px] -translate-x-1/2 rounded-full bg-[radial-gradient(circle,_rgba(0,0,0,0.06)_0%,_rgba(0,0,0,0)_70%)]" />
       <div className="mx-auto flex min-h-[812px] w-full max-w-[1200px] items-center justify-center">
         <div className={`w-full rounded-[30px] border border-black/5 bg-white shadow-[0_24px_80px_rgba(0,0,0,0.08)] ${isDefaultSignIn ? 'overflow-hidden md:grid md:grid-cols-[1.08fr_0.92fr]' : 'mx-auto max-w-[540px] p-4 md:p-6'}`}>
@@ -585,7 +701,7 @@ export default function Login() {
                 type="email"
                 value={resetEmail}
                 onChange={(event) => setResetEmail(event.target.value)}
-                placeholder="email"
+                placeholder="이메일"
                 autoComplete="email"
               />
 
@@ -700,6 +816,75 @@ export default function Login() {
                 />
               ) : null}
 
+              {isSignUp ? (
+                <div className="space-y-3 rounded-xl border border-[#E7E7E7] bg-[#FAFAFA] p-4">
+                  <div className="flex items-start gap-2">
+                    <input
+                      id="agreement-terms"
+                      type="checkbox"
+                      checked={agreements.terms}
+                      onChange={() => toggleAgreement('terms')}
+                      className="mt-0.5 h-4 w-4 rounded border-[#CFCFCF] text-black focus:ring-black"
+                    />
+                    <label htmlFor="agreement-terms" className="text-sm text-black">
+                      [필수] 이용약관 동의
+                    </label>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <input
+                      id="agreement-privacy"
+                      type="checkbox"
+                      checked={agreements.privacy}
+                      onChange={() => toggleAgreement('privacy')}
+                      className="mt-0.5 h-4 w-4 rounded border-[#CFCFCF] text-black focus:ring-black"
+                    />
+                    <label htmlFor="agreement-privacy" className="text-sm text-black">
+                      [필수] 개인정보 처리방침 동의
+                    </label>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <input
+                      id="agreement-age"
+                      type="checkbox"
+                      checked={agreements.age}
+                      onChange={() => toggleAgreement('age')}
+                      className="mt-0.5 h-4 w-4 rounded border-[#CFCFCF] text-black focus:ring-black"
+                    />
+                    <label htmlFor="agreement-age" className="text-sm text-black">
+                      [필수] 만 14세 이상입니다.
+                    </label>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <input
+                      id="agreement-marketing"
+                      type="checkbox"
+                      checked={agreements.marketing}
+                      onChange={() => toggleAgreement('marketing')}
+                      className="mt-0.5 h-4 w-4 rounded border-[#CFCFCF] text-black focus:ring-black"
+                    />
+                    <label htmlFor="agreement-marketing" className="text-sm text-[#5F5F5F]">
+                      [선택] 이벤트/마케팅 정보 수신 동의
+                    </label>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-3 pt-1 text-xs text-[#6D6D6D]">
+                    <button
+                      type="button"
+                      onClick={() => setPolicyModalType('terms')}
+                      className="underline underline-offset-2 hover:text-black"
+                    >
+                      이용약관 보기
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPolicyModalType('privacy')}
+                      className="underline underline-offset-2 hover:text-black"
+                    >
+                      개인정보 처리방침 보기
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+
               <AuthField
                 id="email"
                 label="이메일"
@@ -778,7 +963,18 @@ export default function Login() {
                     <div className="h-px flex-1 bg-[#E0E0E0]" />
                   </div>
 
-                  <div className="flex items-center justify-center gap-5 pt-3 text-center">
+                  <div className="space-y-2 pt-3">
+                    <button
+                      type="button"
+                      onClick={() => handleSocialSignIn('google')}
+                      disabled={isSocialLoading.length > 0}
+                      className={socialButtonClassName}
+                    >
+                      {isSocialLoading === 'google' ? '구글 로그인 연결 중...' : '구글로 로그인'}
+                    </button>
+                  </div>
+
+                  <div className="flex items-center justify-center gap-5 pt-4 text-center">
                     <button
                       type="button"
                       onClick={() => {
@@ -851,6 +1047,7 @@ export default function Login() {
           </div>
         </div>
       </div>
-    </div>
+      </div>
+    </>
   );
 }

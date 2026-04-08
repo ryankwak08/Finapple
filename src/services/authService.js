@@ -38,7 +38,19 @@ export const signInWithEmail = async (email, password) => {
   return data;
 };
 
-export const signUpWithEmail = async (email, password, nickname) => {
+export const signInWithOAuthProvider = async (provider) => {
+  const { data, error } = await supabase.auth.signInWithOAuth({
+    provider,
+    options: {
+      redirectTo: getAuthRedirectUrl(),
+    },
+  });
+
+  if (error) throw error;
+  return data;
+};
+
+export const signUpWithEmail = async (email, password, nickname, agreements = {}) => {
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
@@ -46,6 +58,7 @@ export const signUpWithEmail = async (email, password, nickname) => {
       emailRedirectTo: getAuthRedirectUrl(),
       data: {
         nickname: nickname?.trim() || email.split('@')[0],
+        agreements,
       },
     },
   });

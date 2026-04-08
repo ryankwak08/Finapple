@@ -19,6 +19,8 @@ const Premium = lazy(() => import('./pages/Premium'));
 const PremiumResult = lazy(() => import('./pages/PremiumResult'));
 const Shop = lazy(() => import('./pages/Shop'));
 const Login = lazy(() => import('./pages/Login'));
+const Terms = lazy(() => import('./pages/Terms'));
+const Privacy = lazy(() => import('./pages/Privacy'));
 const ReviewNote = lazy(() => import('./pages/ReviewNote'));
 const Leaderboard = lazy(() => import('./pages/Leaderboard'));
 
@@ -159,6 +161,8 @@ const AppRoutes = () => (
       <Route path="/premium/fail" element={<PremiumResult status="fail" />} />
       <Route path="/premium/cancel" element={<PremiumResult status="cancel" />} />
       <Route path="/login" element={<Login />} />
+      <Route path="/terms" element={<Terms />} />
+      <Route path="/privacy" element={<Privacy />} />
       <Route path="*" element={<PageNotFound />} />
     </Routes>
   </Suspense>
@@ -167,10 +171,11 @@ const AppRoutes = () => (
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError } = useAuth();
   const location = useLocation();
+  const isPublicAuthRoute = location.pathname === '/login' || location.pathname === '/terms' || location.pathname === '/privacy';
   const shouldRedirectToLogin = Boolean(
     authError &&
     (authError.type === 'auth_required' || authError.type === 'email_not_verified') &&
-    location.pathname !== '/login'
+    !isPublicAuthRoute
   );
 
   const isBootstrapping = useMemo(

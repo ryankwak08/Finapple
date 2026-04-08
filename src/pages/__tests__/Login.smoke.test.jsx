@@ -20,6 +20,7 @@ vi.mock('@/lib/supabase', () => ({
 vi.mock('@/services/authService', () => ({
   initializePasswordRecovery: vi.fn().mockResolvedValue(false),
   signInWithEmail: vi.fn(),
+  signInWithOAuthProvider: vi.fn(),
   signUpWithEmail: vi.fn(),
   resendSignupConfirmation: vi.fn(),
   verifySignupEmailOtp: vi.fn(),
