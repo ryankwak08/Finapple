@@ -1,45 +1,63 @@
 import { ChevronRight, Lock } from 'lucide-react';
+import { useLanguage } from '@/lib/i18n';
 
 const courses = [
   {
     id: 'youth',
     emoji: '🧑',
     title: '청년기 편',
+    titleEn: 'Young Adult Track',
     subtitle: 'KDI 생애주기 경제교육',
+    subtitleEn: 'KDI life-stage economics course',
     description: '사회초년생을 위한 실용 금융 지식\n합리적 소비·신용카드·부채 관리',
+    descriptionEn: 'Practical money skills for young adults\nSmart spending, credit cards, and debt management',
     available: true,
     badge: '현재 수록',
+    badgeEn: 'Available now',
   },
   {
     id: 'teen',
     emoji: '🧒',
     title: '청소년기 편',
+    titleEn: 'Teen Track',
     subtitle: 'KDI 생애주기 경제교육',
+    subtitleEn: 'KDI life-stage economics course',
     description: '청소년을 위한 금융 기초와 생활경제\n용돈관리·노동권·진로 설계',
+    descriptionEn: 'Finance basics for teens and everyday economics\nAllowance management, labor rights, and career planning',
     available: false,
     badge: '준비 중',
+    badgeEn: 'Coming soon',
   },
   {
     id: 'economy-basics',
     emoji: '📊',
     title: '경제 기초 편',
+    titleEn: 'Economics Basics',
     subtitle: '거시경제·금융 개념',
+    subtitleEn: 'Macroeconomics and finance concepts',
     description: 'GDP, 금리, 환율 등 경제 기본 원리',
+    descriptionEn: 'Core ideas like GDP, interest rates, and exchange rates',
     available: false,
     badge: '준비 중',
+    badgeEn: 'Coming soon',
   },
   {
     id: 'investment',
     emoji: '💹',
     title: '투자 편',
+    titleEn: 'Investing',
     subtitle: '주식·채권·펀드',
+    subtitleEn: 'Stocks, bonds, and funds',
     description: '다양한 금융상품과 투자 전략 이해',
+    descriptionEn: 'Understand financial products and investing strategies',
     available: false,
     badge: '준비 중',
+    badgeEn: 'Coming soon',
   },
 ];
 
 export default function CourseSelector({ type, onSelect, canAccessTeenCourse = false }) {
+  const { isEnglish } = useLanguage();
   const renderedCourses = courses.map((course) => {
     if (course.id !== 'teen') {
       return course;
@@ -50,6 +68,7 @@ export default function CourseSelector({ type, onSelect, canAccessTeenCourse = f
         ...course,
         available: true,
         badge: '관리자 테스트',
+        badgeEn: 'Admin access',
       };
     }
 
@@ -60,9 +79,11 @@ export default function CourseSelector({ type, onSelect, canAccessTeenCourse = f
     <div className="px-4 pb-6 pt-8 sm:px-5 sm:pt-10">
       <div className="mb-6 sm:mb-8">
         <h1 className="mb-1 text-[26px] font-extrabold tracking-tight text-foreground sm:text-3xl">
-          {type === 'study' ? '학습' : '퀴즈'}
+          {type === 'study'
+            ? (isEnglish ? 'Learning' : '학습')
+            : (isEnglish ? 'Quiz' : '퀴즈')}
         </h1>
-        <p className="text-muted-foreground text-[14px]">학습할 과목을 선택하세요</p>
+        <p className="text-muted-foreground text-[14px]">{isEnglish ? 'Choose a course to continue.' : '학습할 과목을 선택하세요'}</p>
       </div>
 
       <div className="grid gap-4 xl:grid-cols-2">
@@ -85,18 +106,18 @@ export default function CourseSelector({ type, onSelect, canAccessTeenCourse = f
               <div className="mt-0.5 text-[30px] sm:text-3xl">{course.emoji}</div>
               <div className="flex-1 min-w-0">
                 <div className="mb-1 flex flex-wrap items-center gap-2">
-                  <h3 className="text-[15px] font-bold text-foreground sm:text-base">{course.title}</h3>
+                  <h3 className="text-[15px] font-bold text-foreground sm:text-base">{isEnglish ? course.titleEn : course.title}</h3>
                   <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
                     course.available
                       ? 'bg-primary/10 text-primary'
                       : 'bg-muted text-muted-foreground'
                   }`}>
-                    {course.badge}
+                    {isEnglish ? course.badgeEn : course.badge}
                   </span>
                 </div>
-                <p className="mb-1 text-[12px] text-muted-foreground">{course.subtitle}</p>
+                <p className="mb-1 text-[12px] text-muted-foreground">{isEnglish ? course.subtitleEn : course.subtitle}</p>
                 <p className="whitespace-pre-line text-[12px] leading-relaxed text-muted-foreground/70">
-                  {course.description}
+                  {isEnglish ? course.descriptionEn : course.description}
                 </p>
               </div>
               {course.available ? (

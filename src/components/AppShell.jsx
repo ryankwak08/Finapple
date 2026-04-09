@@ -4,10 +4,11 @@ import { BookOpen } from 'lucide-react';
 import { getCurrentUser } from '@/services/authService';
 import { getIsPremium } from '@/lib/premium';
 import { AnimatePresence } from 'framer-motion';
-import BottomNav, { appTabs, getActiveTab } from './BottomNav';
+import BottomNav, { getActiveTab, getAppTabs } from './BottomNav';
 import PageTransition from './PageTransition';
 import PremiumBadge from './PremiumBadge';
 import { safeStorage } from '@/lib/safeStorage';
+import { useLanguage } from '@/lib/i18n';
 
 const getUsageStorageKey = (email) => `totalUsageSeconds:${email || 'guest'}`;
 
@@ -15,6 +16,8 @@ export default function AppShell() {
   const [user, setUser] = useState(null);
   const location = useLocation();
   const activeTab = getActiveTab(location.pathname);
+  const { locale, setLocale, t } = useLanguage();
+  const appTabs = getAppTabs(t);
 
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
@@ -81,26 +84,53 @@ export default function AppShell() {
                 />
                 <div className="hidden md:block">
                   <p className="text-[15px] font-extrabold tracking-tight text-foreground">Finapple</p>
-                  <p className="text-[11px] text-muted-foreground">생활 금융 학습 앱</p>
+                  <p className="text-[11px] text-muted-foreground">{t('appTagline', '생활 금융 학습 앱')}</p>
                 </div>
               </div>
               {getIsPremium(user) && <PremiumBadge compact />}
             </div>
-            <Link to="/profile">
-              <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-2xl bg-primary/10 ring-1 ring-primary/10 transition-transform active:scale-[0.97]">
-                {(user?.user_metadata?.profile_picture || user?.profile_picture) ? (
-                  <img
-                    src={user?.user_metadata?.profile_picture || user?.profile_picture}
-                    alt="profile"
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <span className="text-primary font-extrabold text-[14px]">
-                    {(user?.user_metadata?.full_name || user?.user_metadata?.nickname || user?.email || '?')[0] || '?'}
-                  </span>
-                )}
+            <div className="flex items-center gap-2">
+              <div
+                className="inline-flex rounded-2xl border border-border bg-card p-1"
+                role="group"
+                aria-label={t('languageSelector', '언어 선택')}
+              >
+                {[
+                  { value: 'ko', label: t('korean', '한국어') },
+                  { value: 'en', label: t('english', 'English') },
+                ].map((option) => {
+                  const active = locale === option.value;
+
+                  return (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => setLocale(option.value)}
+                      className={`rounded-xl px-3 py-2 text-[11px] font-bold transition-colors ${
+                        active ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted'
+                      }`}
+                    >
+                      {option.label}
+                    </button>
+                  );
+                })}
               </div>
-            </Link>
+              <Link to="/profile">
+                <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-2xl bg-primary/10 ring-1 ring-primary/10 transition-transform active:scale-[0.97]">
+                  {(user?.user_metadata?.profile_picture || user?.profile_picture) ? (
+                    <img
+                      src={user?.user_metadata?.profile_picture || user?.profile_picture}
+                      alt="profile"
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <span className="text-primary font-extrabold text-[14px]">
+                      {(user?.user_metadata?.full_name || user?.user_metadata?.nickname || user?.email || '?')[0] || '?'}
+                    </span>
+                  )}
+                </div>
+              </Link>
+            </div>
           </div>
         </div>
 
@@ -113,7 +143,7 @@ export default function AppShell() {
                     <BookOpen className="h-5 w-5 text-primary" />
                   </div>
                   <div>
-                    <p className="text-[13px] font-bold text-foreground">탐색 메뉴</p>
+                    <p className="text-[13px] font-bold text-foreground">{t('navigationMenu', '탐색 메뉴')}</p>
                   </div>
                 </div>
                 <nav className="space-y-2">

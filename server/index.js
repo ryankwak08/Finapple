@@ -22,6 +22,10 @@ app.set('trust proxy', 1);
 
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://127.0.0.1:5173';
 const EXTRA_FRONTEND_URLS = process.env.FRONTEND_URLS || '';
+const adminEmails = String(process.env.ADMIN_EMAILS || process.env.VITE_ADMIN_EMAILS || 'ryankwak08@gmail.com')
+  .split(',')
+  .map((email) => email.trim().toLowerCase())
+  .filter(Boolean);
 const tossSecretKey = process.env.TOSS_SECRET_KEY;
 const kakaoAdminKey = process.env.KAKAO_ADMIN_KEY;
 const supabaseUrl = process.env.SUPABASE_URL;
@@ -117,6 +121,137 @@ const isAllowedOrigin = (origin) => {
   } catch {
     return false;
   }
+};
+
+const getRequestAccessToken = (req) => {
+  const authorization = req.headers.authorization || '';
+  if (authorization.startsWith('Bearer ')) {
+    return authorization.slice(7).trim();
+  }
+
+  return String(req.body?.accessToken || '').trim();
+};
+
+const isAdminAuthUser = (user) => {
+  if (!user) {
+    return false;
+  }
+
+  const role = user.user_metadata?.role || user.role;
+  if (role === 'admin') {
+    return true;
+  }
+
+  return Boolean(user.email && adminEmails.includes(String(user.email).toLowerCase()));
+};
+
+const validateHearts = (value) => {
+  const hearts = Number(value);
+  if (!Number.isInteger(hearts) || hearts < 0 || hearts > 5) {
+    return null;
+  }
+
+  return hearts;
+};
+
+const validateDateString = (value) => {
+  const text = String(value || '').trim();
+  if (!text) {
+    return null;
+  }
+
+  return /^\d{4}-\d{2}-\d{2}$/.test(text) ? text : null;
+};
+
+const getTodaySeoulDate = () => new Intl.DateTimeFormat('en-CA', {
+  timeZone: 'Asia/Seoul',
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+}).format(new Date());
+
+const resolveUserHeartsState = async (authUser) => {
+  const today = getTodaySeoulDate();
+  const userEmail = authUser?.email || '';
+  const premium = Boolean(authUser?.user_metadata?.is_premium);
+  const { data, error } = await supabaseAdmin
+    .from('user_progress_state')
+    .select('hearts, hearts_last_reset, updated_at')
+    .eq('user_id', authUser.id)
+    .maybeSingle();
+
+  if (error && error.code !== 'PGRST116' && error.code !== '42P01') {
+    throw error;
+  }
+
+  let hearts = data?.hearts ?? 5;
+  let heartsLastReset = data?.hearts_last_reset || today;
+  const needsDailyReset = !premium && heartsLastReset !== today;
+  const needsInitialization = !data;
+
+  if (premium || needsDailyReset) {
+    hearts = 5;
+    heartsLastReset = today;
+  }
+
+  if (needsInitialization || premium || needsDailyReset) {
+    const { error: upsertError } = await supabaseAdmin
+      .from('user_progress_state')
+      .upsert({
+        user_id: authUser.id,
+        user_email: userEmail,
+        hearts,
+        hearts_last_reset: heartsLastReset,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'user_id' });
+
+    if (upsertError) {
+      throw upsertError;
+    }
+  }
+
+  return {
+    hearts,
+    heartsLastReset,
+  };
+};
+
+const buildManagedUserResponse = async (profile) => {
+  if (!profile?.user_id) {
+    return null;
+  }
+
+  const [{ data: authUserData, error: authUserError }, { data: stateData, error: stateError }] = await Promise.all([
+    supabaseAdmin.auth.admin.getUserById(profile.user_id),
+    supabaseAdmin
+      .from('user_progress_state')
+      .select('hearts, hearts_last_reset, updated_at')
+      .eq('user_id', profile.user_id)
+      .maybeSingle(),
+  ]);
+
+  if (authUserError) {
+    throw authUserError;
+  }
+
+  if (stateError && stateError.code !== 'PGRST116' && stateError.code !== '42P01') {
+    throw stateError;
+  }
+
+  const authUser = authUserData?.user;
+  const state = stateData || null;
+
+  return {
+    userId: profile.user_id,
+    email: profile.email,
+    nickname: profile.nickname,
+    avatarUrl: profile.avatar_url || '',
+    hearts: state?.hearts ?? 5,
+    heartsLastReset: state?.hearts_last_reset || null,
+    stateUpdatedAt: state?.updated_at || null,
+    isPremium: Boolean(authUser?.user_metadata?.is_premium),
+    premiumUpdatedAt: authUser?.user_metadata?.premium_updated_at || null,
+  };
 };
 
 const supabaseAdmin = (supabaseUrl && supabaseServiceRoleKey)
@@ -704,6 +839,235 @@ app.post('/api/account/delete', createRateLimiter({ key: 'account-delete', limit
   } catch (error) {
     console.error('account delete error', error.message);
     return res.status(500).json({ error: error.message || 'Failed to delete account' });
+  }
+});
+
+app.get('/api/user-state', async (req, res) => {
+  if (!supabaseAdmin) {
+    return res.status(500).json({ error: 'Supabase admin is not configured' });
+  }
+
+  const accessToken = getRequestAccessToken(req);
+  if (!accessToken) {
+    return res.status(401).json({ error: '로그인 세션이 필요합니다.' });
+  }
+
+  try {
+    const { data: authData, error: authError } = await supabaseAdmin.auth.getUser(accessToken);
+    if (authError || !authData?.user) {
+      return res.status(401).json({ error: 'Invalid Supabase session' });
+    }
+
+    const state = await resolveUserHeartsState(authData.user);
+
+    return res.json({
+      success: true,
+      state,
+    });
+  } catch (error) {
+    console.error('user state fetch error', error.message);
+    return res.status(500).json({ error: error.message || 'Failed to fetch user state' });
+  }
+});
+
+app.post('/api/user-state/consume-heart', createRateLimiter({ key: 'user-state-consume-heart', limit: 120, windowMs: 60_000 }), async (req, res) => {
+  if (!supabaseAdmin) {
+    return res.status(500).json({ error: 'Supabase admin is not configured' });
+  }
+
+  const accessToken = getRequestAccessToken(req);
+
+  if (!accessToken) {
+    return res.status(401).json({ error: '로그인 세션이 필요합니다.' });
+  }
+
+  try {
+    const { data: authData, error: authError } = await supabaseAdmin.auth.getUser(accessToken);
+    if (authError || !authData?.user) {
+      return res.status(401).json({ error: 'Invalid Supabase session' });
+    }
+
+    const currentState = await resolveUserHeartsState(authData.user);
+    if (Boolean(authData.user.user_metadata?.is_premium)) {
+      return res.json({ success: true, state: currentState });
+    }
+
+    const nextHearts = Math.max(0, (currentState.hearts ?? 0) - 1);
+    const { data, error } = await supabaseAdmin
+      .from('user_progress_state')
+      .upsert({
+        user_id: authData.user.id,
+        user_email: authData.user.email,
+        hearts: nextHearts,
+        hearts_last_reset: currentState.heartsLastReset,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'user_id' })
+      .select('hearts, hearts_last_reset, updated_at')
+      .single();
+
+    if (error) {
+      throw error;
+    }
+
+    return res.json({
+      success: true,
+      state: {
+        hearts: data.hearts,
+        heartsLastReset: data.hearts_last_reset,
+        updatedAt: data.updated_at,
+      },
+    });
+  } catch (error) {
+    console.error('user state consume heart error', error.message);
+    return res.status(500).json({ error: error.message || 'Failed to consume heart' });
+  }
+});
+
+app.get('/api/admin/user', async (req, res) => {
+  if (!supabaseAdmin) {
+    return res.status(500).json({ error: 'Supabase admin is not configured' });
+  }
+
+  const accessToken = getRequestAccessToken(req);
+  const query = String(req.query?.query || '').trim();
+
+  if (!accessToken) {
+    return res.status(401).json({ error: '로그인 세션이 필요합니다.' });
+  }
+
+  if (!query) {
+    return res.status(400).json({ error: 'query is required' });
+  }
+
+  try {
+    const { data: authData, error: authError } = await supabaseAdmin.auth.getUser(accessToken);
+    if (authError || !authData?.user) {
+      return res.status(401).json({ error: 'Invalid Supabase session' });
+    }
+
+    if (!isAdminAuthUser(authData.user)) {
+      return res.status(403).json({ error: '관리자만 접근할 수 있습니다.' });
+    }
+
+    const lookup = query.includes('@')
+      ? supabaseAdmin.from('user_profiles').select('user_id, email, nickname, avatar_url').eq('email', query).maybeSingle()
+      : supabaseAdmin.from('user_profiles').select('user_id, email, nickname, avatar_url').eq('nickname', query).maybeSingle();
+
+    const { data: profile, error } = await lookup;
+    if (error) {
+      throw error;
+    }
+
+    if (!profile) {
+      return res.status(404).json({ error: '일치하는 사용자를 찾지 못했습니다.' });
+    }
+
+    const user = await buildManagedUserResponse(profile);
+    return res.json({ success: true, user });
+  } catch (error) {
+    console.error('admin user fetch error', error.message);
+    return res.status(500).json({ error: error.message || 'Failed to fetch admin user' });
+  }
+});
+
+app.post('/api/admin/user', createRateLimiter({ key: 'admin-user-update', limit: 60, windowMs: 60_000 }), async (req, res) => {
+  if (!supabaseAdmin) {
+    return res.status(500).json({ error: 'Supabase admin is not configured' });
+  }
+
+  const accessToken = getRequestAccessToken(req);
+  const userId = String(req.body?.userId || '').trim();
+  const heartsInput = req.body?.hearts;
+  const premiumInput = req.body?.isPremium;
+  const hasHeartsUpdate = heartsInput !== undefined;
+  const hasPremiumUpdate = premiumInput !== undefined;
+  const hearts = hasHeartsUpdate ? validateHearts(heartsInput) : null;
+  const isPremium = hasPremiumUpdate ? Boolean(premiumInput) : null;
+
+  if (!accessToken) {
+    return res.status(401).json({ error: '로그인 세션이 필요합니다.' });
+  }
+
+  if (!userId) {
+    return res.status(400).json({ error: 'userId is required' });
+  }
+
+  if (!hasHeartsUpdate && !hasPremiumUpdate) {
+    return res.status(400).json({ error: 'hearts or isPremium is required' });
+  }
+
+  if (hasHeartsUpdate && hearts === null) {
+    return res.status(400).json({ error: 'hearts must be an integer between 0 and 5' });
+  }
+
+  try {
+    const { data: authData, error: authError } = await supabaseAdmin.auth.getUser(accessToken);
+    if (authError || !authData?.user) {
+      return res.status(401).json({ error: 'Invalid Supabase session' });
+    }
+
+    if (!isAdminAuthUser(authData.user)) {
+      return res.status(403).json({ error: '관리자만 접근할 수 있습니다.' });
+    }
+
+    const { data: profile, error: profileError } = await supabaseAdmin
+      .from('user_profiles')
+      .select('user_id, email, nickname, avatar_url')
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (profileError) {
+      throw profileError;
+    }
+
+    if (!profile) {
+      return res.status(404).json({ error: '수정할 사용자를 찾지 못했습니다.' });
+    }
+
+    if (hasHeartsUpdate) {
+      const { error: stateError } = await supabaseAdmin
+        .from('user_progress_state')
+        .upsert({
+          user_id: profile.user_id,
+          user_email: profile.email,
+          hearts,
+          hearts_last_reset: new Date().toISOString().slice(0, 10),
+          updated_at: new Date().toISOString(),
+          updated_by_user_id: authData.user.id,
+          updated_by_email: authData.user.email,
+        }, { onConflict: 'user_id' });
+
+      if (stateError) {
+        throw stateError;
+      }
+    }
+
+    if (hasPremiumUpdate) {
+      const { data: targetUserData, error: targetUserError } = await supabaseAdmin.auth.admin.getUserById(profile.user_id);
+      if (targetUserError) {
+        throw targetUserError;
+      }
+
+      const currentMetadata = targetUserData?.user?.user_metadata || {};
+      const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(profile.user_id, {
+        user_metadata: {
+          ...currentMetadata,
+          is_premium: isPremium,
+          premium_updated_at: new Date().toISOString(),
+          premium_updated_by_admin: authData.user.email || authData.user.id,
+        },
+      });
+
+      if (updateError) {
+        throw updateError;
+      }
+    }
+
+    const user = await buildManagedUserResponse(profile);
+    return res.json({ success: true, user });
+  } catch (error) {
+    console.error('admin user update error', error.message);
+    return res.status(500).json({ error: error.message || 'Failed to update admin user' });
   }
 });
 

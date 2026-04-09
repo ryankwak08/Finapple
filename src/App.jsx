@@ -7,6 +7,7 @@ import useSoundEffects from '@/hooks/useSoundEffects';
 import PageNotFound from './lib/PageNotFound';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
+import { LanguageContext, LanguageProvider } from '@/lib/i18n';
 const AppShell = lazy(() => import('./components/AppShell'));
 const Study = lazy(() => import('./pages/Study'));
 const StudyDetail = lazy(() => import('./pages/StudyDetail'));
@@ -32,6 +33,8 @@ const FullScreenSpinner = () => (
 );
 
 class AppErrorBoundary extends Component {
+  static contextType = LanguageContext;
+
   constructor(props) {
     super(props);
     this.state = { error: null };
@@ -46,14 +49,16 @@ class AppErrorBoundary extends Component {
   }
 
   render() {
+    const t = this.context?.t || ((_, fallback) => fallback);
+
     if (this.state.error) {
       return (
         <div className="min-h-screen bg-background px-6 py-10 text-foreground">
           <div className="mx-auto max-w-md rounded-3xl border border-border bg-card p-6 shadow-sm">
             <p className="text-[12px] font-black uppercase tracking-[0.18em] text-destructive">Runtime Error</p>
-            <h1 className="mt-3 text-xl font-extrabold">앱을 불러오지 못했어요</h1>
+            <h1 className="mt-3 text-xl font-extrabold">{t('runtimeErrorTitle', '앱을 불러오지 못했어요')}</h1>
             <p className="mt-2 text-sm text-muted-foreground">
-              새로고침 후 다시 시도해주세요. 문제가 계속되면 잠시 뒤 다시 접속해주세요.
+              {t('runtimeErrorBody', '새로고침 후 다시 시도해주세요. 문제가 계속되면 잠시 뒤 다시 접속해주세요.')}
             </p>
             <pre className="mt-4 overflow-auto rounded-2xl bg-muted/70 p-3 text-xs text-muted-foreground">
               {this.state.error?.message || 'Unknown error'}
@@ -63,7 +68,7 @@ class AppErrorBoundary extends Component {
               onClick={() => window.location.reload()}
               className="mt-4 w-full rounded-2xl bg-primary px-4 py-3 text-sm font-bold text-primary-foreground"
             >
-              다시 불러오기
+              {t('reload', '다시 불러오기')}
             </button>
           </div>
         </div>
@@ -238,15 +243,17 @@ function App() {
   );
 
   return (
-    <AppErrorBoundary>
-      <AuthProvider>
-        <QueryClientProvider client={queryClientInstance}>
-          <GlobalInteractionSound />
-          {appProviders}
-          <Toaster />
-        </QueryClientProvider>
-      </AuthProvider>
-    </AppErrorBoundary>
+    <LanguageProvider>
+      <AppErrorBoundary>
+        <AuthProvider>
+          <QueryClientProvider client={queryClientInstance}>
+            <GlobalInteractionSound />
+            {appProviders}
+            <Toaster />
+          </QueryClientProvider>
+        </AuthProvider>
+      </AppErrorBoundary>
+    </LanguageProvider>
   )
 }
 

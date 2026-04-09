@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Search, X, ChevronRight, List } from 'lucide-react';
 import PullToRefresh from '../components/PullToRefresh';
 import { getTermsByConsonant, searchTerms, koreanLetters, getInitialConsonant, allGlossaryTerms } from '../lib/glossaryData';
+import { useLanguage } from '@/lib/i18n';
 
 const englishLetters = ['A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z'];
 
@@ -12,6 +13,7 @@ const getEnglishInitial = (str) => {
 };
 
 export default function Glossary() {
+  const { isEnglish } = useLanguage();
   const [mode, setMode] = useState('korean'); // 'korean' | 'english' | 'all'
   const [selectedLetter, setSelectedLetter] = useState('ㄱ');
   const [selectedEnglishLetter, setSelectedEnglishLetter] = useState('B');
@@ -19,9 +21,14 @@ export default function Glossary() {
   const [selectedTerm, setSelectedTerm] = useState(null);
 
   useEffect(() => {
+    setMode(isEnglish ? 'english' : 'korean');
+    setSelectedTerm(null);
+  }, [isEnglish]);
+
+  useEffect(() => {
     const handleTabReset = (event) => {
       if (event.detail?.tabRoot !== '/glossary') return;
-      setMode('korean');
+      setMode(isEnglish ? 'english' : 'korean');
       setSelectedLetter('ㄱ');
       setSelectedEnglishLetter('B');
       setSearchQuery('');
@@ -30,7 +37,7 @@ export default function Glossary() {
 
     window.addEventListener('bottomNavReset', handleTabReset);
     return () => window.removeEventListener('bottomNavReset', handleTabReset);
-  }, []);
+  }, [isEnglish]);
 
   const englishTerms = allGlossaryTerms.filter(t => /^[A-Za-z]/.test(t.term));
 
@@ -64,7 +71,7 @@ export default function Glossary() {
             >
               <ChevronRight className="w-5 h-5 rotate-180 text-muted-foreground" />
             </button>
-            <h1 className="text-lg font-bold text-foreground">용어 상세</h1>
+            <h1 className="text-lg font-bold text-foreground">{isEnglish ? 'Term detail' : '용어 상세'}</h1>
           </div>
 
           <div className="hidden xl:grid xl:grid-cols-[minmax(0,340px)_minmax(0,1fr)] xl:gap-6">
@@ -72,7 +79,7 @@ export default function Glossary() {
               <div className="mb-4">
                 <p className="text-[12px] font-bold uppercase tracking-[0.18em] text-primary/80">Glossary Browser</p>
                 <p className="mt-2 text-[13px] text-muted-foreground">
-                  현재 선택된 용어를 오른쪽에서 자세히 볼 수 있어요.
+                  {isEnglish ? 'See the selected term in detail on the right.' : '현재 선택된 용어를 오른쪽에서 자세히 볼 수 있어요.'}
                 </p>
               </div>
 
@@ -80,7 +87,7 @@ export default function Glossary() {
                 <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
                 <input
                   type="text"
-                  placeholder="용어 검색..."
+                  placeholder={isEnglish ? 'Search terms...' : '용어 검색...'}
                   value={searchQuery}
                   onChange={e => setSearchQuery(e.target.value)}
                   className="flex-1 bg-transparent text-[14px] text-foreground placeholder:text-muted-foreground outline-none"
@@ -99,7 +106,7 @@ export default function Glossary() {
                     mode === 'korean' ? 'bg-primary text-white' : 'bg-background border border-border text-foreground'
                   }`}
                 >
-                  가나다
+                  {isEnglish ? 'Korean' : '가나다'}
                 </button>
                 <button
                   onClick={() => setMode('english')}
@@ -116,7 +123,7 @@ export default function Glossary() {
                   }`}
                 >
                   <List className="h-3.5 w-3.5" />
-                  전체
+                  {isEnglish ? 'All' : '전체'}
                 </button>
               </div>
 
@@ -170,12 +177,12 @@ export default function Glossary() {
 
               <p className="mb-3 text-xs text-muted-foreground">
                 {searchQuery
-                  ? `검색 결과 ${displayTerms.length}개`
+                  ? (isEnglish ? `${displayTerms.length} results` : `검색 결과 ${displayTerms.length}개`)
                   : mode === 'all'
-                  ? `전체 ${displayTerms.length}개`
+                  ? (isEnglish ? `${displayTerms.length} total terms` : `전체 ${displayTerms.length}개`)
                   : mode === 'english'
-                  ? `'${selectedEnglishLetter}' 항목 ${displayTerms.length}개`
-                  : `'${selectedLetter}' 항목 ${displayTerms.length}개`}
+                  ? (isEnglish ? `${displayTerms.length} terms under '${selectedEnglishLetter}'` : `'${selectedEnglishLetter}' 항목 ${displayTerms.length}개`)
+                  : (isEnglish ? `${displayTerms.length} terms under '${selectedLetter}'` : `'${selectedLetter}' 항목 ${displayTerms.length}개`)}
               </p>
 
               <div className="space-y-2 overflow-y-auto pr-1 xl:max-h-[calc(100dvh-260px)]">
@@ -206,7 +213,7 @@ export default function Glossary() {
                 <div className="min-w-0">
                   <p className="text-[12px] font-semibold uppercase tracking-[0.18em] text-primary/80">Term Detail</p>
                   <h2 className="mt-2 text-2xl font-extrabold leading-snug text-foreground">{selectedTerm.term}</h2>
-                  <p className="mt-1 text-[13px] text-muted-foreground">한국은행 경제금융용어 800선</p>
+                  <p className="mt-1 text-[13px] text-muted-foreground">{isEnglish ? 'Bank of Korea 800 economic and financial terms' : '한국은행 경제금융용어 800선'}</p>
                 </div>
               </div>
 
@@ -216,7 +223,7 @@ export default function Glossary() {
 
               {selectedTerm.related && selectedTerm.related.length > 0 ? (
                 <div className="mt-6">
-                  <p className="mb-3 text-[12px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">연관 검색어</p>
+                  <p className="mb-3 text-[12px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">{isEnglish ? 'Related terms' : '연관 검색어'}</p>
                   <div className="flex flex-wrap gap-2">
                     {selectedTerm.related.map((r, i) => (
                       <button
@@ -249,7 +256,7 @@ export default function Glossary() {
               </div>
               <div>
                 <h2 className="font-bold text-foreground text-lg leading-snug">{selectedTerm.term}</h2>
-                <p className="text-xs text-muted-foreground mt-0.5">한국은행 경제금융용어 800선</p>
+                <p className="text-xs text-muted-foreground mt-0.5">{isEnglish ? 'Bank of Korea 800 economic and financial terms' : '한국은행 경제금융용어 800선'}</p>
               </div>
             </div>
 
@@ -259,7 +266,7 @@ export default function Glossary() {
 
             {selectedTerm.related && selectedTerm.related.length > 0 && (
               <div className="mt-4">
-                <p className="text-xs text-muted-foreground font-medium mb-2">🔗 연관 검색어</p>
+                <p className="text-xs text-muted-foreground font-medium mb-2">{isEnglish ? '🔗 Related terms' : '🔗 연관 검색어'}</p>
                 <div className="flex flex-wrap gap-2">
                   {selectedTerm.related.map((r, i) => (
                     <span key={i} className="text-xs bg-primary/10 text-primary px-2.5 py-1 rounded-full font-medium">
@@ -280,8 +287,8 @@ export default function Glossary() {
       <div className="min-h-screen bg-background">
         {/* Header */}
         <div className="px-4 pb-4 pt-6">
-          <h1 className="text-[26px] font-extrabold text-foreground sm:text-3xl">📚 경제 용어 사전</h1>
-          <p className="text-muted-foreground text-[13px] mt-1">한국은행 경제금융용어 800선 수록</p>
+          <h1 className="text-[26px] font-extrabold text-foreground sm:text-3xl">{isEnglish ? '📚 Finance Glossary' : '📚 경제 용어 사전'}</h1>
+          <p className="text-muted-foreground text-[13px] mt-1">{isEnglish ? 'Includes terms from the Bank of Korea glossary' : '한국은행 경제금융용어 800선 수록'}</p>
         </div>
 
         {/* Search */}
@@ -290,7 +297,7 @@ export default function Glossary() {
             <Search className="w-4 h-4 text-muted-foreground flex-shrink-0" />
             <input
               type="text"
-              placeholder="용어 검색..."
+              placeholder={isEnglish ? 'Search terms...' : '용어 검색...'}
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               className="flex-1 bg-transparent text-[14px] text-foreground placeholder:text-muted-foreground outline-none"
@@ -313,7 +320,7 @@ export default function Glossary() {
                 mode === 'korean' ? 'bg-primary text-white' : 'bg-card border border-border text-foreground'
               }`}
             >
-              가나다
+              {isEnglish ? 'Korean' : '가나다'}
             </button>
             <button
               onClick={() => setMode('english')}
@@ -330,7 +337,7 @@ export default function Glossary() {
               }`}
             >
               <List className="w-3.5 h-3.5" />
-              전체 보기
+              {isEnglish ? 'View all' : '전체 보기'}
             </button>
             </div>
           </div>
@@ -394,12 +401,12 @@ export default function Glossary() {
         <div className="px-4 mb-2">
           <p className="text-xs text-muted-foreground">
             {searchQuery
-              ? `검색 결과 ${displayTerms.length}개`
+              ? (isEnglish ? `${displayTerms.length} results` : `검색 결과 ${displayTerms.length}개`)
               : mode === 'all'
-              ? `전체 ${displayTerms.length}개`
+              ? (isEnglish ? `${displayTerms.length} total terms` : `전체 ${displayTerms.length}개`)
               : mode === 'english'
-              ? `'${selectedEnglishLetter}' 항목 ${displayTerms.length}개`
-              : `'${selectedLetter}' 항목 ${displayTerms.length}개`}
+              ? (isEnglish ? `${displayTerms.length} terms under '${selectedEnglishLetter}'` : `'${selectedEnglishLetter}' 항목 ${displayTerms.length}개`)
+              : (isEnglish ? `${displayTerms.length} terms under '${selectedLetter}'` : `'${selectedLetter}' 항목 ${displayTerms.length}개`)}
           </p>
         </div>
 
@@ -409,7 +416,9 @@ export default function Glossary() {
             <div className="py-12 text-center md:col-span-2 2xl:col-span-3">
               <p className="text-4xl mb-3">🔍</p>
               <p className="text-muted-foreground text-sm">
-                {searchQuery ? '검색 결과가 없습니다' : '해당 항목이 없습니다'}
+                {searchQuery
+                  ? (isEnglish ? 'No search results found.' : '검색 결과가 없습니다')
+                  : (isEnglish ? 'No terms in this section yet.' : '해당 항목이 없습니다')}
               </p>
             </div>
           ) : (

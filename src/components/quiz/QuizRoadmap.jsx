@@ -3,6 +3,7 @@ import { Lock, Check, Star, Play, BookOpen } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { getQuizUnitsCatalog } from '../../lib/quizCatalog';
 import { prefetchAiQuiz } from '@/api/quizClient';
+import { useLanguage } from '@/lib/i18n';
 
 function QuizNode({ quiz, status, locked, onSelect, position }) {
   const { completed, score } = status;
@@ -61,6 +62,7 @@ function QuizNode({ quiz, status, locked, onSelect, position }) {
 
 function GlossaryNode({ unitId, locked, completed, position, course }) {
   const navigate = useNavigate();
+  const { isEnglish } = useLanguage();
   const isLeft = position % 2 === 0;
   return (
     <div className={`flex items-center gap-3 sm:gap-4 ${isLeft ? 'flex-row' : 'flex-row-reverse'}`}>
@@ -87,15 +89,16 @@ function GlossaryNode({ unitId, locked, completed, position, course }) {
       </div>
       <div className={`flex-1 ${isLeft ? 'text-left' : 'text-right'}`}>
         <p className={`text-[13px] font-bold ${locked ? 'text-muted-foreground' : 'text-foreground'}`}>
-          시사 용어 10개 외우기
+          {isEnglish ? 'Memorize 10 key terms' : '시사 용어 10개 외우기'}
         </p>
-        <p className="mt-0.5 text-[11px] leading-relaxed text-muted-foreground">9개 이상 맞춰야 통과 · +100 XP</p>
+        <p className="mt-0.5 text-[11px] leading-relaxed text-muted-foreground">{isEnglish ? 'Pass with 9 or more correct · +100 XP' : '9개 이상 맞춰야 통과 · +100 XP'}</p>
       </div>
     </div>
   );
 }
 
 export default function QuizRoadmap({ isUnitLocked, isQuizCompleted, getQuizScore, onQuizSelect, course = 'youth' }) {
+  const { isEnglish } = useLanguage();
   const quizUnitsCatalog = getQuizUnitsCatalog(course);
 
   useEffect(() => {
@@ -135,7 +138,7 @@ export default function QuizRoadmap({ isUnitLocked, isQuizCompleted, getQuizScor
                   {unit.title}
                 </p>
                 <p className="text-[11px] text-muted-foreground">{unit.subtitle}</p>
-                {!unitLocked ? <p className="text-[10px] text-primary mt-0.5">학습 조각을 읽고 바로 퀴즈로 넘어가요</p> : null}
+                {!unitLocked ? <p className="text-[10px] text-primary mt-0.5">{isEnglish ? 'Read the lesson and jump straight into the quiz.' : '학습 조각을 읽고 바로 퀴즈로 넘어가요'}</p> : null}
               </div>
               {unitLocked && <Lock className="w-4 h-4 text-muted-foreground ml-auto" />}
             </div>
@@ -191,14 +194,14 @@ export default function QuizRoadmap({ isUnitLocked, isQuizCompleted, getQuizScor
                   <div className="flex gap-0.5">
                     {[1, 2, 3].map((i) => <Star key={i} className="w-4 h-4 text-accent fill-accent" />)}
                   </div>
-                  <p className="text-[13px] font-bold text-primary">단원 완료!</p>
+                  <p className="text-[13px] font-bold text-primary">{isEnglish ? 'Unit complete!' : '단원 완료!'}</p>
                 </div>
               )}
 
               {ui === 0 && quizUnitsCatalog[1] && isUnitLocked(quizUnitsCatalog[1].id) && (
                 <div className="flex items-center gap-2 bg-muted rounded-2xl px-4 py-3 mb-2">
                   <Lock className="w-3.5 h-3.5 text-muted-foreground" />
-                  <p className="text-[12px] text-muted-foreground">이전 단원을 완료하면 잠금 해제</p>
+                  <p className="text-[12px] text-muted-foreground">{isEnglish ? 'Complete the previous unit to unlock this one.' : '이전 단원을 완료하면 잠금 해제'}</p>
                 </div>
               )}
             </div>

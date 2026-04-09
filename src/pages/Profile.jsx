@@ -3,11 +3,12 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/lib/AuthContext';
 import { ArrowLeft, Camera, Star, Clock, Crown, Check, Edit2, Loader2, Trash2, NotebookPen, ChartNoAxesColumn } from 'lucide-react';
 import { deleteAccount, getCurrentUser, updateUserProfile, setPremiumStatus, uploadProfilePicture } from '@/services/authService';
+import { findAdminManagedUser, updateAdminManagedUser } from '@/api/adminClient';
 import { syncLeaderboardEntry } from '@/api/leaderboardClient';
 import { isNicknameAvailable, syncUserProfileRecord } from '@/services/profileService';
 import { NICKNAME_MAX_LENGTH, validateNickname } from '@/lib/profileRules';
 import { buildLeaderboardPayload } from '@/lib/leaderboard';
-import { getIsPremium } from '@/lib/premium';
+import { getIsPremium, isAdminUser } from '@/lib/premium';
 import useSoundEffects from '@/hooks/useSoundEffects';
 import PremiumBadge from '@/components/PremiumBadge';
 import { Switch } from '@/components/ui/switch';
@@ -27,7 +28,7 @@ function formatTime(seconds) {
 export default function Profile() {
   const navigate = useNavigate();
   const { logout } = useAuth();
-  const { progress, getProgressSummary, getStreakStatus } = useProgress();
+  const { progress, getProgressSummary, getStreakStatus, reload: reloadProgress } = useProgress();
   const [user, setUser] = useState(null);
   const [editingNickname, setEditingNickname] = useState(false);
   const [nicknameInput, setNicknameInput] = useState('');
@@ -39,10 +40,19 @@ export default function Profile() {
   const [deleting, setDeleting] = useState(false);
   const [isPremium, setIsPremium] = useState(false);
   const [photoError, setPhotoError] = useState('');
+  const [adminQuery, setAdminQuery] = useState('');
+  const [adminLoading, setAdminLoading] = useState(false);
+  const [adminSaving, setAdminSaving] = useState(false);
+  const [adminError, setAdminError] = useState('');
+  const [adminSuccess, setAdminSuccess] = useState('');
+  const [managedUser, setManagedUser] = useState(null);
+  const [managedHearts, setManagedHearts] = useState('5');
+  const [managedPremium, setManagedPremium] = useState(false);
   const fileInputRef = useRef(null);
   const { enabled: soundEnabled, setEnabled: setSoundEnabled, playSuccessSound } = useSoundEffects();
   const progressSummary = getProgressSummary();
   const streakStatus = getStreakStatus();
+  const isAdmin = isAdminUser(user);
   const displayName =
     user?.user_metadata?.nickname?.trim() ||
     user?.user_metadata?.full_name?.trim() ||
@@ -158,6 +168,81 @@ export default function Profile() {
       setPhotoError(uploadError.message || '프로필 사진을 저장하지 못했습니다.');
     } finally {
       setUploadingPhoto(false);
+    }
+  };
+
+  const handleAdminLookup = async () => {
+    const query = adminQuery.trim();
+    if (!query) {
+      setAdminError('이메일 또는 닉네임을 입력해주세요.');
+      return;
+    }
+
+    setAdminLoading(true);
+    setAdminError('');
+    setAdminSuccess('');
+
+    try {
+      const nextManagedUser = await findAdminManagedUser(query);
+      setManagedUser(nextManagedUser);
+      setManagedHearts(String(nextManagedUser.hearts ?? 5));
+      setManagedPremium(Boolean(nextManagedUser.isPremium));
+    } catch (error) {
+      setManagedUser(null);
+      setAdminError(error.message || '사용자 조회 중 오류가 발생했습니다.');
+    } finally {
+      setAdminLoading(false);
+    }
+  };
+
+  const handleAdminSave = async () => {
+    if (!managedUser?.userId) {
+      setAdminError('먼저 수정할 사용자를 불러와주세요.');
+      return;
+    }
+
+    const hearts = Number(managedHearts);
+    if (!Number.isInteger(hearts) || hearts < 0 || hearts > 5) {
+      setAdminError('하트는 0~5 사이 정수만 입력할 수 있어요.');
+      return;
+    }
+
+    setAdminSaving(true);
+    setAdminError('');
+    setAdminSuccess('');
+
+    try {
+      const updatedUser = await updateAdminManagedUser({
+        userId: managedUser.userId,
+        hearts,
+        isPremium: managedPremium,
+      });
+
+      setManagedUser(updatedUser);
+      setManagedHearts(String(updatedUser.hearts ?? hearts));
+      setManagedPremium(Boolean(updatedUser.isPremium));
+      setAdminSuccess('사용자 상태를 저장했습니다.');
+
+      if (updatedUser.email === user?.email) {
+        setIsPremium(Boolean(updatedUser.isPremium));
+        setUser(prev => (
+          prev
+            ? {
+                ...prev,
+                is_premium: Boolean(updatedUser.isPremium),
+                user_metadata: {
+                  ...(prev.user_metadata || {}),
+                  is_premium: Boolean(updatedUser.isPremium),
+                },
+              }
+            : prev
+        ));
+        await reloadProgress();
+      }
+    } catch (error) {
+      setAdminError(error.message || '사용자 상태 저장 중 오류가 발생했습니다.');
+    } finally {
+      setAdminSaving(false);
     }
   };
 
@@ -361,6 +446,89 @@ export default function Profile() {
             <Switch checked={soundEnabled} onCheckedChange={setSoundEnabled} />
           </div>
         </div>
+
+        {isAdmin && (
+          <div className="animate-slide-up rounded-2xl border border-primary/20 bg-primary/5 p-4" style={{ animationDelay: '135ms', animationFillMode: 'backwards' }}>
+            <div className="mb-3 flex items-center gap-2">
+              <Crown className="h-4 w-4 text-primary" />
+              <h2 className="text-[15px] font-bold text-foreground">관리자 사용자 제어</h2>
+            </div>
+            <p className="text-[12px] text-muted-foreground">
+              이메일 또는 닉네임으로 사용자를 찾은 뒤 하트와 프리미엄 상태를 바로 수정할 수 있어요.
+            </p>
+
+            <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+              <input
+                value={adminQuery}
+                onChange={(event) => {
+                  setAdminQuery(event.target.value);
+                  setAdminError('');
+                  setAdminSuccess('');
+                }}
+                placeholder="이메일 또는 닉네임"
+                className="flex-1 rounded-xl border border-border bg-background px-3 py-2 text-[14px] text-foreground outline-none"
+              />
+              <button
+                type="button"
+                onClick={handleAdminLookup}
+                disabled={adminLoading}
+                className="rounded-xl bg-primary px-4 py-2 text-[13px] font-bold text-white"
+              >
+                {adminLoading ? '조회 중...' : '사용자 조회'}
+              </button>
+            </div>
+
+            {managedUser ? (
+              <div className="mt-4 rounded-2xl border border-border bg-card p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="truncate text-[15px] font-bold text-foreground">{managedUser.nickname}</p>
+                    <p className="truncate text-[12px] text-muted-foreground">{managedUser.email}</p>
+                  </div>
+                  <div className="rounded-full bg-muted px-3 py-1 text-[11px] font-semibold text-foreground">
+                    {managedUser.isPremium ? '프리미엄' : '무료'}
+                  </div>
+                </div>
+
+                <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                  <label className="block">
+                    <span className="text-[12px] font-semibold text-foreground">하트</span>
+                    <input
+                      type="number"
+                      min="0"
+                      max="5"
+                      value={managedHearts}
+                      onChange={(event) => setManagedHearts(event.target.value)}
+                      className="mt-1 w-full rounded-xl border border-border bg-background px-3 py-2 text-[14px] text-foreground outline-none"
+                    />
+                  </label>
+
+                  <div className="rounded-xl border border-border bg-background px-3 py-2">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-[12px] font-semibold text-foreground">프리미엄</p>
+                        <p className="text-[11px] text-muted-foreground mt-1">사용자 구독 상태를 직접 변경합니다.</p>
+                      </div>
+                      <Switch checked={managedPremium} onCheckedChange={setManagedPremium} />
+                    </div>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleAdminSave}
+                  disabled={adminSaving}
+                  className="mt-4 w-full rounded-xl bg-primary px-4 py-3 text-[13px] font-bold text-white"
+                >
+                  {adminSaving ? '저장 중...' : '관리자 상태 저장'}
+                </button>
+              </div>
+            ) : null}
+
+            {adminError ? <p className="mt-3 text-[12px] text-destructive">{adminError}</p> : null}
+            {adminSuccess ? <p className="mt-3 text-[12px] text-emerald-600">{adminSuccess}</p> : null}
+          </div>
+        )}
 
         <button
           onClick={() => isPremium ? navigate('/review-note') : navigate('/premium')}

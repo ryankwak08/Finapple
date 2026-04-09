@@ -57,11 +57,13 @@ export function getPreviousSeasonMeta(date = new Date()) {
   return getCurrentSeasonMeta(previousSeasonDate);
 }
 
-export function getSeasonProgressMeta(date = new Date()) {
+export function getSeasonProgressMeta(date = new Date(), locale = 'ko') {
   const season = getCurrentSeasonMeta(date);
   const { weekdayIndex } = getSeoulDateParts(date);
   const currentDayIndex = weekdayIndex === 0 ? 6 : weekdayIndex - 1;
-  const dayLabels = ['월', '화', '수', '목', '금', '토', '일'];
+  const dayLabels = locale === 'en'
+    ? ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+    : ['월', '화', '수', '목', '금', '토', '일'];
 
   return {
     ...season,

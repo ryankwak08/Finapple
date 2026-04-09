@@ -8,6 +8,7 @@ import QuizRoadmap from '../components/quiz/QuizRoadmap';
 import PremiumBadge from '@/components/PremiumBadge';
 import { getCourseMeta } from '@/lib/courseMeta';
 import { isAdminUser } from '@/lib/premium';
+import { useLanguage } from '@/lib/i18n';
 
 export default function Quiz() {
   const navigate = useNavigate();
@@ -19,6 +20,7 @@ export default function Quiz() {
   const { progress, loading, isPremium, isUnitLocked, isQuizCompleted, getQuizScore, user } = useProgress();
   const courseMeta = getCourseMeta(selectedCourse || 'youth');
   const canAccessTeenCourse = isAdminUser(user);
+  const { isEnglish } = useLanguage();
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
@@ -76,7 +78,7 @@ export default function Quiz() {
               <button onClick={() => setSelectedCourse(null)} className="rounded-xl p-1.5 transition-colors hover:bg-muted">
                 <ChevronRight className="w-4 h-4 rotate-180 text-muted-foreground" />
               </button>
-              <h1 className="truncate text-[26px] font-extrabold tracking-tight text-foreground sm:text-3xl">{courseMeta.title}</h1>
+              <h1 className="truncate text-[26px] font-extrabold tracking-tight text-foreground sm:text-3xl">{isEnglish ? courseMeta.titleEn : courseMeta.title}</h1>
             </div>
             <div className="flex shrink-0 items-center gap-1.5 rounded-full bg-accent/15 px-3 py-1.5">
               <Star className="w-4 h-4 text-accent fill-accent" />
@@ -84,11 +86,11 @@ export default function Quiz() {
             </div>
           </div>
           <p className="text-muted-foreground text-[14px]">
-            학습한 내용을 퀴즈로 확인해보세요
+            {isEnglish ? 'Check what you learned with a quiz.' : '학습한 내용을 퀴즈로 확인해보세요'}
           </p>
           <div className="mt-4 hidden max-w-xl rounded-2xl border border-border bg-card px-4 py-3 lg:block">
               <p className="text-[11px] leading-relaxed text-muted-foreground">
-              {courseMeta.sourceLabel}
+              {isEnglish ? courseMeta.sourceLabelEn : courseMeta.sourceLabel}
             </p>
             <a
               href={courseMeta.sourceUrl}
@@ -96,7 +98,7 @@ export default function Quiz() {
               rel="noreferrer"
               className="mt-1 inline-block text-[11px] font-semibold text-primary underline-offset-2 hover:underline"
             >
-              원문 출처 보기
+              {isEnglish ? 'View source' : '원문 출처 보기'}
             </a>
           </div>
         </div>
@@ -104,14 +106,16 @@ export default function Quiz() {
         <div className="space-y-4">
           <div className="mt-4 rounded-2xl border border-border bg-card/80 p-4 lg:mt-0">
             <div className="flex items-center justify-between gap-2">
-              <p className="text-[12px] font-bold uppercase tracking-[0.18em] text-primary/80">학습 상태</p>
+              <p className="text-[12px] font-bold uppercase tracking-[0.18em] text-primary/80">{isEnglish ? 'Progress' : '학습 상태'}</p>
               {isPremium ? <PremiumBadge compact /> : null}
             </div>
             <div className="mt-3 grid gap-3 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-center">
               <div className="min-w-0">
-                <p className="whitespace-nowrap text-[13px] font-semibold text-foreground">오늘의 하트</p>
+                <p className="whitespace-nowrap text-[13px] font-semibold text-foreground">{isEnglish ? "Today's hearts" : '오늘의 하트'}</p>
                 <p className="mt-1 text-[11px] text-muted-foreground">
-                  {isPremium ? '무제한으로 계속 도전할 수 있어요' : '진행 가능한 하트 수를 확인하세요'}
+                  {isPremium
+                    ? (isEnglish ? 'You can keep going with unlimited tries.' : '무제한으로 계속 도전할 수 있어요')
+                    : (isEnglish ? 'Check how many attempts you have left.' : '진행 가능한 하트 수를 확인하세요')}
                 </p>
               </div>
               <div className="justify-self-start xl:justify-self-end">
@@ -126,10 +130,10 @@ export default function Quiz() {
       {!isPremium && progress.hearts <= 0 && (
         <div className="bg-destructive/10 rounded-2xl p-4 mb-6 border border-destructive/20 animate-scale-in">
           <p className="text-[14px] font-bold text-destructive text-center">
-            💔 하트를 모두 사용했어요
+            {isEnglish ? '💔 You used all your hearts' : '💔 하트를 모두 사용했어요'}
           </p>
           <p className="text-[12px] text-destructive/70 text-center mt-1">
-            내일 자정에 5개로 다시 충전됩니다
+            {isEnglish ? 'They recharge to 5 at midnight.' : '내일 자정에 5개로 다시 충전됩니다'}
           </p>
         </div>
       )}
@@ -137,17 +141,17 @@ export default function Quiz() {
       {isPremium && (
         <div className="bg-primary/10 rounded-2xl p-4 mb-6 border border-primary/20 animate-scale-in">
           <p className="text-[14px] font-bold text-primary text-center">
-            ♾ 프리미엄 무제한 하트
+            {isEnglish ? '♾ Premium unlimited hearts' : '♾ 프리미엄 무제한 하트'}
           </p>
           <p className="text-[12px] text-primary/80 text-center mt-1">
-            오답이 나와도 하트가 차감되지 않습니다
+            {isEnglish ? 'Wrong answers do not cost hearts.' : '오답이 나와도 하트가 차감되지 않습니다'}
           </p>
         </div>
       )}
 
       <div className="mb-4 rounded-2xl border border-border bg-card px-4 py-3 lg:hidden">
         <p className="text-[11px] leading-relaxed text-muted-foreground">
-          {courseMeta.sourceLabel}
+          {isEnglish ? courseMeta.sourceLabelEn : courseMeta.sourceLabel}
         </p>
         <a
           href={courseMeta.sourceUrl}
@@ -155,7 +159,7 @@ export default function Quiz() {
           rel="noreferrer"
           className="mt-1 inline-block text-[11px] font-semibold text-primary underline-offset-2 hover:underline"
         >
-          원문 출처 보기
+          {isEnglish ? 'View source' : '원문 출처 보기'}
         </a>
       </div>
 

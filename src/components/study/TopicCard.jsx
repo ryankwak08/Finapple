@@ -1,13 +1,18 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ChevronRight } from 'lucide-react';
+import { useLanguage } from '@/lib/i18n';
 
 export default function TopicCard({ topic, index, course }) {
+  const { isEnglish } = useLanguage();
   const to = course ? `/study/${topic.id}?course=${course}` : `/study/${topic.id}`;
   const isIssue = topic.category === '세계 이슈';
   const hasCoverImage = Boolean(topic.coverImage);
   const previewSlides = topic.cardNews?.length ? topic.cardNews : hasCoverImage ? [{ src: topic.coverImage }] : [];
   const [previewIndex, setPreviewIndex] = useState(0);
+  const categoryLabel = isIssue
+    ? (isEnglish ? 'Global issue' : '세계 이슈')
+    : (isEnglish ? 'Everyday finance' : '금융 상식');
 
   useEffect(() => {
     if (!isIssue || previewSlides.length <= 1) {
@@ -45,7 +50,7 @@ export default function TopicCard({ topic, index, course }) {
                   <img
                     key={slide.src}
                     src={slide.src}
-                    alt={`${topic.title} 카드뉴스 미리보기 ${slideIndex + 1}`}
+                    alt={isEnglish ? `${topic.title} card preview ${slideIndex + 1}` : `${topic.title} 카드뉴스 미리보기 ${slideIndex + 1}`}
                     className="h-full w-full shrink-0 object-cover"
                     loading={slideIndex === 0 ? 'eager' : 'lazy'}
                   />
@@ -71,7 +76,7 @@ export default function TopicCard({ topic, index, course }) {
             <span className={`rounded-full px-2.5 py-1 text-[10px] font-black tracking-[0.18em] ${
               isIssue ? 'bg-orange-500 text-white' : 'bg-primary/10 text-primary'
             }`}>
-              {topic.category}
+              {categoryLabel}
             </span>
           ) : null}
           <div className="ml-auto flex items-center gap-2 text-[10px] font-medium text-muted-foreground">

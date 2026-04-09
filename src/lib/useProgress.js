@@ -5,6 +5,7 @@ import { TOTAL_QUIZ_COUNT } from '@/lib/quizCatalog';
 import { getCurrentSeasonMeta } from '@/lib/season';
 import { buildLeaderboardPayload, getLeagueRewardForRank } from '@/lib/leaderboard';
 import { syncLeaderboardEntry } from '@/api/leaderboardClient';
+import { consumeCurrentUserHeart, fetchCurrentUserState } from '@/api/adminClient';
 import { safeStorage } from '@/lib/safeStorage';
 
 const TODAY = () => new Date().toISOString().split('T')[0];
@@ -267,11 +268,18 @@ export default function useProgress() {
         return progress;
       }
 
-      return {
+      const next = {
         ...getDefaultProgress(parsed.user_email || user?.email || 'guest'),
         ...parsed,
         review_notes: (parsed.review_notes || []).map(normalizeReviewNote),
       };
+
+      if (user?.email && parsed.user_email === user.email && progress) {
+        next.hearts = progress.hearts;
+        next.hearts_last_reset = progress.hearts_last_reset;
+      }
+
+      return next;
     } catch {
       return progress;
     }
@@ -298,6 +306,12 @@ export default function useProgress() {
       setUser(me);
       const premiumUser = getIsPremium(me);
       const adsDisabled = getAdsDisabled(me);
+      const remoteState = me?.email
+        ? await fetchCurrentUserState().catch((error) => {
+            console.error('Failed to fetch remote user state', error);
+            return null;
+          })
+        : null;
 
       const savedProgress = JSON.parse(safeStorage.getItem(STORAGE_KEY) || 'null');
       if (savedProgress && savedProgress.user_email === me?.email) {
@@ -306,6 +320,13 @@ export default function useProgress() {
           ...savedProgress,
           review_notes: (savedProgress.review_notes || []).map(normalizeReviewNote),
         };
+        if (remoteState) {
+          p = {
+            ...p,
+            hearts: remoteState.hearts ?? p.hearts,
+            hearts_last_reset: remoteState.heartsLastReset || p.hearts_last_reset,
+          };
+        }
         if (premiumUser) {
           p = { ...p, hearts: 5, hearts_last_reset: TODAY() };
           safeStorage.setItem(STORAGE_KEY, JSON.stringify(p));
@@ -320,8 +341,16 @@ export default function useProgress() {
           safeStorage.setItem(STORAGE_KEY, JSON.stringify(seasonSync.next));
         }
       } else {
+        const remoteSeed = remoteState
+          ? {
+              hearts: remoteState.hearts ?? 5,
+              hearts_last_reset: remoteState.heartsLastReset || TODAY(),
+            }
+          : {};
+
         const newProgress = syncLeaderboardSeasonProgress({
           ...getDefaultProgress(me?.email || 'guest'),
+          ...remoteSeed,
           streak_freezers: premiumUser ? PREMIUM_FREEZER_COUNT : 0,
           ads_disabled: adsDisabled,
           premium_freezer_grant_version: premiumUser ? PREMIUM_FREEZER_GRANT_VERSION : 0,
@@ -371,15 +400,36 @@ export default function useProgress() {
 
   const loseHeart = useCallback(async () => {
     if (getIsPremium(user)) return progress?.hearts ?? 5;
+    const remoteState = await consumeCurrentUserHeart().catch((error) => {
+      console.error('Failed to consume remote heart', error);
+      return null;
+    });
+
+    if (!remoteState) {
+      const next = applyProgressUpdate((current) => {
+        if (!current || current.hearts <= 0) {
+          return current;
+        }
+
+        return { ...current, hearts: current.hearts - 1 };
+      });
+
+      return next?.hearts ?? 0;
+    }
+
     const next = applyProgressUpdate((current) => {
-      if (!current || current.hearts <= 0) {
+      if (!current) {
         return current;
       }
 
-      return { ...current, hearts: current.hearts - 1 };
+      return {
+        ...current,
+        hearts: remoteState.hearts ?? current.hearts,
+        hearts_last_reset: remoteState.heartsLastReset || current.hearts_last_reset,
+      };
     });
 
-    return next?.hearts ?? 0;
+    return next?.hearts ?? remoteState.hearts ?? 0;
   }, [applyProgressUpdate, progress?.hearts, user]);
 
   const recordWrongAnswer = useCallback(async ({
@@ -661,15 +711,21 @@ export default function useProgress() {
   }, [progress]);
 
   const markLeagueRewardSeen = useCallback((seasonKey) => {
-    if (!progress || !seasonKey || progress.league_reward_seen_season_key === seasonKey) {
+    if (!seasonKey) {
       return;
     }
 
-    persistProgress({
-      ...progress,
-      league_reward_seen_season_key: seasonKey,
+    applyProgressUpdate((base) => {
+      if (!base || base.league_reward_seen_season_key === seasonKey) {
+        return base;
+      }
+
+      return {
+        ...base,
+        league_reward_seen_season_key: seasonKey,
+      };
     });
-  }, [persistProgress, progress]);
+  }, [applyProgressUpdate]);
 
   return {
     progress,

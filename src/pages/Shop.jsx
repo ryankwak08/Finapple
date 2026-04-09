@@ -2,13 +2,16 @@ import { useState } from 'react';
 import { ShoppingBag, Zap, Snowflake, Gift } from 'lucide-react';
 import useSoundEffects from '@/hooks/useSoundEffects';
 import useProgress from '../lib/useProgress';
+import { useLanguage } from '@/lib/i18n';
 
 
 const ITEMS = [
   {
     id: 'streak-freezer',
     name: 'Streak Freezer',
+    nameEn: 'Streak Freezer',
     description: '하루 놓쳐도 연속 학습 기록을 지켜주는 아이템',
+    descriptionEn: 'Protects your learning streak even if you miss a day.',
     emoji: '❄️',
     price: 1200,
     stock: 999,
@@ -18,7 +21,9 @@ const ITEMS = [
   {
     id: 'chupa-chups-1',
     name: '츄파춥스 교환권',
+    nameEn: 'Chupa Chups coupon',
     description: '편의점에서 츄파춥스 1개로 교환 가능한 기프트 교환권',
+    descriptionEn: 'A gift coupon redeemable for one Chupa Chups at a convenience store.',
     emoji: '🍭',
     price: 5000,
     stock: 99,
@@ -26,6 +31,7 @@ const ITEMS = [
 ];
 
 export default function Shop() {
+  const { isEnglish } = useLanguage();
   const { progress, purchaseShopItem, getInventoryCount } = useProgress();
   const { playSuccessSound } = useSoundEffects();
   const [purchasing, setPurchasing] = useState(null);
@@ -36,7 +42,7 @@ export default function Shop() {
 
   const handleBuy = async (item) => {
     if (xp < item.price) {
-      setError(`XP가 부족합니다. ${item.price.toLocaleString()} XP가 필요해요.`);
+      setError(isEnglish ? `Not enough XP. You need ${item.price.toLocaleString()} XP.` : `XP가 부족합니다. ${item.price.toLocaleString()} XP가 필요해요.`);
       setTimeout(() => setError(null), 3000);
       return;
     }
@@ -44,10 +50,10 @@ export default function Shop() {
     try {
       await purchaseShopItem(item);
       await playSuccessSound();
-      setSuccess(`${item.name} 구매 완료!`);
+      setSuccess(isEnglish ? `${item.nameEn || item.name} purchased successfully!` : `${item.name} 구매 완료!`);
       setTimeout(() => setSuccess(null), 2500);
     } catch (e) {
-      setError(e.message || '구매 중 오류가 발생했습니다.');
+      setError(e.message || (isEnglish ? 'Something went wrong during purchase.' : '구매 중 오류가 발생했습니다.'));
       setTimeout(() => setError(null), 3000);
     } finally {
       setPurchasing(null);
@@ -61,9 +67,9 @@ export default function Shop() {
       {/* Header */}
       <div className="flex items-center gap-2 mb-2">
         <ShoppingBag className="w-6 h-6 text-primary" />
-        <h1 className="text-[22px] font-extrabold text-foreground">XP 상점</h1>
+        <h1 className="text-[22px] font-extrabold text-foreground">{isEnglish ? 'XP Shop' : 'XP 상점'}</h1>
       </div>
-      <p className="text-muted-foreground text-[13px] mb-5">퀴즈로 쌓은 XP로 기프트 교환권을 구매하세요!</p>
+      <p className="text-muted-foreground text-[13px] mb-5">{isEnglish ? 'Spend the XP you earned from quizzes on rewards.' : '퀴즈로 쌓은 XP로 기프트 교환권을 구매하세요!'}</p>
 
       {/* XP Balance */}
       <div className="bg-primary/10 rounded-2xl px-4 py-3 flex items-center gap-3 mb-6">
@@ -71,7 +77,7 @@ export default function Shop() {
           <Zap className="w-5 h-5 text-primary" />
         </div>
         <div>
-          <p className="text-[11px] text-muted-foreground font-medium">보유 XP</p>
+          <p className="text-[11px] text-muted-foreground font-medium">{isEnglish ? 'Your XP' : '보유 XP'}</p>
           <p className="text-[20px] font-extrabold text-primary">{xp.toLocaleString()} XP</p>
         </div>
       </div>
@@ -93,8 +99,8 @@ export default function Shop() {
           <Snowflake className="w-5 h-5 text-sky-600" />
         </div>
         <div>
-          <p className="text-[12px] text-sky-700 font-semibold">보유 Freezer</p>
-          <p className="text-[18px] font-extrabold text-sky-800">{progress?.streak_freezers || 0}개</p>
+          <p className="text-[12px] text-sky-700 font-semibold">{isEnglish ? 'Freezers' : '보유 Freezer'}</p>
+          <p className="text-[18px] font-extrabold text-sky-800">{isEnglish ? `${progress?.streak_freezers || 0}` : `${progress?.streak_freezers || 0}개`}</p>
         </div>
       </div>
 
@@ -111,8 +117,8 @@ export default function Shop() {
                 {item.emoji}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="font-bold text-foreground text-[15px]">{item.name}</p>
-                <p className="text-muted-foreground text-[12px] mt-0.5 leading-tight">{item.description}</p>
+                <p className="font-bold text-foreground text-[15px]">{isEnglish ? item.nameEn || item.name : item.name}</p>
+                <p className="text-muted-foreground text-[12px] mt-0.5 leading-tight">{isEnglish ? item.descriptionEn || item.description : item.description}</p>
                 <div className="flex items-center gap-1 mt-1.5">
                   <Zap className="w-3.5 h-3.5 text-primary" />
                   <span className="text-primary font-extrabold text-[13px]">{item.price.toLocaleString()} XP</span>
@@ -120,7 +126,7 @@ export default function Shop() {
                 {ownedCount > 0 && (
                   <div className="mt-2 inline-flex items-center gap-1 rounded-full bg-muted px-2.5 py-1">
                     <Gift className="w-3 h-3 text-muted-foreground" />
-                    <span className="text-[11px] font-semibold text-foreground">보유 {ownedCount}개</span>
+                    <span className="text-[11px] font-semibold text-foreground">{isEnglish ? `Owned ${ownedCount}` : `보유 ${ownedCount}개`}</span>
                   </div>
                 )}
               </div>
@@ -134,7 +140,7 @@ export default function Shop() {
                       : 'bg-muted text-muted-foreground cursor-not-allowed'
                   }`}
                 >
-                  {isBuying ? '처리중...' : '구매'}
+                  {isBuying ? (isEnglish ? 'Buying...' : '처리중...') : (isEnglish ? 'Buy' : '구매')}
                 </button>
               </div>
             </div>
@@ -145,9 +151,19 @@ export default function Shop() {
       {/* Info */}
       <div className="mt-6 bg-muted/50 rounded-2xl px-4 py-3">
         <p className="text-[12px] text-muted-foreground leading-relaxed">
-          📌 Streak Freezer는 하루를 놓쳤을 때 자동으로 1개 소모되어 스트릭을 지켜줘요.<br/>
-          📌 프리미엄 구독 시 기본으로 3개가 지급돼요.<br/>
-          📌 퀴즈를 통과할 때마다 XP를 획득할 수 있어요!
+          {isEnglish ? (
+            <>
+              📌 A Streak Freezer is consumed automatically when you miss a day to protect your streak.<br/>
+              📌 Premium includes 3 free Streak Freezers by default.<br/>
+              📌 You earn XP whenever you pass a quiz!
+            </>
+          ) : (
+            <>
+              📌 Streak Freezer는 하루를 놓쳤을 때 자동으로 1개 소모되어 스트릭을 지켜줘요.<br/>
+              📌 프리미엄 구독 시 기본으로 3개가 지급돼요.<br/>
+              📌 퀴즈를 통과할 때마다 XP를 획득할 수 있어요!
+            </>
+          )}
         </p>
       </div>
     </div>

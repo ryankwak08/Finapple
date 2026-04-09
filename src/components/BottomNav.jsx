@@ -1,13 +1,16 @@
 import { useLocation, useNavigate } from 'react-router-dom';
 import { BookOpen, Trophy, BookMarked, ShoppingBag, Medal } from 'lucide-react';
+import { useLanguage } from '@/lib/i18n';
 
-export const appTabs = [
-  { root: '/', label: '금융 상식', icon: BookOpen },
-  { root: '/quiz', label: '퀴즈', icon: Trophy },
-  { root: '/leaderboard', label: '리그', icon: Medal },
-  { root: '/glossary', label: '용어사전', icon: BookMarked },
-  { root: '/shop', label: '상점', icon: ShoppingBag },
-];
+export function getAppTabs(t) {
+  return [
+    { root: '/', label: t('tabStudy', '금융 상식'), icon: BookOpen },
+    { root: '/quiz', label: t('tabQuiz', '퀴즈'), icon: Trophy },
+    { root: '/leaderboard', label: t('tabLeaderboard', '리그'), icon: Medal },
+    { root: '/glossary', label: t('tabGlossary', '용어사전'), icon: BookMarked },
+    { root: '/shop', label: t('tabShop', '상점'), icon: ShoppingBag },
+  ];
+}
 
 export function getActiveTab(pathname) {
   if (pathname.startsWith('/quiz')) return '/quiz';
@@ -20,7 +23,9 @@ export function getActiveTab(pathname) {
 export default function BottomNav() {
   const { pathname } = useLocation();
   const navigate = useNavigate();
+  const { t } = useLanguage();
   const activeTab = getActiveTab(pathname);
+  const appTabs = getAppTabs(t);
 
   const handleTabPress = (tabRoot) => {
     window.dispatchEvent(new CustomEvent('bottomNavReset', { detail: { tabRoot } }));
