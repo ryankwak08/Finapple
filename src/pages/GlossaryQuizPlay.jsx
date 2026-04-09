@@ -10,6 +10,15 @@ import { isAdminUser } from '@/lib/premium';
 const PASS_THRESHOLD = 9;
 const QUIZ_SIZE = 10;
 
+function shuffleArray(items) {
+  const next = [...items];
+  for (let i = next.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [next[i], next[j]] = [next[j], next[i]];
+  }
+  return next;
+}
+
 function escapeRegExp(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
@@ -71,10 +80,9 @@ function maskTerm(definition, term) {
   }, definition);
 }
 
-function makeQuestion(terms, index) {
-  const correct = terms[index];
+function makeQuestion(terms, correct) {
   // Pick 3 wrong answers from other terms
-  const others = terms.filter((_, i) => i !== index);
+  const others = terms.filter((term) => term.id !== correct.id);
   const wrongs = [];
   const used = new Set();
   while (wrongs.length < 3 && wrongs.length < others.length) {
@@ -106,11 +114,14 @@ export default function GlossaryQuizPlay() {
   const canAccessTeenCourse = isAdminUser(user);
 
   const quizId = `${unitId}-glossary`;
-  const [terms] = useState(() => pickTerms(unitId));
+  const [termSet] = useState(() => pickTerms(unitId));
+  const [terms] = useState(() => shuffleArray(termSet));
   const [questions] = useState(() => {
-    return terms.map((_, i) => makeQuestion(terms, i));
+    const quizOrder = shuffleArray(termSet);
+    return quizOrder.map((term) => makeQuestion(termSet, term));
   });
   const [activeTab, setActiveTab] = useState('terms');
+  const [hasStartedQuiz, setHasStartedQuiz] = useState(false);
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState(null);
@@ -246,6 +257,10 @@ export default function GlossaryQuizPlay() {
 
   const progress_pct = ((currentIndex) / questions.length) * 100;
   const isTermsTab = activeTab === 'terms';
+  const openQuizTab = () => {
+    setHasStartedQuiz(true);
+    setActiveTab('quiz');
+  };
 
   return (
     <div className="px-5 pt-14 pb-8 min-h-screen">
@@ -267,13 +282,14 @@ export default function GlossaryQuizPlay() {
           <button
             type="button"
             onClick={() => setActiveTab('terms')}
-            className={`rounded-xl px-3 py-2 text-[12px] font-bold transition-colors ${isTermsTab ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+            disabled={hasStartedQuiz}
+            className={`rounded-xl px-3 py-2 text-[12px] font-bold transition-colors ${isTermsTab ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'} ${hasStartedQuiz ? 'cursor-not-allowed opacity-40' : ''}`}
           >
             뜻 정리
           </button>
           <button
             type="button"
-            onClick={() => setActiveTab('quiz')}
+            onClick={openQuizTab}
             className={`rounded-xl px-3 py-2 text-[12px] font-bold transition-colors ${!isTermsTab ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}
           >
             퀴즈
@@ -301,7 +317,7 @@ export default function GlossaryQuizPlay() {
           </div>
           <button
             type="button"
-            onClick={() => setActiveTab('quiz')}
+            onClick={openQuizTab}
             className="w-full py-4 rounded-2xl bg-primary text-primary-foreground text-[15px] font-bold shadow-lg shadow-primary/20 active:scale-[0.98] transition-all"
           >
             퀴즈 시작하기
@@ -310,6 +326,9 @@ export default function GlossaryQuizPlay() {
       ) : (
         <>
       {/* Progress */}
+      {hasStartedQuiz ? (
+        <p className="mb-3 text-[11px] text-muted-foreground">퀴즈를 시작해서 뜻 정리 탭으로는 돌아갈 수 없어요.</p>
+      ) : null}
       <div className="mb-6">
         <div className="flex justify-between text-[11px] text-muted-foreground mb-1.5">
           <span>{currentIndex + 1} / {questions.length}</span>
