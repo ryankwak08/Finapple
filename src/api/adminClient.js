@@ -10,15 +10,17 @@ async function getAccessToken() {
   return data.session.access_token;
 }
 
-async function request(path, options = {}) {
+async function request(path, body = {}) {
   const accessToken = await getAccessToken();
   const response = await fetch(`${BACKEND_URL}${path}`, {
-    ...options,
+    method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${accessToken}`,
-      ...(options.headers || {}),
     },
+    body: JSON.stringify({
+      accessToken,
+      ...body,
+    }),
   });
 
   const result = await response.json();
@@ -30,21 +32,18 @@ async function request(path, options = {}) {
 }
 
 export async function fetchCurrentUserState() {
-  const result = await request('/api/user-state');
+  const result = await request('/api/user-state/read');
   return result.state || null;
 }
 
 export async function consumeCurrentUserHeart() {
-  const result = await request('/api/user-state/consume-heart', {
-    method: 'POST',
-  });
+  const result = await request('/api/user-state/consume-heart');
 
   return result.state || null;
 }
 
 export async function findAdminManagedUser(query) {
-  const searchParams = new URLSearchParams({ query });
-  const result = await request(`/api/admin/user?${searchParams.toString()}`);
+  const result = await request('/api/admin/user/find', { query });
   return result.user;
 }
 
@@ -57,10 +56,7 @@ export async function updateAdminManagedUser({ userId, hearts, isPremium }) {
     payload.isPremium = isPremium;
   }
 
-  const result = await request('/api/admin/user', {
-    method: 'POST',
-    body: JSON.stringify(payload),
-  });
+  const result = await request('/api/admin/user', payload);
 
   return result.user;
 }

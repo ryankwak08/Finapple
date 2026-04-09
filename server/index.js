@@ -842,7 +842,7 @@ app.post('/api/account/delete', createRateLimiter({ key: 'account-delete', limit
   }
 });
 
-app.get('/api/user-state', async (req, res) => {
+const handleReadUserState = async (req, res) => {
   if (!supabaseAdmin) {
     return res.status(500).json({ error: 'Supabase admin is not configured' });
   }
@@ -868,7 +868,10 @@ app.get('/api/user-state', async (req, res) => {
     console.error('user state fetch error', error.message);
     return res.status(500).json({ error: error.message || 'Failed to fetch user state' });
   }
-});
+};
+
+app.get('/api/user-state', handleReadUserState);
+app.post('/api/user-state/read', handleReadUserState);
 
 app.post('/api/user-state/consume-heart', createRateLimiter({ key: 'user-state-consume-heart', limit: 120, windowMs: 60_000 }), async (req, res) => {
   if (!supabaseAdmin) {
@@ -923,13 +926,13 @@ app.post('/api/user-state/consume-heart', createRateLimiter({ key: 'user-state-c
   }
 });
 
-app.get('/api/admin/user', async (req, res) => {
+const handleFindAdminUser = async (req, res) => {
   if (!supabaseAdmin) {
     return res.status(500).json({ error: 'Supabase admin is not configured' });
   }
 
   const accessToken = getRequestAccessToken(req);
-  const query = String(req.query?.query || '').trim();
+  const query = String(req.query?.query || req.body?.query || '').trim();
 
   if (!accessToken) {
     return res.status(401).json({ error: '로그인 세션이 필요합니다.' });
@@ -968,7 +971,10 @@ app.get('/api/admin/user', async (req, res) => {
     console.error('admin user fetch error', error.message);
     return res.status(500).json({ error: error.message || 'Failed to fetch admin user' });
   }
-});
+};
+
+app.get('/api/admin/user', handleFindAdminUser);
+app.post('/api/admin/user/find', handleFindAdminUser);
 
 app.post('/api/admin/user', createRateLimiter({ key: 'admin-user-update', limit: 60, windowMs: 60_000 }), async (req, res) => {
   if (!supabaseAdmin) {
