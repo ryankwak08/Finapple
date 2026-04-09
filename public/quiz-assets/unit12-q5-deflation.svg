@@ -1,0 +1,43 @@
+<svg width="720" height="560" viewBox="0 0 720 560" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="720" height="560" fill="#F4F5F7"/>
+
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto">
+      <path d="M0,0 L10,5 L0,10 Z" fill="#7A8FBF" />
+    </marker>
+    <style>
+      .title { font: 700 42px 'Noto Sans KR', sans-serif; fill: #FFFFFF; }
+      .text { font: 700 38px 'Noto Sans KR', sans-serif; fill: #FFFFFF; }
+    </style>
+  </defs>
+
+  <rect x="230" y="32" width="260" height="112" rx="24" fill="#37599A"/>
+  <text x="360" y="78" text-anchor="middle" class="title">지속적인</text>
+  <text x="360" y="122" text-anchor="middle" class="title">물가 하락</text>
+
+  <rect x="44" y="178" width="192" height="124" rx="22" fill="#9CA3AF"/>
+  <text x="140" y="232" text-anchor="middle" class="text">가계 소비</text>
+  <text x="140" y="276" text-anchor="middle" class="text">감소</text>
+
+  <rect x="484" y="178" width="192" height="124" rx="22" fill="#9CA3AF"/>
+  <text x="580" y="232" text-anchor="middle" class="text">가계 소비</text>
+  <text x="580" y="276" text-anchor="middle" class="text">감소</text>
+
+  <rect x="44" y="326" width="192" height="124" rx="22" fill="#9CA3AF"/>
+  <text x="140" y="380" text-anchor="middle" class="text">기업 생산</text>
+  <text x="140" y="424" text-anchor="middle" class="text">감소</text>
+
+  <rect x="484" y="326" width="192" height="124" rx="22" fill="#9CA3AF"/>
+  <text x="580" y="380" text-anchor="middle" class="text">기업 생산</text>
+  <text x="580" y="424" text-anchor="middle" class="text">축소</text>
+
+  <rect x="230" y="444" width="260" height="88" rx="22" fill="#37599A"/>
+  <text x="360" y="500" text-anchor="middle" class="title">( ㄱ )</text>
+
+  <path d="M490 86 C540 96, 556 128, 570 174" stroke="#7A8FBF" stroke-width="4" fill="none" marker-end="url(#arrow)"/>
+  <path d="M580 302 C580 314, 580 318, 580 324" stroke="#7A8FBF" stroke-width="4" fill="none" marker-end="url(#arrow)"/>
+  <path d="M546 448 C508 462, 478 474, 452 482" stroke="#7A8FBF" stroke-width="4" fill="none" marker-end="url(#arrow)"/>
+  <path d="M268 482 C242 474, 212 462, 174 448" stroke="#7A8FBF" stroke-width="4" fill="none" marker-end="url(#arrow)"/>
+  <path d="M140 326 C140 318, 140 314, 140 302" stroke="#7A8FBF" stroke-width="4" fill="none" marker-end="url(#arrow)"/>
+  <path d="M150 174 C164 128, 180 96, 230 86" stroke="#7A8FBF" stroke-width="4" fill="none" marker-end="url(#arrow)"/>
+</svg>

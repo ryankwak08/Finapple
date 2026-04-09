@@ -108,9 +108,9 @@ export default function GlossaryQuizPlay() {
   const quizId = `${unitId}-glossary`;
   const [terms] = useState(() => pickTerms(unitId));
   const [questions] = useState(() => {
-    const t = pickTerms(unitId);
-    return t.map((_, i) => makeQuestion(t, i));
+    return terms.map((_, i) => makeQuestion(terms, i));
   });
+  const [activeTab, setActiveTab] = useState('terms');
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState(null);
@@ -245,6 +245,7 @@ export default function GlossaryQuizPlay() {
   };
 
   const progress_pct = ((currentIndex) / questions.length) * 100;
+  const isTermsTab = activeTab === 'terms';
 
   return (
     <div className="px-5 pt-14 pb-8 min-h-screen">
@@ -260,6 +261,54 @@ export default function GlossaryQuizPlay() {
         <HeartDisplay hearts={progress.hearts} unlimited={isPremium} />
       </div>
 
+      {/* Tabs */}
+      <div className="mb-5 rounded-2xl border border-border bg-card p-1.5">
+        <div className="grid grid-cols-2 gap-1.5">
+          <button
+            type="button"
+            onClick={() => setActiveTab('terms')}
+            className={`rounded-xl px-3 py-2 text-[12px] font-bold transition-colors ${isTermsTab ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+          >
+            뜻 정리
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('quiz')}
+            className={`rounded-xl px-3 py-2 text-[12px] font-bold transition-colors ${!isTermsTab ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+          >
+            퀴즈
+          </button>
+        </div>
+      </div>
+
+      {isTermsTab ? (
+        <>
+          <div className="mb-4 rounded-2xl border border-primary/20 bg-primary/5 px-4 py-3">
+            <p className="text-[12px] font-semibold text-primary">
+              아래 10개 단어가 이번 퀴즈에 나와요. 뜻을 먼저 보고 시작해보세요.
+            </p>
+          </div>
+          <div className="space-y-2.5 mb-6">
+            {terms.map((term, idx) => (
+              <div key={term.id} className="rounded-2xl border border-border bg-card px-4 py-3">
+                <div className="mb-1.5 flex items-center gap-2">
+                  <span className="text-[11px] font-bold text-primary">{idx + 1}.</span>
+                  <p className="text-[13px] font-bold text-foreground">{term.term}</p>
+                </div>
+                <p className="text-[12px] leading-relaxed text-muted-foreground">{term.definition}</p>
+              </div>
+            ))}
+          </div>
+          <button
+            type="button"
+            onClick={() => setActiveTab('quiz')}
+            className="w-full py-4 rounded-2xl bg-primary text-primary-foreground text-[15px] font-bold shadow-lg shadow-primary/20 active:scale-[0.98] transition-all"
+          >
+            퀴즈 시작하기
+          </button>
+        </>
+      ) : (
+        <>
       {/* Progress */}
       <div className="mb-6">
         <div className="flex justify-between text-[11px] text-muted-foreground mb-1.5">
@@ -324,6 +373,8 @@ export default function GlossaryQuizPlay() {
         >
           {currentIndex < questions.length - 1 ? '다음 →' : '결과 보기'}
         </button>
+      )}
+        </>
       )}
     </div>
   );

@@ -40,6 +40,16 @@ export default function QuestionCard({
         <h3 className="text-[18px] font-bold leading-snug text-foreground sm:text-[20px]">
           {question.question}
         </h3>
+        {question.imageUrl ? (
+          <div className="mt-4 overflow-hidden rounded-2xl border border-border bg-card p-2">
+            <img
+              src={question.imageUrl}
+              alt={question.imageAlt || '문항 참고 이미지'}
+              className="mx-auto h-auto w-full max-w-md rounded-xl"
+              loading="lazy"
+            />
+          </div>
+        ) : null}
       </div>
 
       {/* Options */}
