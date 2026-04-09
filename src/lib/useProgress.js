@@ -3,7 +3,8 @@ import { getCurrentUser } from '@/services/authService';
 import { getAdsDisabled, getIsPremium } from '@/lib/premium';
 import { TOTAL_QUIZ_COUNT } from '@/lib/quizCatalog';
 import { getCurrentSeasonMeta } from '@/lib/season';
-import { getLeagueRewardForRank } from '@/lib/leaderboard';
+import { buildLeaderboardPayload, getLeagueRewardForRank } from '@/lib/leaderboard';
+import { syncLeaderboardEntry } from '@/api/leaderboardClient';
 import { safeStorage } from '@/lib/safeStorage';
 
 const TODAY = () => new Date().toISOString().split('T')[0];
@@ -219,6 +220,34 @@ export default function useProgress() {
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState(null);
 
+  const syncLeaderboardForProgress = useCallback((nextProgress, nextUser = user) => {
+    if (!nextProgress || !nextUser?.email) {
+      return;
+    }
+
+    const seasonMeta = getCurrentSeasonMeta();
+    const streakStatus = {
+      streakCount: nextProgress.streak_count || 1,
+      bestStreak: nextProgress.best_streak || 1,
+      streakFreezers: nextProgress.streak_freezers || 0,
+      adsDisabled: Boolean(nextProgress.ads_disabled),
+      leaderboardSeasonKey: nextProgress.leaderboard_season_key || seasonMeta.seasonKey,
+      leaderboardSeasonLabel: nextProgress.leaderboard_season_label || seasonMeta.label,
+      leaderboardSeasonStartDate: nextProgress.leaderboard_season_start_date || seasonMeta.startDate,
+      leaderboardSeasonEndDate: nextProgress.leaderboard_season_end_date || seasonMeta.endDate,
+    };
+
+    const payload = buildLeaderboardPayload({
+      user: nextUser,
+      progress: nextProgress,
+      streakStatus,
+    });
+
+    syncLeaderboardEntry(payload).catch((error) => {
+      console.error('Leaderboard background sync failed:', error);
+    });
+  }, [user]);
+
   const persistProgress = useCallback((nextProgress) => {
     const { next } = syncLeaderboardSeasonProgress(nextProgress);
     setProgress(next);
@@ -395,7 +424,7 @@ export default function useProgress() {
   }, [applyProgressUpdate]);
 
   const resolveWrongAnswer = useCallback(async (reviewId) => {
-    applyProgressUpdate((current) => {
+    const next = applyProgressUpdate((current) => {
       if (!current) return current;
       const reviewNotes = (current.review_notes || []).map((entry) => (
         entry.id === reviewId
@@ -409,10 +438,11 @@ export default function useProgress() {
       ));
       return { ...current, review_notes: reviewNotes };
     });
-  }, [applyProgressUpdate]);
+    syncLeaderboardForProgress(next);
+  }, [applyProgressUpdate, syncLeaderboardForProgress]);
 
   const completeQuiz = useCallback(async (quizId, score, xpReward) => {
-    applyProgressUpdate((current) => {
+    const next = applyProgressUpdate((current) => {
       if (!current) return current;
       const completed = current.completed_quizzes || [];
       const scores = current.quiz_scores || {};
@@ -426,10 +456,11 @@ export default function useProgress() {
         xp: isNew ? (current.xp || 0) + xpReward : (current.xp || 0),
       };
     });
-  }, [applyProgressUpdate]);
+    syncLeaderboardForProgress(next);
+  }, [applyProgressUpdate, syncLeaderboardForProgress]);
 
   const recordQuizActivity = useCallback(async () => {
-    applyProgressUpdate((current) => {
+    const next = applyProgressUpdate((current) => {
       if (!current) return current;
 
       const today = TODAY();
@@ -469,7 +500,8 @@ export default function useProgress() {
         best_streak: Math.max(base.best_streak || 1, 1),
       };
     });
-  }, [applyProgressUpdate]);
+    syncLeaderboardForProgress(next);
+  }, [applyProgressUpdate, syncLeaderboardForProgress]);
 
   const purchaseShopItem = useCallback(async (item) => {
     const current = getLatestProgressSnapshot();
@@ -522,7 +554,7 @@ export default function useProgress() {
     }
 
     const rewardXp = getLeagueRewardForRank(rank);
-    applyProgressUpdate((base) => ({
+    const next = applyProgressUpdate((base) => ({
       ...base,
       xp: (base.xp || 0) + rewardXp,
       leaderboard_xp_baseline: (base.leaderboard_xp_baseline || 0) + rewardXp,
@@ -530,8 +562,9 @@ export default function useProgress() {
       league_reward_claimed_rank: rank || null,
       league_reward_claimed_xp: rewardXp,
     }));
+    syncLeaderboardForProgress(next);
     return rewardXp;
-  }, [applyProgressUpdate, getLatestProgressSnapshot]);
+  }, [applyProgressUpdate, getLatestProgressSnapshot, syncLeaderboardForProgress]);
 
   const isUnitLocked = useCallback((unitId) => {
     if (!progress) return true;

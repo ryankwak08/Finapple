@@ -239,7 +239,18 @@ export default function Leaderboard() {
     }
 
     const existingMe = entries.find((entry) => entry.user_id === user.id || entry.user_email === user.email);
-    const localEntry = {
+    if (existingMe) {
+      return [...entries]
+        .sort((left, right) => {
+          if (right.score !== left.score) {
+            return right.score - left.score;
+          }
+          return new Date(left.updated_at).getTime() - new Date(right.updated_at).getTime();
+        })
+        .slice(0, 20);
+    }
+
+    const nextEntries = [{
       user_id: user.id,
       user_email: user.email,
       display_name: myEntry.displayName,
@@ -257,13 +268,8 @@ export default function Leaderboard() {
       resolved_review_count: myEntry.resolvedReviewCount || 0,
       ads_disabled: Boolean(myEntry.adsDisabled),
       score: myEntry.score || 0,
-      updated_at: existingMe?.updated_at || entries[0]?.updated_at || new Date(0).toISOString(),
-    };
-
-    const nextEntries = [
-      localEntry,
-      ...entries.filter((entry) => entry.user_id !== user.id && entry.user_email !== user.email),
-    ];
+      updated_at: entries[0]?.updated_at || new Date(0).toISOString(),
+    }, ...entries];
 
     return nextEntries
       .sort((left, right) => {
