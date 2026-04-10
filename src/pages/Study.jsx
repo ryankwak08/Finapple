@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import { lifeStudyTopicsCatalog } from '../lib/studyCatalog';
 import TopicCard from '../components/study/TopicCard';
 import useProgress from '../lib/useProgress';
@@ -146,6 +147,24 @@ export default function Study() {
           </div>
         </div>
       )}
+
+      <section className="mb-6">
+        <div className="rounded-2xl border border-sky-200 bg-sky-50/70 p-4">
+          <p className="text-[11px] font-black uppercase tracking-[0.16em] text-sky-700">New</p>
+          <h2 className="mt-1 text-lg font-extrabold text-sky-900">{isEnglish ? 'Youth finance chatbot' : '청년 금융 챗봇'}</h2>
+          <p className="mt-1 text-[13px] text-sky-800/85">
+            {isEnglish
+              ? 'Ask practical questions and get documents, next actions, and official links in one response.'
+              : '실전 질문을 입력하면 필요한 서류, 다음 단계, 공식 링크를 한 번에 안내해요.'}
+          </p>
+          <Link
+            to="/finance-chat"
+            className="mt-3 inline-flex rounded-xl bg-sky-700 px-3 py-2 text-[13px] font-bold text-white"
+          >
+            {isEnglish ? 'Open chatbot' : '챗봇 열기'}
+          </Link>
+        </div>
+      </section>
 
       {groupedTopics.issues[0] ? (
         <section className="mb-6">

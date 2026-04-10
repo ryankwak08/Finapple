@@ -24,6 +24,7 @@ const Terms = lazy(() => import('./pages/Terms'));
 const Privacy = lazy(() => import('./pages/Privacy'));
 const ReviewNote = lazy(() => import('./pages/ReviewNote'));
 const Leaderboard = lazy(() => import('./pages/Leaderboard'));
+const FinanceChat = lazy(() => import('./pages/FinanceChat'));
 
 
 const FullScreenSpinner = () => (
@@ -157,6 +158,7 @@ const AppRoutes = () => (
         <Route path="/glossary" element={<Glossary />} />
         <Route path="/leaderboard" element={<Leaderboard />} />
         <Route path="/shop" element={<Shop />} />
+        <Route path="/finance-chat" element={<FinanceChat />} />
         <Route path="/profile" element={<Profile />} />
         <Route path="/review-note" element={<ReviewNote />} />
         <Route path="/review-note/:reviewId" element={<ReviewNote />} />

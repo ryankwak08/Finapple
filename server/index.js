@@ -5,10 +5,13 @@ import dotenv from 'dotenv';
 import { createClient } from '@supabase/supabase-js';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import crypto from 'crypto';
 import { getQuizById, getUnitById } from '../src/lib/quizData.js';
 import { getStudyTopicById } from '../src/lib/studyData.js';
 import { getCurrentSeasonMeta } from '../src/lib/season.js';
 import { getQuizExamplesForUnit } from './quizExampleBank.js';
+import { buildFinanceChatResponse, getYouthCoreQuestions } from './financeAssistant.js';
+import { generateFinanceNarrative } from './financeNarrative.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -37,6 +40,8 @@ const PORT = process.env.PORT || 3000;
 const QUIZ_CACHE_TTL_MS = 1000 * 60 * 60 * 24;
 const aiQuizCache = new Map();
 const aiQuizInflight = new Map();
+const translationCache = new Map();
+const translationInflight = new Map();
 const rateLimitStore = new Map();
 const MAX_AI_QUIZ_ATTEMPTS = 1;
 const serverEnvChecklist = [
@@ -80,6 +85,57 @@ const quizResponseSchema = {
   },
 };
 
+const translatedLessonChunkSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['title', 'summary', 'goals', 'concepts', 'learningPoints'],
+  properties: {
+    title: { type: 'string' },
+    summary: { type: 'string' },
+    goals: {
+      type: 'array',
+      items: { type: 'string' },
+    },
+    concepts: {
+      type: 'array',
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['term', 'definition'],
+        properties: {
+          term: { type: 'string' },
+          definition: { type: 'string' },
+        },
+      },
+    },
+    learningPoints: {
+      type: 'array',
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['emoji', 'title', 'content', 'pointType'],
+        properties: {
+          emoji: { type: 'string' },
+          title: { type: 'string' },
+          content: { type: 'string' },
+          pointType: { type: 'string' },
+        },
+      },
+    },
+  },
+};
+
+const normalizeLocale = (value) => {
+  const locale = String(value || 'ko').toLowerCase();
+  return locale.startsWith('en') ? 'en' : 'ko';
+};
+
+const getTranslationCacheKey = (type, locale, payload) => {
+  const serialized = JSON.stringify(payload);
+  const hash = crypto.createHash('sha256').update(serialized).digest('hex');
+  return `${type}:${locale}:${hash}`;
+};
+
 const normalizeOrigin = (value) => {
   if (!value || typeof value !== 'string') {
     return '';
@@ -107,6 +163,8 @@ const allowedOrigins = new Set([
   ...parseConfiguredOrigins(EXTRA_FRONTEND_URLS),
   'http://localhost:5173',
   'http://127.0.0.1:5173',
+  'http://localhost:4173',
+  'http://127.0.0.1:4173',
   'https://finapple.xyz',
   'https://www.finapple.xyz',
 ]);
@@ -360,7 +418,8 @@ const getQuizVariationBlueprint = (quizId) => {
   return quizVariationBlueprints[Math.abs(hash) % quizVariationBlueprints.length];
 };
 
-const buildQuizPrompts = ({ quiz, unit, topic }) => {
+const buildQuizPrompts = ({ quiz, unit, topic }, locale = 'ko') => {
+  const isEnglish = locale === 'en';
   const seedQuestions = (quiz.questions || []).slice(0, 2).map((item, index) => ({
     no: index + 1,
     question: item.question,
@@ -385,21 +444,51 @@ const buildQuizPrompts = ({ quiz, unit, topic }) => {
     };
 
   const systemPrompt = [
-    '당신은 한국어 금융 교육 퀴즈를 만드는 출제자다.',
-    '항상 중급 난이도의 4지선다 객관식 5문항을 만든다.',
-    '모든 문항은 실생활 맥락 또는 짧은 사례 기반으로 작성한다.',
-    '보기는 서로 구분 가능해야 하며 정답은 단 하나여야 한다.',
-    '오답 보기는 정답과 헷갈릴 수는 있지만, 서로 거의 같은 표현이거나 말장난처럼 보이면 안 된다.',
-    '문항은 짧아도 핵심 상황과 조건이 드러나야 하며, 질문 의도가 불명확하면 안 된다.',
-    '해설은 정답과 반드시 일치해야 하며, 정답 선택의 근거를 2문장 안팎으로 설명한다.',
-    '해설에는 왜 정답이고 왜 다른 선택지가 아닌지 드러나는 근거가 들어가야 한다.',
-    '정답이 질문 문장에 노출되거나 보기 길이 차이만으로 티 나지 않게 작성한다.',
-    '기존 예시와 문장 구조나 수치를 그대로 복사하지 말고, 같은 학습 목표를 새 방식으로 평가한다.',
-    '예시 문항과 같은 인물 설정, 같은 숫자, 같은 상황 전개를 반복하지 않는다.',
-    '반드시 다른 생활 장면, 다른 선택지 구성, 다른 질문 각도로 변형한다.',
-    '제공된 스타일 예시는 학습용 기준점으로만 참고하고, 문장을 베끼지 않는다.',
-    '스타일 예시가 있는 단원은 해당 예시의 난이도, 개념 정확도, 실전성을 우선적으로 따른다.',
-    '결과는 반드시 JSON Schema에 맞는 값만 반환한다.',
+    isEnglish
+      ? 'You create English-language financial education quizzes for learners.'
+      : '당신은 한국어 금융 교육 퀴즈를 만드는 출제자다.',
+    isEnglish
+      ? 'Always create exactly 5 medium-difficulty multiple-choice questions with 4 options each.'
+      : '항상 중급 난이도의 4지선다 객관식 5문항을 만든다.',
+    isEnglish
+      ? 'Every question must be grounded in a practical daily-life context or a short scenario.'
+      : '모든 문항은 실생활 맥락 또는 짧은 사례 기반으로 작성한다.',
+    isEnglish
+      ? 'Options must be clearly distinguishable and there must be exactly one correct answer.'
+      : '보기는 서로 구분 가능해야 하며 정답은 단 하나여야 한다.',
+    isEnglish
+      ? 'Wrong options may be plausible but must not be near-duplicates, wordplay, or trick answers.'
+      : '오답 보기는 정답과 헷갈릴 수는 있지만, 서로 거의 같은 표현이거나 말장난처럼 보이면 안 된다.',
+    isEnglish
+      ? 'Questions should be concise but still include enough context and conditions to make the intent clear.'
+      : '문항은 짧아도 핵심 상황과 조건이 드러나야 하며, 질문 의도가 불명확하면 안 된다.',
+    isEnglish
+      ? 'The explanation must match the correct answer and explain the reasoning in about two sentences.'
+      : '해설은 정답과 반드시 일치해야 하며, 정답 선택의 근거를 2문장 안팎으로 설명한다.',
+    isEnglish
+      ? 'The explanation should make clear why the correct answer is right and why the others are not.'
+      : '해설에는 왜 정답이고 왜 다른 선택지가 아닌지 드러나는 근거가 들어가야 한다.',
+    isEnglish
+      ? 'Do not make the answer obvious from the question wording or option length alone.'
+      : '정답이 질문 문장에 노출되거나 보기 길이 차이만으로 티 나지 않게 작성한다.',
+    isEnglish
+      ? 'Do not copy the reference examples. Assess the same learning goals in a fresh way.'
+      : '기존 예시와 문장 구조나 수치를 그대로 복사하지 말고, 같은 학습 목표를 새 방식으로 평가한다.',
+    isEnglish
+      ? 'Avoid repeating the same character setup, numbers, or scenario flow from the examples.'
+      : '예시 문항과 같은 인물 설정, 같은 숫자, 같은 상황 전개를 반복하지 않는다.',
+    isEnglish
+      ? 'Use different everyday settings, option structures, and question angles.'
+      : '반드시 다른 생활 장면, 다른 선택지 구성, 다른 질문 각도로 변형한다.',
+    isEnglish
+      ? 'Use the style examples only as calibration references and never copy their phrasing.'
+      : '제공된 스타일 예시는 학습용 기준점으로만 참고하고, 문장을 베끼지 않는다.',
+    isEnglish
+      ? 'If a unit has style examples, prioritize their difficulty, concept accuracy, and practical usefulness.'
+      : '스타일 예시가 있는 단원은 해당 예시의 난이도, 개념 정확도, 실전성을 우선적으로 따른다.',
+    isEnglish
+      ? 'Return only values that conform to the JSON Schema.'
+      : '결과는 반드시 JSON Schema에 맞는 값만 반환한다.',
   ].join(' ');
 
   const userPrompt = JSON.stringify(
@@ -410,14 +499,14 @@ const buildQuizPrompts = ({ quiz, unit, topic }) => {
         quizSubtitle: quiz.subtitle,
         unitTitle: unit?.title || quiz.unitTitle,
         questionCount: 5,
-        audience: '한국어 사용자, 청년 금융교육 학습자',
+        audience: isEnglish ? 'English-speaking young adult financial education learners' : '한국어 사용자, 청년 금융교육 학습자',
       },
       variationBlueprint,
       topicContext,
       referenceQuestions: seedQuestions,
       styleExamples,
       outputRules: {
-        language: 'ko-KR',
+        language: isEnglish ? 'en-US' : 'ko-KR',
         optionCount: 4,
         answerIndexRange: [0, 3],
         avoid: [
@@ -459,6 +548,120 @@ const extractResponseText = (payload) => {
   }
 
   return textParts.join('\n').trim();
+};
+
+const translateWithSchema = async ({ cacheKey, schemaName, schema, systemPrompt, userPrompt }) => {
+  if (!openAiApiKey) {
+    throw new Error('OPENAI_API_KEY is not configured');
+  }
+
+  const cached = translationCache.get(cacheKey);
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.data;
+  }
+
+  const inflight = translationInflight.get(cacheKey);
+  if (inflight) {
+    return inflight;
+  }
+
+  const requestPromise = (async () => {
+    const response = await fetch('https://api.openai.com/v1/responses', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${openAiApiKey}`,
+      },
+      body: JSON.stringify({
+        model: openAiModel,
+        input: [
+          {
+            role: 'system',
+            content: [{ type: 'input_text', text: systemPrompt }],
+          },
+          {
+            role: 'user',
+            content: [{ type: 'input_text', text: userPrompt }],
+          },
+        ],
+        text: {
+          format: {
+            type: 'json_schema',
+            name: schemaName,
+            strict: true,
+            schema,
+          },
+        },
+      }),
+    });
+
+    const payload = await response.json();
+    if (!response.ok) {
+      throw new Error(payload?.error?.message || 'OpenAI translation request failed');
+    }
+
+    const outputText = extractResponseText(payload);
+    if (!outputText) {
+      throw new Error('OpenAI returned an empty translation response');
+    }
+
+    const parsed = JSON.parse(outputText);
+    translationCache.set(cacheKey, {
+      data: parsed,
+      expiresAt: Date.now() + QUIZ_CACHE_TTL_MS,
+    });
+    return parsed;
+  })();
+
+  translationInflight.set(cacheKey, requestPromise);
+
+  try {
+    return await requestPromise;
+  } finally {
+    translationInflight.delete(cacheKey);
+  }
+};
+
+const translateLessonChunk = async (lessonChunk, locale = 'ko') => {
+  if (normalizeLocale(locale) !== 'en') {
+    return lessonChunk;
+  }
+
+  const payload = {
+    title: lessonChunk.title,
+    summary: lessonChunk.summary,
+    goals: lessonChunk.goals || [],
+    concepts: lessonChunk.concepts || [],
+    learningPoints: (lessonChunk.learningPoints || []).map((point) => ({
+      emoji: point.emoji,
+      title: point.title,
+      content: point.content || '',
+      pointType: point.pointType || 'text',
+    })),
+  };
+
+  return translateWithSchema({
+    cacheKey: getTranslationCacheKey('lesson-chunk', 'en', payload),
+    schemaName: 'translated_lesson_chunk',
+    schema: translatedLessonChunkSchema,
+    systemPrompt: 'Translate the provided Korean financial learning content into natural, learner-friendly English. Preserve structure, emoji, and pointType exactly. Do not summarize or omit details. Return only JSON matching the schema.',
+    userPrompt: JSON.stringify(payload, null, 2),
+  });
+};
+
+const translateQuizQuestions = async (questions, locale = 'ko') => {
+  if (normalizeLocale(locale) !== 'en') {
+    return { questions };
+  }
+
+  const payload = { questions };
+  return translateWithSchema({
+    cacheKey: getTranslationCacheKey('quiz-questions', 'en', payload),
+    schemaName: 'translated_quiz_questions',
+    schema: quizResponseSchema,
+    systemPrompt: 'Translate the provided Korean quiz questions into natural English. Keep the same number of questions, the same answer indexes, and the same structure. Return only JSON matching the schema.',
+    userPrompt: JSON.stringify(payload, null, 2),
+  });
 };
 
 const maskEmailAddress = (email) => {
@@ -609,7 +812,8 @@ const createRateLimiter = ({ key, limit, windowMs }) => (req, res, next) => {
 };
 
 const generateAiQuizQuestions = async (quizId, options = {}) => {
-  const { forceRefresh = false } = options;
+  const { forceRefresh = false, locale = 'ko' } = options;
+  const normalizedLocale = normalizeLocale(locale);
 
   if (!openAiApiKey) {
     throw new Error('OPENAI_API_KEY is not configured');
@@ -622,23 +826,24 @@ const generateAiQuizQuestions = async (quizId, options = {}) => {
     throw error;
   }
 
-  const cached = aiQuizCache.get(quizId);
+  const cacheKey = `${quizId}:${normalizedLocale}`;
+  const cached = aiQuizCache.get(cacheKey);
   if (!forceRefresh && cached && cached.expiresAt > Date.now()) {
     return cached.questions;
   }
 
-  const inflight = !forceRefresh ? aiQuizInflight.get(quizId) : null;
+  const inflight = !forceRefresh ? aiQuizInflight.get(cacheKey) : null;
   if (inflight) {
     return inflight;
   }
 
   if (forceRefresh) {
-    aiQuizCache.delete(quizId);
-    aiQuizInflight.delete(quizId);
+    aiQuizCache.delete(cacheKey);
+    aiQuizInflight.delete(cacheKey);
   }
 
   const requestPromise = (async () => {
-    const { systemPrompt, userPrompt } = buildQuizPrompts(context);
+    const { systemPrompt, userPrompt } = buildQuizPrompts(context, normalizedLocale);
     const qualityFailures = [];
     let questions = null;
 
@@ -721,7 +926,7 @@ const generateAiQuizQuestions = async (quizId, options = {}) => {
       throw new Error(`AI quiz quality validation failed: ${qualityFailures.join(' | ')}`);
     }
 
-    aiQuizCache.set(quizId, {
+    aiQuizCache.set(cacheKey, {
       questions,
       expiresAt: Date.now() + QUIZ_CACHE_TTL_MS,
     });
@@ -729,12 +934,12 @@ const generateAiQuizQuestions = async (quizId, options = {}) => {
     return questions;
   })();
 
-  aiQuizInflight.set(quizId, requestPromise);
+  aiQuizInflight.set(cacheKey, requestPromise);
 
   try {
     return await requestPromise;
   } finally {
-    aiQuizInflight.delete(quizId);
+    aiQuizInflight.delete(cacheKey);
   }
 };
 
@@ -757,6 +962,40 @@ app.get('/', (_req, res) => {
 
 app.get('/health', (_req, res) => {
   res.json({ ok: true });
+});
+
+app.get('/api/finance-chat/questions', (_req, res) => {
+  const locale = String(_req.query?.locale || 'ko');
+  res.json({ questions: getYouthCoreQuestions(locale) });
+});
+
+app.post('/api/finance-chat', createRateLimiter({ key: 'finance-chat', limit: 60, windowMs: 60_000 }), async (req, res) => {
+  const query = String(req.body?.query || '').trim();
+  const locale = String(req.body?.locale || req.query?.locale || 'ko');
+  const ownedDocumentsRaw = Array.isArray(req.body?.owned_documents) ? req.body.owned_documents : [];
+  const ownedDocuments = ownedDocumentsRaw.map((item) => String(item || '').trim()).filter(Boolean);
+
+  if (!query) {
+    return res.status(400).json({ error: 'query is required' });
+  }
+
+  try {
+    const response = buildFinanceChatResponse({ query, ownedDocuments, locale });
+    const assistantMessage = await generateFinanceNarrative({
+      query,
+      result: response,
+      openAiApiKey,
+      model: openAiModel,
+      locale,
+    });
+    return res.json({
+      ...response,
+      assistant_message: assistantMessage,
+    });
+  } catch (error) {
+    console.error('Finance chat failed:', error);
+    return res.status(500).json({ error: 'finance chat failed' });
+  }
 });
 
 app.post('/api/account/find-email', createRateLimiter({ key: 'find-email', limit: 10, windowMs: 60_000 }), async (req, res) => {
@@ -1211,24 +1450,61 @@ app.post('/api/leaderboard/sync', createRateLimiter({ key: 'leaderboard-sync', l
 });
 
 app.post('/api/quizzes/generate', createRateLimiter({ key: 'quiz-generate', limit: 25, windowMs: 60_000 }), async (req, res) => {
-  const { quizId, forceRefresh = false } = req.body || {};
+  const { quizId, forceRefresh = false, locale = 'ko' } = req.body || {};
 
   if (!quizId) {
     return res.status(400).json({ error: 'quizId is required' });
   }
 
   try {
-    const questions = await generateAiQuizQuestions(String(quizId), { forceRefresh: Boolean(forceRefresh) });
+    const normalizedLocale = normalizeLocale(locale);
+    const questions = await generateAiQuizQuestions(String(quizId), {
+      forceRefresh: Boolean(forceRefresh),
+      locale: normalizedLocale,
+    });
     return res.json({
       success: true,
       source: 'openai',
       model: openAiModel,
+      locale: normalizedLocale,
       questions,
     });
   } catch (error) {
     console.error('quiz generate error', error.message);
     return res.status(error.statusCode || 500).json({
       error: error.message || 'AI quiz generation failed',
+    });
+  }
+});
+
+app.post('/api/content/translate', createRateLimiter({ key: 'content-translate', limit: 25, windowMs: 60_000 }), async (req, res) => {
+  const { type, locale = 'ko', payload } = req.body || {};
+  const normalizedLocale = normalizeLocale(locale);
+
+  if (!type) {
+    return res.status(400).json({ error: 'type is required' });
+  }
+
+  if (!payload || typeof payload !== 'object') {
+    return res.status(400).json({ error: 'payload is required' });
+  }
+
+  try {
+    if (type === 'lessonChunk') {
+      const translated = await translateLessonChunk(payload, normalizedLocale);
+      return res.json({ success: true, locale: normalizedLocale, content: translated });
+    }
+
+    if (type === 'quizQuestions') {
+      const translated = await translateQuizQuestions(payload.questions || [], normalizedLocale);
+      return res.json({ success: true, locale: normalizedLocale, content: translated.questions });
+    }
+
+    return res.status(400).json({ error: 'Unsupported translation type' });
+  } catch (error) {
+    console.error('content translate error', error.message);
+    return res.status(error.statusCode || 500).json({
+      error: error.message || 'Content translation failed',
     });
   }
 });
