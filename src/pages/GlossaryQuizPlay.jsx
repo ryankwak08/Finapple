@@ -52,18 +52,13 @@ function buildHiddenLabels(term) {
 }
 
 function pickTerms(unitId) {
-  // Shuffle with unit-seeded offset so each unit gets different terms
-  const unitNumber = Number(String(unitId || '').match(/(\d+)$/)?.[1] || 1);
-  const offset = (unitNumber - 1) * 50;
-  // Take a slice then shuffle deterministically
   const pool = [...allGlossaryTerms];
-  // Fisher-Yates with a seed based on offset
-  let seed = offset * 31 + 7;
-  const rand = () => { seed = (seed * 16807 + 0) % 2147483647; return (seed - 1) / 2147483646; };
+
   for (let i = pool.length - 1; i > 0; i--) {
-    const j = Math.floor(rand() * (i + 1));
+    const j = Math.floor(Math.random() * (i + 1));
     [pool[i], pool[j]] = [pool[j], pool[i]];
   }
+
   return pool.slice(0, QUIZ_SIZE);
 }
 
@@ -250,7 +245,7 @@ export default function GlossaryQuizPlay() {
       const isNew = !isQuizCompleted(quizId);
       const xp = (passed && isNew) ? 100 : 0;
       setXpEarned(xp);
-      if (passed) await completeQuiz(quizId, finalScore, 100);
+      if (passed) await completeQuiz(quizId, finalScore, 100, QUIZ_SIZE);
       setFinished(true);
     }
   };

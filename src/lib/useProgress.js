@@ -73,6 +73,24 @@ const normalizeReviewNote = (entry) => ({
   resolvedAt: entry.resolvedAt || null,
 });
 
+const normalizeQuizScoreEntry = (entry) => {
+  if (entry && typeof entry === 'object') {
+    return {
+      score: Number(entry.score) || 0,
+      total: Math.max(1, Number(entry.total) || 5),
+    };
+  }
+
+  if (entry === null || entry === undefined) {
+    return null;
+  }
+
+  return {
+    score: Number(entry) || 0,
+    total: 5,
+  };
+};
+
 const getDaysBetween = (from, to) => {
   const start = new Date(`${from}T00:00:00`);
   const end = new Date(`${to}T00:00:00`);
@@ -271,6 +289,9 @@ export default function useProgress() {
       const next = {
         ...getDefaultProgress(parsed.user_email || user?.email || 'guest'),
         ...parsed,
+        quiz_scores: Object.fromEntries(
+          Object.entries(parsed.quiz_scores || {}).map(([quizId, entry]) => [quizId, normalizeQuizScoreEntry(entry)])
+        ),
         review_notes: (parsed.review_notes || []).map(normalizeReviewNote),
       };
 
@@ -318,6 +339,9 @@ export default function useProgress() {
         let p = {
           ...getDefaultProgress(me?.email || 'guest'),
           ...savedProgress,
+          quiz_scores: Object.fromEntries(
+            Object.entries(savedProgress.quiz_scores || {}).map(([quizId, entry]) => [quizId, normalizeQuizScoreEntry(entry)])
+          ),
           review_notes: (savedProgress.review_notes || []).map(normalizeReviewNote),
         };
         if (remoteState) {
@@ -491,18 +515,23 @@ export default function useProgress() {
     syncLeaderboardForProgress(next);
   }, [applyProgressUpdate, syncLeaderboardForProgress]);
 
-  const completeQuiz = useCallback(async (quizId, score, xpReward) => {
+  const completeQuiz = useCallback(async (quizId, score, xpReward, totalQuestions = 5) => {
     const next = applyProgressUpdate((current) => {
       if (!current) return current;
       const completed = current.completed_quizzes || [];
       const scores = current.quiz_scores || {};
       const isNew = !completed.includes(quizId);
-      const bestScore = Math.max(scores[quizId] || 0, score);
+      const currentScoreEntry = normalizeQuizScoreEntry(scores[quizId]);
+      const bestScore = Math.max(currentScoreEntry?.score || 0, score);
+      const nextScoreEntry = {
+        score: bestScore,
+        total: Math.max(currentScoreEntry?.total || 0, totalQuestions, 1),
+      };
 
       return {
         ...current,
         completed_quizzes: isNew ? [...completed, quizId] : completed,
-        quiz_scores: { ...scores, [quizId]: bestScore },
+        quiz_scores: { ...scores, [quizId]: nextScoreEntry },
         xp: isNew ? (current.xp || 0) + xpReward : (current.xp || 0),
       };
     });
@@ -643,7 +672,7 @@ export default function useProgress() {
   }, [progress]);
 
   const getQuizScore = useCallback((quizId) => {
-    return (progress?.quiz_scores || {})[quizId] || null;
+    return normalizeQuizScoreEntry((progress?.quiz_scores || {})[quizId]);
   }, [progress]);
 
   const getReviewNotes = useCallback(() => {

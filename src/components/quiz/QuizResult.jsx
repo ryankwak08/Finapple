@@ -1,5 +1,6 @@
 import { Star, Heart, ArrowLeft, NotebookPen } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { getQuizPassThreshold, getQuizStarCount } from '@/lib/quizStars';
 
 export default function QuizResult({
   score,
@@ -13,8 +14,8 @@ export default function QuizResult({
   reviewCount = 0,
 }) {
   const percentage = Math.round((score / total) * 100);
-  const passed = score >= 3;
-  const stars = score >= 5 ? 3 : score >= 4 ? 2 : score >= 3 ? 1 : 0;
+  const passed = score >= getQuizPassThreshold(total);
+  const stars = getQuizStarCount(score, total);
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center px-4 py-10 animate-scale-in sm:px-6">
@@ -45,7 +46,7 @@ export default function QuizResult({
         {score}/{total} 정답 ({percentage}%)
       </p>
       <p className="text-[13px] text-center mb-6 font-medium">
-        {passed ? '다음 퀴즈로 진행할 수 있어요' : '3개 이상 맞춰야 통과할 수 있어요'}
+        {passed ? '다음 퀴즈로 진행할 수 있어요' : `${getQuizPassThreshold(total)}개 이상 맞춰야 통과할 수 있어요`}
       </p>
 
       {/* Stats */}

@@ -66,6 +66,7 @@ export default function QuizPlay() {
   const sourcePdfUrl = lessonChunk?.topic?.pdfUrl || '';
   const isTeenQuiz = String(quizId || '').startsWith('teen-');
   const canAccessTeenCourse = isAdminUser(user);
+  const isReplay = isQuizCompleted(quizId);
 
   useEffect(() => {
     setQuestions(null);
@@ -124,12 +125,12 @@ export default function QuizPlay() {
       }
     };
 
-    loadQuestions();
+    loadQuestions({ forceRefresh: isReplay });
 
     return () => {
       active = false;
     };
-  }, [hasRequestedQuiz, lessonChunk, quizData, quizId]);
+  }, [hasRequestedQuiz, isReplay, lessonChunk, quizData, quizId]);
 
   useEffect(() => {
     return () => {
@@ -180,7 +181,7 @@ export default function QuizPlay() {
     const xp = (passed && isNew) ? quizData.xpReward : 0;
     setXpEarned(xp);
     if (passed) {
-      await completeQuiz(quizId, finalScore, quizData.xpReward);
+      await completeQuiz(quizId, finalScore, quizData.xpReward, questions.length);
       await playSuccessSound();
     }
     setIsAdvancing(false);

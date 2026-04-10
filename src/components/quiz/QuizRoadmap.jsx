@@ -4,10 +4,11 @@ import { useNavigate } from 'react-router-dom';
 import { getQuizUnitsCatalog } from '../../lib/quizCatalog';
 import { prefetchAiQuiz } from '@/api/quizClient';
 import { useLanguage } from '@/lib/i18n';
+import { getQuizStarCount } from '@/lib/quizStars';
 
 function QuizNode({ quiz, status, locked, onSelect, position }) {
-  const { completed, score } = status;
-  const stars = score >= 5 ? 3 : score >= 4 ? 2 : score >= 3 ? 1 : 0;
+  const { completed, score, total } = status;
+  const stars = getQuizStarCount(score, total);
 
   const isLeft = position % 2 === 0;
 
@@ -44,7 +45,7 @@ function QuizNode({ quiz, status, locked, onSelect, position }) {
           )}
           {score !== null && !locked && (
             <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 bg-background border border-border rounded-full px-1.5 py-0 text-[9px] font-bold text-primary whitespace-nowrap">
-              {score}/5
+              {score}/{total}
             </div>
           )}
         </button>
@@ -146,7 +147,7 @@ export default function QuizRoadmap({ isUnitLocked, isQuizCompleted, getQuizScor
             <div className="relative pl-1 pr-1 sm:pl-2 sm:pr-2">
               {unit.quizzes.map((quiz) => {
                 const completed = isQuizCompleted(quiz.id);
-                const score = getQuizScore(quiz.id);
+                const scoreDetails = getQuizScore(quiz.id);
                 const nodeIndex = globalIndex++;
 
                 return (
@@ -155,7 +156,7 @@ export default function QuizRoadmap({ isUnitLocked, isQuizCompleted, getQuizScor
                     <div className="relative z-10 py-1 mb-8">
                       <QuizNode
                         quiz={quiz}
-                        status={{ completed, score }}
+                        status={{ completed, score: scoreDetails?.score ?? null, total: scoreDetails?.total ?? 5 }}
                         locked={unitLocked}
                         onSelect={onQuizSelect}
                         position={nodeIndex}
