@@ -4,6 +4,8 @@ import useProgress from '@/lib/useProgress';
 import { fetchLeaderboard, fetchLeaderboardProfile, syncLeaderboardEntry } from '@/api/leaderboardClient';
 import { buildLeaderboardPayload, getLeagueRewardForRank } from '@/lib/leaderboard';
 import { getPreviousSeasonMeta, getSeasonProgressMeta } from '@/lib/season';
+import { getEntryTrackScores, readTrackLeaderboardScores } from '@/lib/leaderboardTrackScores';
+import { useTrack } from '@/lib/trackContext';
 import {
   Dialog,
   DialogContent,
@@ -48,6 +50,7 @@ function LeaderboardProfileDialog({ open, onOpenChange, profileData, loading, fa
   const seasons = profileData?.seasons || (fallbackEntry ? [fallbackEntry] : []);
   const displayName = profile?.display_name || (isEnglish ? 'Learner' : '학습자');
   const avatarUrl = profile?.avatar_url || '';
+  const profileTrackScores = getEntryTrackScores(profile);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -95,6 +98,20 @@ function LeaderboardProfileDialog({ open, onOpenChange, profileData, loading, fa
                     <p className="mt-1 text-[20px] font-black text-foreground">{isEnglish ? `${profile.active_review_count || 0}` : `${profile.active_review_count || 0}개`}</p>
                   </div>
                 </div>
+                <div className="mt-3 grid gap-3 sm:grid-cols-3">
+                  <div className="rounded-2xl border border-border bg-card px-4 py-3">
+                    <p className="text-[11px] font-semibold text-muted-foreground">Finapple Youth</p>
+                    <p className="mt-1 text-[20px] font-black text-foreground">{profileTrackScores.youth.toLocaleString()}P</p>
+                  </div>
+                  <div className="rounded-2xl border border-border bg-card px-4 py-3">
+                    <p className="text-[11px] font-semibold text-muted-foreground">Finapple Start</p>
+                    <p className="mt-1 text-[20px] font-black text-foreground">{profileTrackScores.start.toLocaleString()}P</p>
+                  </div>
+                  <div className="rounded-2xl border border-border bg-card px-4 py-3">
+                    <p className="text-[11px] font-semibold text-muted-foreground">Finapple One</p>
+                    <p className="mt-1 text-[20px] font-black text-foreground">{profileTrackScores.one.toLocaleString()}P</p>
+                  </div>
+                </div>
               </div>
             </div>
           ) : (
@@ -134,6 +151,20 @@ function LeaderboardProfileDialog({ open, onOpenChange, profileData, loading, fa
                     <p className="mt-1 text-[18px] font-black text-foreground">{isEnglish ? `${season.active_review_count || 0}` : `${season.active_review_count || 0}개`}</p>
                   </div>
                 </div>
+                <div className="mt-3 grid gap-3 sm:grid-cols-3">
+                  <div className="rounded-2xl bg-muted/40 px-4 py-3">
+                    <p className="text-[11px] font-semibold text-muted-foreground">Finapple Youth</p>
+                    <p className="mt-1 text-[18px] font-black text-foreground">{getEntryTrackScores(season).youth.toLocaleString()}P</p>
+                  </div>
+                  <div className="rounded-2xl bg-muted/40 px-4 py-3">
+                    <p className="text-[11px] font-semibold text-muted-foreground">Finapple Start</p>
+                    <p className="mt-1 text-[18px] font-black text-foreground">{getEntryTrackScores(season).start.toLocaleString()}P</p>
+                  </div>
+                  <div className="rounded-2xl bg-muted/40 px-4 py-3">
+                    <p className="text-[11px] font-semibold text-muted-foreground">Finapple One</p>
+                    <p className="mt-1 text-[18px] font-black text-foreground">{getEntryTrackScores(season).one.toLocaleString()}P</p>
+                  </div>
+                </div>
                 <div className="mt-3 flex items-center gap-2 text-[12px] text-muted-foreground">
                   <NotebookPen className="h-4 w-4" />
                   {isEnglish
@@ -150,6 +181,7 @@ function LeaderboardProfileDialog({ open, onOpenChange, profileData, loading, fa
 }
 
 export default function Leaderboard() {
+  const { activeTrack } = useTrack();
   const { isEnglish, locale } = useLanguage();
   const { progress, loading, user, getStreakStatus, claimLeagueReward, markLeagueRewardSeen } = useProgress();
   const TOP_RANK_STYLES = getTopRankStyles(isEnglish);
@@ -163,7 +195,20 @@ export default function Leaderboard() {
   const [profileLoading, setProfileLoading] = useState(false);
   const [profileData, setProfileData] = useState(null);
 
-  const myEntry = useMemo(() => buildLeaderboardPayload({ user, progress, streakStatus }), [user, progress, streakStatus]);
+  const myEntry = useMemo(() => {
+    const base = buildLeaderboardPayload({ user, progress, streakStatus });
+    const trackScores = readTrackLeaderboardScores({
+      user,
+      seasonKey: base.seasonKey,
+      totalScore: base.score,
+      activeTrack,
+    });
+
+    return {
+      ...base,
+      trackScores,
+    };
+  }, [activeTrack, progress, streakStatus, user]);
   const currentSeasonKey = myEntry.seasonKey || streakStatus.leaderboardSeasonKey;
 
   useEffect(() => {
@@ -272,6 +317,9 @@ export default function Leaderboard() {
       resolved_review_count: myEntry.resolvedReviewCount || 0,
       ads_disabled: Boolean(myEntry.adsDisabled),
       score: myEntry.score || 0,
+      score_youth: myEntry.trackScores?.youth || 0,
+      score_start: myEntry.trackScores?.start || 0,
+      score_one: myEntry.trackScores?.one || 0,
       updated_at: new Date().toISOString(),
     }, ...entries];
 
@@ -567,6 +615,14 @@ export default function Leaderboard() {
                       {isEnglish
                         ? `This week's XP ${entry.xp.toLocaleString()} · Streak ${entry.streak_count} days · Resolved wrong answers ${entry.resolved_review_count}`
                         : `이번 주 XP ${entry.xp.toLocaleString()} · 스트릭 ${entry.streak_count}일 · 이번 주 해결한 오답 ${entry.resolved_review_count}개`}
+                    </p>
+                    <p className="mt-1 text-[11px] text-muted-foreground">
+                      {(() => {
+                        const trackScores = getEntryTrackScores(entry);
+                        return isEnglish
+                          ? `Youth ${trackScores.youth.toLocaleString()}P · Start ${trackScores.start.toLocaleString()}P · One ${trackScores.one.toLocaleString()}P`
+                          : `Youth ${trackScores.youth.toLocaleString()}P · Start ${trackScores.start.toLocaleString()}P · One ${trackScores.one.toLocaleString()}P`;
+                      })()}
                     </p>
                   </div>
                   {topRankStyle ? (

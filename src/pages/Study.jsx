@@ -128,12 +128,12 @@ export default function Study() {
               {freezerHistory.length > 0 ? (
                 <div className="mt-3 space-y-2">
                   <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">{isEnglish ? 'Recent freezer history' : '최근 Freezer 이력'}</p>
-                  {freezerHistory.map((entry) => {
+                  {freezerHistory.map((entry, index) => {
                     const statusMeta = getFreezerHistoryLabel(entry, isEnglish, locale);
 
                     return (
                       <div
-                        key={`${entry.activatedAt}-${entry.status}`}
+                        key={`${entry.activatedAt || 'na'}-${entry.consumedAt || entry.expiredAt || 'na'}-${entry.status}-${index}`}
                         className={`rounded-xl border px-3 py-2 ${statusMeta.className}`}
                       >
                         <p className="text-[11px] font-semibold">{statusMeta.title}</p>

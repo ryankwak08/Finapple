@@ -4,6 +4,8 @@ import { getCurrentSeasonMeta } from '@/lib/season';
 
 const USE_DIRECT_SUPABASE = import.meta.env.DEV;
 const REQUEST_TIMEOUT_MS = 4500;
+const LEADERBOARD_SELECT_BASE = 'user_id, user_email, display_name, avatar_url, season_key, season_label, season_start_date, season_end_date, xp, streak_count, best_streak, streak_freezers, completed_count, active_review_count, resolved_review_count, ads_disabled, score, updated_at';
+const LEADERBOARD_SELECT_WITH_TRACKS = `${LEADERBOARD_SELECT_BASE}, score_youth, score_start, score_one`;
 
 async function fetchWithTimeout(url, options = {}) {
   const controller = new AbortController();
@@ -35,6 +37,20 @@ async function withTimeout(promise, message = '요청 시간이 초과되었습�
   }
 }
 
+function isTrackScoreColumnMissing(error) {
+  const message = String(error?.message || '').toLowerCase();
+  const details = String(error?.details || '').toLowerCase();
+  return (
+    error?.code === '42703' ||
+    message.includes('score_youth') ||
+    message.includes('score_start') ||
+    message.includes('score_one') ||
+    details.includes('score_youth') ||
+    details.includes('score_start') ||
+    details.includes('score_one')
+  );
+}
+
 async function syncLeaderboardEntryDirect(entry, session) {
   const user = session?.user;
   if (!user?.id || !user?.email) {
@@ -59,17 +75,35 @@ async function syncLeaderboardEntryDirect(entry, session) {
     resolved_review_count: entry.resolvedReviewCount || 0,
     ads_disabled: Boolean(entry.adsDisabled),
     score: entry.score || 0,
+    score_youth: entry.trackScores?.youth || 0,
+    score_start: entry.trackScores?.start || 0,
+    score_one: entry.trackScores?.one || 0,
     updated_at: new Date().toISOString(),
   };
 
-  const { data, error } = await withTimeout(
+  let { data, error } = await withTimeout(
     supabase
       .from('leaderboard_entries')
       .upsert(payload, { onConflict: 'user_id' })
-      .select()
+      .select(LEADERBOARD_SELECT_WITH_TRACKS)
       .single(),
     '리더보드 동기화가 지연되고 있습니다.'
   );
+
+  if (error && isTrackScoreColumnMissing(error)) {
+    const { score_youth, score_start, score_one, ...legacyPayload } = payload;
+    const fallback = await withTimeout(
+      supabase
+        .from('leaderboard_entries')
+        .upsert(legacyPayload, { onConflict: 'user_id' })
+        .select(LEADERBOARD_SELECT_BASE)
+        .single(),
+      '리더보드 동기화가 지연되고 있습니다.'
+    );
+
+    data = fallback.data;
+    error = fallback.error;
+  }
 
   if (error) {
     throw error;
@@ -86,16 +120,32 @@ async function syncLeaderboardEntryDirect(entry, session) {
 }
 
 async function fetchLeaderboardDirect(limit = 20, seasonKey = getCurrentSeasonMeta().seasonKey) {
-  const { data, error } = await withTimeout(
+  let { data, error } = await withTimeout(
     supabase
       .from('leaderboard_entries')
-      .select('user_id, user_email, display_name, avatar_url, season_key, season_label, season_start_date, season_end_date, xp, streak_count, best_streak, streak_freezers, completed_count, active_review_count, resolved_review_count, ads_disabled, score, updated_at')
+      .select(LEADERBOARD_SELECT_WITH_TRACKS)
       .eq('season_key', seasonKey)
       .order('score', { ascending: false })
       .order('updated_at', { ascending: true })
       .limit(limit),
     '리더보드 조회가 지연되고 있습니다.'
   );
+
+  if (error && isTrackScoreColumnMissing(error)) {
+    const fallback = await withTimeout(
+      supabase
+        .from('leaderboard_entries')
+        .select(LEADERBOARD_SELECT_BASE)
+        .eq('season_key', seasonKey)
+        .order('score', { ascending: false })
+        .order('updated_at', { ascending: true })
+        .limit(limit),
+      '리더보드 조회가 지연되고 있습니다.'
+    );
+
+    data = fallback.data;
+    error = fallback.error;
+  }
 
   if (error) {
     throw error;
@@ -109,7 +159,7 @@ async function fetchLeaderboardProfileDirect(userId) {
     withTimeout(
       supabase
         .from('leaderboard_entries')
-        .select('user_id, user_email, display_name, avatar_url, season_key, season_label, season_start_date, season_end_date, xp, streak_count, best_streak, streak_freezers, completed_count, active_review_count, resolved_review_count, ads_disabled, score, updated_at')
+        .select(LEADERBOARD_SELECT_WITH_TRACKS)
         .eq('user_id', userId)
         .single(),
       '프로필 정보를 불러오는 중입니다.'
@@ -117,7 +167,7 @@ async function fetchLeaderboardProfileDirect(userId) {
     withTimeout(
       supabase
         .from('leaderboard_entry_history')
-        .select('user_id, user_email, display_name, avatar_url, season_key, season_label, season_start_date, season_end_date, xp, streak_count, best_streak, streak_freezers, completed_count, active_review_count, resolved_review_count, ads_disabled, score, updated_at')
+        .select(LEADERBOARD_SELECT_WITH_TRACKS)
         .eq('user_id', userId)
         .order('season_start_date', { ascending: false })
         .limit(8),
@@ -125,7 +175,76 @@ async function fetchLeaderboardProfileDirect(userId) {
     ),
   ]);
 
+  const hasTrackColumnError =
+    (currentResult.status === 'fulfilled' && isTrackScoreColumnMissing(currentResult.value?.error)) ||
+    (historyResult.status === 'fulfilled' && isTrackScoreColumnMissing(historyResult.value?.error));
+
+  if (hasTrackColumnError) {
+    const [currentFallback, historyFallback] = await Promise.allSettled([
+      withTimeout(
+        supabase
+          .from('leaderboard_entries')
+          .select(LEADERBOARD_SELECT_BASE)
+          .eq('user_id', userId)
+          .single(),
+        '프로필 정보를 불러오는 중입니다.'
+      ),
+      withTimeout(
+        supabase
+          .from('leaderboard_entry_history')
+          .select(LEADERBOARD_SELECT_BASE)
+          .eq('user_id', userId)
+          .order('season_start_date', { ascending: false })
+          .limit(8),
+        '시즌 기록을 불러오는 중입니다.'
+      ),
+    ]);
+
+    const current = currentFallback.status === 'fulfilled' ? (currentFallback.value?.data || null) : null;
+    const history = historyFallback.status === 'fulfilled'
+      ? (historyFallback.value?.data || [])
+      : (current ? [current] : []);
+
+    return {
+      profile: current,
+      seasons: history,
+    };
+  }
+
   if (currentResult.status === 'rejected') {
+    const reason = currentResult.reason;
+    if (isTrackScoreColumnMissing(reason)) {
+      const [currentFallback, historyFallback] = await Promise.allSettled([
+        withTimeout(
+          supabase
+            .from('leaderboard_entries')
+            .select(LEADERBOARD_SELECT_BASE)
+            .eq('user_id', userId)
+            .single(),
+          '프로필 정보를 불러오는 중입니다.'
+        ),
+        withTimeout(
+          supabase
+            .from('leaderboard_entry_history')
+            .select(LEADERBOARD_SELECT_BASE)
+            .eq('user_id', userId)
+            .order('season_start_date', { ascending: false })
+            .limit(8),
+          '시즌 기록을 불러오는 중입니다.'
+        ),
+      ]);
+
+      const current = currentFallback.status === 'fulfilled' ? (currentFallback.value?.data || null) : null;
+      const history = historyFallback.status === 'fulfilled'
+        ? (historyFallback.value?.data || [])
+        : (current ? [current] : []);
+
+      return {
+        profile: current,
+        seasons: history,
+      };
+    }
+
     throw currentResult.reason;
   }
 

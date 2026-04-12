@@ -6,6 +6,7 @@ import useProgress from '../lib/useProgress';
 import HeartDisplay from '../components/quiz/HeartDisplay';
 import { getQuizUnitsCatalog } from '@/lib/quizCatalog';
 import { isAdminUser } from '@/lib/premium';
+import { TRACKS, useTrack } from '@/lib/trackContext';
 
 const PASS_THRESHOLD = 9;
 const QUIZ_SIZE = 10;
@@ -98,17 +99,23 @@ function makeQuestion(terms, correct) {
 
 export default function GlossaryQuizPlay() {
   const navigate = useNavigate();
+  const { activeTrack } = useTrack();
   const { unitId } = useParams();
-  const course = new URLSearchParams(window.location.search).get('course') || 'youth';
-  const backUrl = `/quiz?course=${course}`;
-  const { progress, isPremium, loseHeart, completeQuiz, recordQuizActivity, isQuizCompleted, isUnitLocked, user } = useProgress();
+  const fixedCourse = activeTrack === TRACKS.START ? 'start' : activeTrack === TRACKS.ONE ? 'one' : null;
+  const requestedCourse = new URLSearchParams(window.location.search).get('course');
+  const course = requestedCourse || fixedCourse || 'youth';
+  const backUrl = fixedCourse ? '/quiz' : `/quiz?course=${course}`;
+  const { progress, isPremium, loseHeart, completeQuiz, recordQuizActivity, isQuizCompleted, user } = useProgress();
   const quizUnitsCatalog = getQuizUnitsCatalog(course);
   const unit = quizUnitsCatalog.find((entry) => entry.id === unitId);
-  const glossaryLocked = !unit || isUnitLocked(unitId) || !unit.quizzes.every((quiz) => isQuizCompleted(quiz.id));
   const isTeenUnit = String(unitId || '').startsWith('teen-');
   const canAccessTeenCourse = isAdminUser(user);
 
   const quizId = `${unitId}-glossary`;
+  const completedInUnit = (progress?.completed_quizzes || []).filter((completedQuizId) => (
+    String(completedQuizId).startsWith(`${unitId}-`)
+  ));
+  const glossaryLocked = !unit || (!isPremium && completedInUnit.length >= 1 && !isQuizCompleted(quizId));
   const [termSet] = useState(() => pickTerms(unitId));
   const [terms] = useState(() => shuffleArray(termSet));
   const [questions] = useState(() => {
@@ -117,6 +124,7 @@ export default function GlossaryQuizPlay() {
   });
   const [activeTab, setActiveTab] = useState('terms');
   const [hasStartedQuiz, setHasStartedQuiz] = useState(false);
+  const [showLimitNotice, setShowLimitNotice] = useState(false);
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState(null);
@@ -125,11 +133,32 @@ export default function GlossaryQuizPlay() {
   const [score, setScore] = useState(0);
   const [finished, setFinished] = useState(false);
   const [xpEarned, setXpEarned] = useState(0);
+  const isTrackComingSoon = fixedCourse === 'start' || fixedCourse === 'one';
 
   if (!progress) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (isTrackComingSoon) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center px-6 text-center">
+        <div className="mb-4 text-5xl">🚧</div>
+        <h2 className="text-xl font-extrabold text-foreground">퀴즈 트랙 준비중</h2>
+        <p className="mt-2 text-[14px] text-muted-foreground">
+          {fixedCourse === 'start'
+            ? 'Finapple Start 커리큘럼 준비 중입니다.'
+            : 'Finapple One 커리큘럼 준비 중입니다.'}
+        </p>
+        <Link
+          to="/quiz"
+          className="mt-6 rounded-2xl bg-primary px-6 py-3 text-[14px] font-bold text-primary-foreground"
+        >
+          퀴즈 탭으로 돌아가기
+        </Link>
       </div>
     );
   }
@@ -159,24 +188,6 @@ export default function GlossaryQuizPlay() {
         <h2 className="text-xl font-extrabold text-foreground mb-2">하트 부족</h2>
         <p className="text-muted-foreground text-[14px] text-center mb-6">내일 다시 도전해주세요!</p>
         <Link to={backUrl} className="px-6 py-3 rounded-2xl bg-primary text-primary-foreground text-[14px] font-bold">돌아가기</Link>
-      </div>
-    );
-  }
-
-  if (glossaryLocked) {
-    return (
-      <div className="flex min-h-screen flex-col items-center justify-center px-6 text-center">
-        <div className="mb-4 text-5xl">🔒</div>
-        <h2 className="text-xl font-extrabold text-foreground">잠긴 단원입니다</h2>
-        <p className="mt-2 text-[14px] text-muted-foreground">
-          정규 퀴즈를 먼저 완료하면 시사용어 퀴즈가 열려요.
-        </p>
-        <Link
-          to={backUrl}
-          className="mt-6 rounded-2xl bg-primary px-6 py-3 text-[14px] font-bold text-primary-foreground"
-        >
-          퀴즈 목록으로 돌아가기
-        </Link>
       </div>
     );
   }
@@ -253,6 +264,11 @@ export default function GlossaryQuizPlay() {
   const progress_pct = ((currentIndex) / questions.length) * 100;
   const isTermsTab = activeTab === 'terms';
   const openQuizTab = () => {
+    if (glossaryLocked) {
+      setShowLimitNotice(true);
+      return;
+    }
+
     setHasStartedQuiz(true);
     setActiveTab('quiz');
   };
@@ -285,12 +301,25 @@ export default function GlossaryQuizPlay() {
           <button
             type="button"
             onClick={openQuizTab}
-            className={`rounded-xl px-3 py-2 text-[12px] font-bold transition-colors ${!isTermsTab ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+            className={`rounded-xl px-3 py-2 text-[12px] font-bold transition-colors ${!isTermsTab ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'} ${glossaryLocked ? 'opacity-50' : ''}`}
           >
             퀴즈
           </button>
         </div>
       </div>
+      {showLimitNotice ? (
+        <div className="mb-4 rounded-2xl border border-primary/20 bg-primary/5 px-4 py-3">
+          <p className="text-[12px] font-semibold text-foreground">
+            무료 플랜에서는 유닛당 1개 퀴즈만 완료할 수 있어요. 뜻 정리는 계속 볼 수 있고, 모든 퀴즈를 풀려면 프리미엄이 필요해요.
+          </p>
+          <Link
+            to="/premium"
+            className="mt-2 inline-block text-[12px] font-bold text-primary underline-offset-2 hover:underline"
+          >
+            프리미엄 보러가기
+          </Link>
+        </div>
+      ) : null}
 
       {isTermsTab ? (
         <>

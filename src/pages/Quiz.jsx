@@ -9,50 +9,70 @@ import PremiumBadge from '@/components/PremiumBadge';
 import { getCourseMeta } from '@/lib/courseMeta';
 import { isAdminUser } from '@/lib/premium';
 import { useLanguage } from '@/lib/i18n';
+import { TRACKS, useTrack } from '@/lib/trackContext';
+
+const getFixedCourseByTrack = (activeTrack) => {
+  if (activeTrack === TRACKS.START) return 'start';
+  if (activeTrack === TRACKS.ONE) return 'one';
+  return null;
+};
 
 export default function Quiz() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { activeTrack } = useTrack();
+  const fixedCourse = getFixedCourseByTrack(activeTrack);
   const [selectedCourse, setSelectedCourse] = useState(() => {
     const params = new URLSearchParams(window.location.search);
-    return params.get('course') || null;
+    return fixedCourse || params.get('course') || null;
   });
-  const { progress, loading, isPremium, isUnitLocked, isQuizCompleted, getQuizScore, user } = useProgress();
-  const courseMeta = getCourseMeta(selectedCourse || 'youth');
+  const { progress, loading, isPremium, isQuizCompleted, getQuizScore, user } = useProgress();
+  const courseMeta = getCourseMeta(selectedCourse || fixedCourse || 'youth');
   const canAccessTeenCourse = isAdminUser(user);
   const { isEnglish } = useLanguage();
 
   useEffect(() => {
+    if (fixedCourse) {
+      setSelectedCourse(fixedCourse);
+      window.history.replaceState({}, '', `/quiz?course=${fixedCourse}`);
+      return;
+    }
+
     const params = new URLSearchParams(location.search);
     setSelectedCourse(params.get('course') || null);
-  }, [location.search]);
+  }, [fixedCourse, location.search]);
 
   useEffect(() => {
-    if (selectedCourse !== 'teen' || canAccessTeenCourse) {
+    if (fixedCourse || selectedCourse !== 'teen' || canAccessTeenCourse) {
       return;
     }
 
     setSelectedCourse(null);
     window.history.replaceState({}, '', '/quiz');
-  }, [canAccessTeenCourse, selectedCourse]);
+  }, [canAccessTeenCourse, fixedCourse, selectedCourse]);
 
   useEffect(() => {
     const handleTabReset = (event) => {
       if (event.detail?.tabRoot !== '/quiz') return;
+      if (fixedCourse) {
+        setSelectedCourse(fixedCourse);
+        window.history.replaceState({}, '', `/quiz?course=${fixedCourse}`);
+        return;
+      }
       setSelectedCourse(null);
       window.history.replaceState({}, '', '/quiz');
     };
 
     window.addEventListener('bottomNavReset', handleTabReset);
     return () => window.removeEventListener('bottomNavReset', handleTabReset);
-  }, []);
+  }, [fixedCourse]);
 
   const handleSelectCourse = (course) => {
     setSelectedCourse(course);
     window.history.replaceState({}, '', `/quiz?course=${course}`);
   };
 
-  if (!selectedCourse) {
+  if (!selectedCourse && !fixedCourse) {
     return <CourseSelector type="quiz" onSelect={handleSelectCourse} canAccessTeenCourse={canAccessTeenCourse} />;
   }
 
@@ -60,6 +80,38 @@ export default function Quiz() {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (fixedCourse) {
+    const trackLabel = fixedCourse === 'start' ? 'Finapple Start' : 'Finapple One';
+    const trackDescription = fixedCourse === 'start'
+      ? (isEnglish
+        ? 'Independent youth curriculum is being prepared by the planning team.'
+        : '자립준비청년 커리큘럼은 현재 기획팀에서 준비 중입니다.')
+      : (isEnglish
+        ? 'Multicultural and migrant worker curriculum is being prepared by the planning team.'
+        : '다문화·외국인 노동자 커리큘럼은 현재 기획팀에서 준비 중입니다.');
+
+    return (
+      <div className="px-4 pb-10 pt-10 sm:px-6">
+        <div className="mx-auto max-w-2xl rounded-3xl border border-border bg-card p-6 sm:p-8">
+          <p className="text-[11px] font-black uppercase tracking-[0.18em] text-primary">{trackLabel}</p>
+          <h1 className="mt-2 text-2xl font-extrabold text-foreground sm:text-3xl">
+            {isEnglish ? 'Quiz Track Coming Soon' : '퀴즈 트랙 준비중'}
+          </h1>
+          <p className="mt-3 text-[14px] leading-relaxed text-muted-foreground">
+            {trackDescription}
+          </p>
+          <div className="mt-5 rounded-2xl border border-primary/20 bg-primary/5 px-4 py-3">
+            <p className="text-[13px] font-semibold text-foreground">
+              {isEnglish
+                ? 'We will open this track as soon as the curriculum draft is delivered.'
+                : '기획팀 개발 완료 후 오픈 예정.'}
+            </p>
+          </div>
+        </div>
       </div>
     );
   }
@@ -75,9 +127,11 @@ export default function Quiz() {
         <div>
           <div className="mb-1 flex items-start justify-between gap-3">
             <div className="flex min-w-0 items-center gap-2">
-              <button onClick={() => setSelectedCourse(null)} className="rounded-xl p-1.5 transition-colors hover:bg-muted">
-                <ChevronRight className="w-4 h-4 rotate-180 text-muted-foreground" />
-              </button>
+              {!fixedCourse ? (
+                <button onClick={() => setSelectedCourse(null)} className="rounded-xl p-1.5 transition-colors hover:bg-muted">
+                  <ChevronRight className="w-4 h-4 rotate-180 text-muted-foreground" />
+                </button>
+              ) : null}
               <h1 className="truncate text-[26px] font-extrabold tracking-tight text-foreground sm:text-3xl">{isEnglish ? courseMeta.titleEn : courseMeta.title}</h1>
             </div>
             <div className="flex shrink-0 items-center gap-1.5 rounded-full bg-accent/15 px-3 py-1.5">
@@ -165,7 +219,7 @@ export default function Quiz() {
 
       <div className="rounded-3xl border border-border/70 bg-card/60 p-4 sm:p-5 xl:p-6">
         <QuizRoadmap
-          isUnitLocked={isUnitLocked}
+          isPremium={isPremium}
           isQuizCompleted={isQuizCompleted}
           getQuizScore={getQuizScore}
           onQuizSelect={handleQuizSelect}

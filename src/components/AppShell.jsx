@@ -1,6 +1,6 @@
 import { Outlet, Link, useLocation } from 'react-router-dom';
-import { useEffect, useState } from 'react';
-import { BookOpen } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { BookOpen, ChevronDown } from 'lucide-react';
 import { getCurrentUser } from '@/services/authService';
 import { getIsPremium } from '@/lib/premium';
 import { AnimatePresence } from 'framer-motion';
@@ -9,14 +9,18 @@ import PageTransition from './PageTransition';
 import PremiumBadge from './PremiumBadge';
 import { safeStorage } from '@/lib/safeStorage';
 import { useLanguage } from '@/lib/i18n';
+import { TRACKS, useTrack } from '@/lib/trackContext';
 
 const getUsageStorageKey = (email) => `totalUsageSeconds:${email || 'guest'}`;
 
 export default function AppShell() {
   const [user, setUser] = useState(null);
+  const [trackMenuOpen, setTrackMenuOpen] = useState(false);
+  const trackMenuRef = useRef(null);
   const location = useLocation();
   const activeTab = getActiveTab(location.pathname);
   const { locale, setLocale, t } = useLanguage();
+  const { activeTrack, setActiveTrack, tracks, trackMeta } = useTrack();
   const appTabs = getAppTabs(t);
 
   useEffect(() => {
@@ -31,6 +35,26 @@ export default function AppShell() {
     window.addEventListener('bottomNavReset', handleBottomNavReset);
     return () => window.removeEventListener('bottomNavReset', handleBottomNavReset);
   }, []);
+
+  useEffect(() => {
+    if (!trackMenuOpen) {
+      return undefined;
+    }
+
+    const handleOutsideClick = (event) => {
+      if (!trackMenuRef.current?.contains(event.target)) {
+        setTrackMenuOpen(false);
+      }
+    };
+
+    window.addEventListener('mousedown', handleOutsideClick);
+    window.addEventListener('touchstart', handleOutsideClick);
+
+    return () => {
+      window.removeEventListener('mousedown', handleOutsideClick);
+      window.removeEventListener('touchstart', handleOutsideClick);
+    };
+  }, [trackMenuOpen]);
 
   useEffect(() => {
     getCurrentUser().then(u => setUser(u)).catch(() => {});
@@ -76,16 +100,54 @@ export default function AppShell() {
         <div className="sticky top-0 z-40 border-b border-border/60 bg-background/88 px-4 pb-3 pt-3 backdrop-blur-xl md:px-0 md:pt-6">
           <div className="mx-auto flex max-w-7xl items-center justify-between gap-4">
             <div className="flex items-center gap-3">
-              <div className="flex items-center gap-2">
-                <img
-                  src="/logo.png"
-                  alt="Finapple"
-                  className="h-8 w-8 rounded-xl object-cover"
-                />
-                <div className="hidden md:block">
-                  <p className="text-[15px] font-extrabold tracking-tight text-foreground">Finapple</p>
-                  <p className="text-[11px] text-muted-foreground">{t('appTagline', '생활 금융 학습 앱')}</p>
-                </div>
+              <div className="relative" ref={trackMenuRef}>
+                <button
+                  type="button"
+                  onClick={() => setTrackMenuOpen((prev) => !prev)}
+                  className="group flex items-center gap-2 rounded-2xl border border-border bg-card px-2.5 py-2 transition-colors hover:bg-muted/60"
+                >
+                  <img
+                    src="/logo.png"
+                    alt="Finapple"
+                    className="h-8 w-8 rounded-xl object-cover"
+                  />
+                  <div className="hidden text-left md:block">
+                    <p className="text-[15px] font-extrabold tracking-tight text-foreground">{trackMeta.brand}</p>
+                    <p className="text-[11px] text-muted-foreground">
+                      {locale === 'en' ? trackMeta.taglineEn : trackMeta.taglineKo}
+                    </p>
+                  </div>
+                  <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${trackMenuOpen ? 'rotate-180' : ''}`} />
+                </button>
+
+                {trackMenuOpen ? (
+                  <div className="absolute left-0 top-[calc(100%+8px)] z-50 w-[280px] rounded-2xl border border-border bg-card p-2 shadow-xl">
+                    {tracks.map((track) => {
+                      const selected = activeTrack === track.key;
+
+                      return (
+                        <button
+                          key={track.key}
+                          type="button"
+                          onClick={() => {
+                            setActiveTrack(track.key);
+                            setTrackMenuOpen(false);
+                          }}
+                          className={`mb-1 w-full rounded-xl px-3 py-3 text-left transition-colors last:mb-0 ${
+                            selected ? 'bg-primary text-primary-foreground' : 'hover:bg-muted text-foreground'
+                          }`}
+                        >
+                          <p className="text-[13px] font-extrabold">
+                            {track.brand}
+                          </p>
+                          <p className={`text-[11px] ${selected ? 'text-primary-foreground/90' : 'text-muted-foreground'}`}>
+                            {locale === 'en' ? track.labelEn : track.labelKo}
+                          </p>
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : null}
               </div>
               {getIsPremium(user) && <PremiumBadge compact />}
             </div>
@@ -144,6 +206,9 @@ export default function AppShell() {
                   </div>
                   <div>
                     <p className="text-[13px] font-bold text-foreground">{t('navigationMenu', '탐색 메뉴')}</p>
+                    <p className="text-[11px] text-muted-foreground">
+                      {activeTrack === TRACKS.ONE ? 'Finapple One' : activeTrack === TRACKS.START ? 'Finapple Start' : 'Finapple Youth'}
+                    </p>
                   </div>
                 </div>
                 <nav className="space-y-2">

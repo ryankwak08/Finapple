@@ -7,6 +7,8 @@ import { buildLeaderboardPayload, getLeagueRewardForRank } from '@/lib/leaderboa
 import { syncLeaderboardEntry } from '@/api/leaderboardClient';
 import { consumeCurrentUserHeart, fetchCurrentUserState } from '@/api/adminClient';
 import { safeStorage } from '@/lib/safeStorage';
+import { useTrack } from '@/lib/trackContext';
+import { allocateTrackLeaderboardScores } from '@/lib/leaderboardTrackScores';
 
 const TODAY = () => new Date().toISOString().split('T')[0];
 const STORAGE_KEY = 'finapple_progress';
@@ -103,6 +105,19 @@ const shiftDate = (dateString, days) => {
   return date.toISOString().split('T')[0];
 };
 
+const getDateFromIso = (value) => {
+  if (!value) return '';
+  return String(value).split('T')[0];
+};
+
+const hasUsedAutoFreezerToday = (progress, today) => {
+  const history = progress.streak_freezer_history || [];
+  return history.some((entry) => (
+    entry?.status === 'used_auto' &&
+    getDateFromIso(entry?.consumedAt) === today
+  ));
+};
+
 const consumeAutoFreezers = (progress, today) => {
   const lastActiveDate = progress.last_active_date;
   if (!lastActiveDate) {
@@ -116,7 +131,11 @@ const consumeAutoFreezers = (progress, today) => {
 
   const missedDays = daysBetween - 1;
   const availableFreezers = progress.streak_freezers || 0;
-  const consumedDays = Math.min(missedDays, availableFreezers);
+  if (hasUsedAutoFreezerToday(progress, today)) {
+    return { next: progress, consumedDays: 0 };
+  }
+
+  const consumedDays = Math.min(missedDays, availableFreezers, 1);
 
   if (consumedDays <= 0) {
     return { next: progress, consumedDays: 0 };
@@ -238,6 +257,7 @@ export default function useProgress() {
   const [progress, setProgress] = useState(null);
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState(null);
+  const { activeTrack } = useTrack();
 
   const syncLeaderboardForProgress = useCallback((nextProgress, nextUser = user) => {
     if (!nextProgress || !nextUser?.email) {
@@ -256,16 +276,28 @@ export default function useProgress() {
       leaderboardSeasonEndDate: nextProgress.leaderboard_season_end_date || seasonMeta.endDate,
     };
 
-    const payload = buildLeaderboardPayload({
+    const basePayload = buildLeaderboardPayload({
       user: nextUser,
       progress: nextProgress,
       streakStatus,
     });
 
+    const trackScores = allocateTrackLeaderboardScores({
+      user: nextUser,
+      seasonKey: basePayload.seasonKey,
+      totalScore: basePayload.score,
+      activeTrack,
+    });
+
+    const payload = {
+      ...basePayload,
+      trackScores,
+    };
+
     syncLeaderboardEntry(payload).catch((error) => {
       console.error('Leaderboard background sync failed:', error);
     });
-  }, [user]);
+  }, [activeTrack, user]);
 
   const persistProgress = useCallback((nextProgress) => {
     const { next } = syncLeaderboardSeasonProgress(nextProgress);
@@ -646,25 +678,7 @@ export default function useProgress() {
   }, [applyProgressUpdate, getLatestProgressSnapshot, syncLeaderboardForProgress]);
 
   const isUnitLocked = useCallback((unitId) => {
-    if (!progress) return true;
-
-    const match = String(unitId || '').match(/^(.*?)(\d+)$/);
-    if (!match) return true;
-
-    const [, prefix, orderRaw] = match;
-    const order = Number(orderRaw);
-    if (!Number.isFinite(order) || order <= 1) return false;
-
-    const completed = progress.completed_quizzes || [];
-    const prevUnitId = `${prefix}${order - 1}`;
-    const requiredQuizIds = [
-      `${prevUnitId}-quiz1`,
-      `${prevUnitId}-quiz2`,
-      `${prevUnitId}-quiz3`,
-      `${prevUnitId}-glossary`,
-    ];
-
-    return !requiredQuizIds.every((quizId) => completed.includes(quizId));
+    return false;
   }, [progress]);
 
   const isQuizCompleted = useCallback((quizId) => {

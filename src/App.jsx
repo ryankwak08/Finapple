@@ -8,6 +8,7 @@ import PageNotFound from './lib/PageNotFound';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 import { LanguageContext, LanguageProvider } from '@/lib/i18n';
+import { TrackProvider } from '@/lib/trackContext';
 const AppShell = lazy(() => import('./components/AppShell'));
 const Study = lazy(() => import('./pages/Study'));
 const StudyDetail = lazy(() => import('./pages/StudyDetail'));
@@ -247,13 +248,15 @@ function App() {
   return (
     <LanguageProvider>
       <AppErrorBoundary>
-        <AuthProvider>
-          <QueryClientProvider client={queryClientInstance}>
-            <GlobalInteractionSound />
-            {appProviders}
-            <Toaster />
-          </QueryClientProvider>
-        </AuthProvider>
+        <TrackProvider>
+          <AuthProvider>
+            <QueryClientProvider client={queryClientInstance}>
+              <GlobalInteractionSound />
+              {appProviders}
+              <Toaster />
+            </QueryClientProvider>
+          </AuthProvider>
+        </TrackProvider>
       </AppErrorBoundary>
     </LanguageProvider>
   )

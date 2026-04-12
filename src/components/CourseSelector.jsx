@@ -28,32 +28,6 @@ const courses = [
     badge: '준비 중',
     badgeEn: 'Coming soon',
   },
-  {
-    id: 'economy-basics',
-    emoji: '📊',
-    title: '경제 기초 편',
-    titleEn: 'Economics Basics',
-    subtitle: '거시경제·금융 개념',
-    subtitleEn: 'Macroeconomics and finance concepts',
-    description: 'GDP, 금리, 환율 등 경제 기본 원리',
-    descriptionEn: 'Core ideas like GDP, interest rates, and exchange rates',
-    available: false,
-    badge: '준비 중',
-    badgeEn: 'Coming soon',
-  },
-  {
-    id: 'investment',
-    emoji: '💹',
-    title: '투자 편',
-    titleEn: 'Investing',
-    subtitle: '주식·채권·펀드',
-    subtitleEn: 'Stocks, bonds, and funds',
-    description: '다양한 금융상품과 투자 전략 이해',
-    descriptionEn: 'Understand financial products and investing strategies',
-    available: false,
-    badge: '준비 중',
-    badgeEn: 'Coming soon',
-  },
 ];
 
 export default function CourseSelector({ type, onSelect, canAccessTeenCourse = false }) {

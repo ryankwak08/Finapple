@@ -16,6 +16,9 @@ create table if not exists public.leaderboard_entries (
   resolved_review_count integer not null default 0,
   ads_disabled boolean not null default false,
   score integer not null default 0,
+  score_youth integer not null default 0,
+  score_start integer not null default 0,
+  score_one integer not null default 0,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -31,6 +34,15 @@ alter table public.leaderboard_entries
 
 alter table public.leaderboard_entries
   add column if not exists season_end_date date;
+
+alter table public.leaderboard_entries
+  add column if not exists score_youth integer not null default 0;
+
+alter table public.leaderboard_entries
+  add column if not exists score_start integer not null default 0;
+
+alter table public.leaderboard_entries
+  add column if not exists score_one integer not null default 0;
 
 create index if not exists leaderboard_entries_score_idx
   on public.leaderboard_entries (score desc, updated_at asc);
@@ -56,10 +68,22 @@ create table if not exists public.leaderboard_entry_history (
   resolved_review_count integer not null default 0,
   ads_disabled boolean not null default false,
   score integer not null default 0,
+  score_youth integer not null default 0,
+  score_start integer not null default 0,
+  score_one integer not null default 0,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   primary key (user_id, season_key)
 );
+
+alter table public.leaderboard_entry_history
+  add column if not exists score_youth integer not null default 0;
+
+alter table public.leaderboard_entry_history
+  add column if not exists score_start integer not null default 0;
+
+alter table public.leaderboard_entry_history
+  add column if not exists score_one integer not null default 0;
 
 create index if not exists leaderboard_entry_history_user_idx
   on public.leaderboard_entry_history (user_id, season_start_date desc);

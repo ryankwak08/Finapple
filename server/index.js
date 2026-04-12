@@ -1323,15 +1323,34 @@ app.get('/api/leaderboard', async (req, res) => {
 
   const limit = Math.min(Number(req.query.limit) || 20, 100);
   const seasonKey = String(req.query.seasonKey || getCurrentSeasonMeta().seasonKey);
+  const LEADERBOARD_SELECT_BASE = 'user_id, user_email, display_name, avatar_url, season_key, season_label, season_start_date, season_end_date, xp, streak_count, best_streak, streak_freezers, completed_count, active_review_count, resolved_review_count, ads_disabled, score, updated_at';
+  const LEADERBOARD_SELECT_WITH_TRACKS = `${LEADERBOARD_SELECT_BASE}, score_youth, score_start, score_one`;
+  const isMissingTrackScoreColumn = (error) => {
+    const message = String(error?.message || '').toLowerCase();
+    return error?.code === '42703' || message.includes('score_youth') || message.includes('score_start') || message.includes('score_one');
+  };
 
   try {
-    const { data, error } = await supabaseAdmin
+    let { data, error } = await supabaseAdmin
       .from('leaderboard_entries')
-      .select('user_id, user_email, display_name, avatar_url, season_key, season_label, season_start_date, season_end_date, xp, streak_count, best_streak, streak_freezers, completed_count, active_review_count, resolved_review_count, ads_disabled, score, updated_at')
+      .select(LEADERBOARD_SELECT_WITH_TRACKS)
       .eq('season_key', seasonKey)
       .order('score', { ascending: false })
       .order('updated_at', { ascending: true })
       .limit(limit);
+
+    if (error && isMissingTrackScoreColumn(error)) {
+      const fallback = await supabaseAdmin
+        .from('leaderboard_entries')
+        .select(LEADERBOARD_SELECT_BASE)
+        .eq('season_key', seasonKey)
+        .order('score', { ascending: false })
+        .order('updated_at', { ascending: true })
+        .limit(limit);
+
+      data = fallback.data;
+      error = fallback.error;
+    }
 
     if (error) {
       throw error;
@@ -1355,19 +1374,42 @@ app.get('/api/leaderboard/profile', async (req, res) => {
   }
 
   try {
-    const [currentResult, historyResult] = await Promise.all([
+    const LEADERBOARD_SELECT_BASE = 'user_id, user_email, display_name, avatar_url, season_key, season_label, season_start_date, season_end_date, xp, streak_count, best_streak, streak_freezers, completed_count, active_review_count, resolved_review_count, ads_disabled, score, updated_at';
+    const LEADERBOARD_SELECT_WITH_TRACKS = `${LEADERBOARD_SELECT_BASE}, score_youth, score_start, score_one`;
+    const isMissingTrackScoreColumn = (error) => {
+      const message = String(error?.message || '').toLowerCase();
+      return error?.code === '42703' || message.includes('score_youth') || message.includes('score_start') || message.includes('score_one');
+    };
+
+    let [currentResult, historyResult] = await Promise.all([
       supabaseAdmin
         .from('leaderboard_entries')
-        .select('user_id, user_email, display_name, avatar_url, season_key, season_label, season_start_date, season_end_date, xp, streak_count, best_streak, streak_freezers, completed_count, active_review_count, resolved_review_count, ads_disabled, score, updated_at')
+        .select(LEADERBOARD_SELECT_WITH_TRACKS)
         .eq('user_id', userId)
         .maybeSingle(),
       supabaseAdmin
         .from('leaderboard_entry_history')
-        .select('user_id, user_email, display_name, avatar_url, season_key, season_label, season_start_date, season_end_date, xp, streak_count, best_streak, streak_freezers, completed_count, active_review_count, resolved_review_count, ads_disabled, score, updated_at')
+        .select(LEADERBOARD_SELECT_WITH_TRACKS)
         .eq('user_id', userId)
         .order('season_start_date', { ascending: false })
         .limit(8),
     ]);
+
+    if ((currentResult.error && isMissingTrackScoreColumn(currentResult.error)) || (historyResult.error && isMissingTrackScoreColumn(historyResult.error))) {
+      [currentResult, historyResult] = await Promise.all([
+        supabaseAdmin
+          .from('leaderboard_entries')
+          .select(LEADERBOARD_SELECT_BASE)
+          .eq('user_id', userId)
+          .maybeSingle(),
+        supabaseAdmin
+          .from('leaderboard_entry_history')
+          .select(LEADERBOARD_SELECT_BASE)
+          .eq('user_id', userId)
+          .order('season_start_date', { ascending: false })
+          .limit(8),
+      ]);
+    }
 
     if (currentResult.error) {
       throw currentResult.error;
@@ -1403,6 +1445,16 @@ app.post('/api/leaderboard/sync', createRateLimiter({ key: 'leaderboard-sync', l
       return res.status(401).json({ error: 'Invalid Supabase session' });
     }
 
+    const LEADERBOARD_SELECT_BASE = 'user_id, user_email, display_name, avatar_url, season_key, season_label, season_start_date, season_end_date, xp, streak_count, best_streak, streak_freezers, completed_count, active_review_count, resolved_review_count, ads_disabled, score, updated_at';
+    const LEADERBOARD_SELECT_WITH_TRACKS = `${LEADERBOARD_SELECT_BASE}, score_youth, score_start, score_one`;
+    const isMissingTrackScoreColumn = (error) => {
+      const message = String(error?.message || '').toLowerCase();
+      return error?.code === '42703' || message.includes('score_youth') || message.includes('score_start') || message.includes('score_one');
+    };
+    const scoreYouth = Number(entry?.trackScores?.youth) || 0;
+    const scoreStart = Number(entry?.trackScores?.start) || 0;
+    const scoreOne = Number(entry?.trackScores?.one) || 0;
+    const combinedScore = scoreYouth + scoreStart + scoreOne;
     const payload = {
       user_id: authData.user.id,
       user_email: authData.user.email,
@@ -1420,23 +1472,46 @@ app.post('/api/leaderboard/sync', createRateLimiter({ key: 'leaderboard-sync', l
       active_review_count: Number(entry.activeReviewCount) || 0,
       resolved_review_count: Number(entry.resolvedReviewCount) || 0,
       ads_disabled: Boolean(entry.adsDisabled),
-      score: Number(entry.score) || 0,
+      score: combinedScore > 0 ? combinedScore : (Number(entry.score) || 0),
+      score_youth: scoreYouth,
+      score_start: scoreStart,
+      score_one: scoreOne,
       updated_at: new Date().toISOString(),
     };
 
-    const { data, error } = await supabaseAdmin
+    let { data, error } = await supabaseAdmin
       .from('leaderboard_entries')
       .upsert(payload, { onConflict: 'user_id' })
-      .select('user_id, user_email, display_name, avatar_url, season_key, season_label, season_start_date, season_end_date, xp, streak_count, best_streak, streak_freezers, completed_count, active_review_count, resolved_review_count, ads_disabled, score, updated_at')
+      .select(LEADERBOARD_SELECT_WITH_TRACKS)
       .single();
+
+    if (error && isMissingTrackScoreColumn(error)) {
+      const { score_youth, score_start, score_one, ...legacyPayload } = payload;
+      const fallback = await supabaseAdmin
+        .from('leaderboard_entries')
+        .upsert(legacyPayload, { onConflict: 'user_id' })
+        .select(LEADERBOARD_SELECT_BASE)
+        .single();
+
+      data = fallback.data;
+      error = fallback.error;
+    }
 
     if (error) {
       throw error;
     }
 
-    const { error: historyError } = await supabaseAdmin
+    let { error: historyError } = await supabaseAdmin
       .from('leaderboard_entry_history')
       .upsert(payload, { onConflict: 'user_id,season_key' });
+
+    if (historyError && isMissingTrackScoreColumn(historyError)) {
+      const { score_youth, score_start, score_one, ...legacyPayload } = payload;
+      const fallback = await supabaseAdmin
+        .from('leaderboard_entry_history')
+        .upsert(legacyPayload, { onConflict: 'user_id,season_key' });
+      historyError = fallback.error;
+    }
 
     if (historyError && historyError.code !== '42P01') {
       throw historyError;

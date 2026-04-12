@@ -1,4 +1,28 @@
 export const COURSES = {
+  start: {
+    id: 'start',
+    title: '자립준비청년 금융 생활',
+    titleEn: 'Finapple Start Track',
+    sourceLabel: '출처: Finapple Start 지정 과목',
+    sourceLabelEn: 'Source: Finapple Start designated curriculum',
+    sourceUrl: 'https://finapple.xyz',
+    curriculumCompleteTitle: 'Finapple Start 과목 완료',
+    curriculumCompleteTitleEn: 'Finapple Start Completed',
+    curriculumCompleteSummary: '자립준비청년 금융 생활 과목을 모두 완료했어요.',
+    curriculumCompleteSummaryEn: 'You completed the full Finapple Start curriculum.',
+  },
+  one: {
+    id: 'one',
+    title: '다문화 가정 · 외국인 노동자 금융',
+    titleEn: 'Finapple One Track',
+    sourceLabel: '출처: Finapple One 지정 과목',
+    sourceLabelEn: 'Source: Finapple One designated curriculum',
+    sourceUrl: 'https://finapple.xyz',
+    curriculumCompleteTitle: 'Finapple One 과목 완료',
+    curriculumCompleteTitleEn: 'Finapple One Completed',
+    curriculumCompleteSummary: '다문화·외국인 노동자 맞춤 금융 과목을 모두 완료했어요.',
+    curriculumCompleteSummaryEn: 'You completed the full Finapple One curriculum.',
+  },
   youth: {
     id: 'youth',
     title: '청년기 편',

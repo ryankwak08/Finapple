@@ -8,7 +8,9 @@ import { syncLeaderboardEntry } from '@/api/leaderboardClient';
 import { isNicknameAvailable, syncUserProfileRecord } from '@/services/profileService';
 import { NICKNAME_MAX_LENGTH, validateNickname } from '@/lib/profileRules';
 import { buildLeaderboardPayload } from '@/lib/leaderboard';
+import { allocateTrackLeaderboardScores } from '@/lib/leaderboardTrackScores';
 import { getIsPremium, isAdminUser } from '@/lib/premium';
+import { useTrack } from '@/lib/trackContext';
 import useSoundEffects from '@/hooks/useSoundEffects';
 import PremiumBadge from '@/components/PremiumBadge';
 import { Switch } from '@/components/ui/switch';
@@ -29,6 +31,7 @@ export default function Profile() {
   const navigate = useNavigate();
   const { logout } = useAuth();
   const { progress, getProgressSummary, getStreakStatus, reload: reloadProgress } = useProgress();
+  const { activeTrack } = useTrack();
   const [user, setUser] = useState(null);
   const [editingNickname, setEditingNickname] = useState(false);
   const [nicknameInput, setNicknameInput] = useState('');
@@ -73,7 +76,17 @@ export default function Profile() {
       },
     });
 
-    await syncLeaderboardEntry(nextEntry).catch((syncError) => {
+    const trackScores = allocateTrackLeaderboardScores({
+      user: nextUser,
+      seasonKey: nextEntry.seasonKey,
+      totalScore: nextEntry.score,
+      activeTrack,
+    });
+
+    await syncLeaderboardEntry({
+      ...nextEntry,
+      trackScores,
+    }).catch((syncError) => {
       console.error('Leaderboard profile sync failed:', syncError);
     });
   };
