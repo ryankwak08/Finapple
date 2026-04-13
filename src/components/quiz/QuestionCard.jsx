@@ -1,4 +1,5 @@
 import { Check, X } from 'lucide-react';
+import { useLanguage } from '@/lib/i18n';
 
 export default function QuestionCard({
   question,
@@ -14,6 +15,8 @@ export default function QuestionCard({
   instantMode = false,
   isAdvancing = false,
 }) {
+  const { isEnglish } = useLanguage();
+
   return (
     <div className="animate-slide-up">
       {/* Progress */}
@@ -35,7 +38,7 @@ export default function QuestionCard({
       {/* Question */}
       <div className="mb-6">
         <span className="mb-2 block text-[12px] font-semibold text-primary">
-          문제 {questionIndex + 1} / {totalQuestions}
+          {isEnglish ? `Question ${questionIndex + 1} / ${totalQuestions}` : `문제 ${questionIndex + 1} / ${totalQuestions}`}
         </span>
         <h3 className="text-[18px] font-bold leading-snug text-foreground sm:text-[20px]">
           {question.question}
@@ -44,7 +47,7 @@ export default function QuestionCard({
           <div className="mt-4 overflow-hidden rounded-2xl border border-border bg-card p-2">
             <img
               src={question.imageUrl}
-              alt={question.imageAlt || '문항 참고 이미지'}
+              alt={question.imageAlt || (isEnglish ? 'Reference image for this question' : '문항 참고 이미지')}
               className="mx-auto h-auto w-full max-w-md rounded-xl"
               loading="lazy"
             />
@@ -119,7 +122,7 @@ export default function QuestionCard({
                 : 'bg-muted text-muted-foreground cursor-not-allowed'
             }`}
           >
-            확인하기
+            {isEnglish ? 'Check answer' : '확인하기'}
           </button>
         ) : confirmed ? (
           <div>
@@ -130,21 +133,23 @@ export default function QuestionCard({
                 isCorrect ? 'text-emerald-700' : 'text-red-700'
               }`}>
                 <span className="text-[14px] font-bold">
-                  {isCorrect ? '🎉 정답입니다!' : '😢 틀렸어요'}
+                  {isCorrect ? (isEnglish ? '🎉 Correct!' : '🎉 정답입니다!') : (isEnglish ? '😢 Not quite' : '😢 틀렸어요')}
                 </span>
               </div>
               {showExplanation && question.explanation && (
                 <div className={`px-4 pb-4 text-[13px] leading-relaxed border-t ${
                   isCorrect ? 'border-emerald-200 text-emerald-800/80' : 'border-red-200 text-red-800/80'
                 }`}>
-                  <p className="font-semibold mt-2 mb-1">📖 해설</p>
+                  <p className="font-semibold mt-2 mb-1">{isEnglish ? '📖 Explanation' : '📖 해설'}</p>
                   <p>{question.explanation}</p>
                 </div>
               )}
             </div>
             {instantMode ? (
               <div className="w-full py-4 rounded-2xl text-[15px] font-bold bg-muted text-muted-foreground text-center">
-                {isAdvancing ? '다음 문제로 이동 중...' : '이동 준비 중...'}
+                {isAdvancing
+                  ? (isEnglish ? 'Moving to the next question...' : '다음 문제로 이동 중...')
+                  : (isEnglish ? 'Getting ready...' : '이동 준비 중...')}
               </div>
             ) : (
               <button
@@ -152,7 +157,9 @@ export default function QuestionCard({
                 data-no-click-sound="true"
                 className="w-full rounded-2xl bg-primary py-4 text-[15px] font-bold text-primary-foreground shadow-lg shadow-primary/20 transition-all duration-200 active:scale-[0.98]"
               >
-                {questionIndex < totalQuestions - 1 ? '다음 문제' : '결과 보기'}
+                {questionIndex < totalQuestions - 1
+                  ? (isEnglish ? 'Next question' : '다음 문제')
+                  : (isEnglish ? 'See results' : '결과 보기')}
               </button>
             )}
           </div>

@@ -677,6 +677,20 @@ export default function useProgress() {
     return rewardXp;
   }, [applyProgressUpdate, getLatestProgressSnapshot, syncLeaderboardForProgress]);
 
+  const awardXp = useCallback(async (amount) => {
+    const normalized = Number(amount) || 0;
+    if (normalized <= 0) {
+      return progress?.xp || 0;
+    }
+
+    const next = applyProgressUpdate((base) => ({
+      ...base,
+      xp: (base.xp || 0) + normalized,
+    }));
+    syncLeaderboardForProgress(next);
+    return next?.xp || 0;
+  }, [applyProgressUpdate, progress?.xp, syncLeaderboardForProgress]);
+
   const isUnitLocked = useCallback((unitId) => {
     return false;
   }, [progress]);
@@ -783,6 +797,7 @@ export default function useProgress() {
     purchaseShopItem,
     activateStreakFreezer,
     claimLeagueReward,
+    awardXp,
     isUnitLocked,
     isQuizCompleted,
     getQuizScore,

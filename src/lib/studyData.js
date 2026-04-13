@@ -1076,6 +1076,21 @@ export function getLessonChunkForQuiz(topicId, quizId) {
   const startIndex = (quizOrder - 1) * chunkSize;
   const selectedPoints = (topic.learningPoints || []).slice(startIndex, startIndex + chunkSize);
   const concepts = (topic.concepts || []).slice(Math.max(0, quizOrder - 1), Math.max(0, quizOrder - 1) + 2);
+  const mapPointType = (point) => {
+    if (point.title === '내 소비습관 진단하기') {
+      return 'consumption-habit-test';
+    }
+
+    if (point.title === '나의 투자성향 파악하기') {
+      return 'investment-profile-test';
+    }
+
+    return 'text';
+  };
+  const learningPoints = (selectedPoints.length > 0 ? selectedPoints : (topic.learningPoints || []).slice(0, 2)).map((point) => ({
+    ...point,
+    pointType: mapPointType(point),
+  }));
 
   return {
     topic,
@@ -1084,6 +1099,6 @@ export function getLessonChunkForQuiz(topicId, quizId) {
     summary: topic.summary,
     goals: (topic.goals || []).slice(0, 2),
     concepts,
-    learningPoints: selectedPoints.length > 0 ? selectedPoints : (topic.learningPoints || []).slice(0, 2),
+    learningPoints,
   };
 }

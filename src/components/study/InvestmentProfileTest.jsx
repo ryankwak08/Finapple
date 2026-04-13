@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { useLanguage } from '@/lib/i18n';
 
 const QUESTIONS = [
   {
@@ -63,52 +64,117 @@ const QUESTIONS = [
   },
 ];
 
-const getResult = (score) => {
+const QUESTIONS_EN = [
+  {
+    id: 'age',
+    label: 'What is your age?',
+    options: [
+      { label: '29 or younger', score: 8 },
+      { label: '30 or older', score: 6 },
+      { label: '40 or older', score: 5 },
+      { label: '50 or older', score: 3 },
+    ],
+  },
+  {
+    id: 'income',
+    label: 'Which option best describes your income?',
+    options: [
+      { label: 'I have stable regular income and expect it to stay the same or grow', score: 17 },
+      { label: 'I have regular income, but I expect it to fall or become unstable', score: 10 },
+      { label: 'My income is temporary or occasional', score: 5 },
+      { label: 'I currently have no income', score: 3 },
+    ],
+  },
+  {
+    id: 'knowledge',
+    label: 'How would you rate your knowledge of financial products?',
+    options: [
+      { label: 'I understand the differences among all major investment products', score: 18 },
+      { label: 'I can distinguish most financial products', score: 13 },
+      { label: 'I can tell the difference between stocks and bonds', score: 8 },
+      { label: 'I only know deposits and savings products', score: 3 },
+    ],
+  },
+  {
+    id: 'experience',
+    label: 'Which option is closest to your investment experience?',
+    options: [
+      { label: 'Bank deposits and savings accounts', score: 3 },
+      { label: 'High-credit corporate bonds, such as bond funds', score: 8 },
+      { label: 'Stock funds targeting market-level returns', score: 14 },
+      { label: 'Derivative funds that pursue high returns', score: 17 },
+    ],
+  },
+  {
+    id: 'period',
+    label: 'How long do you plan to keep this money invested?',
+    options: [
+      { label: '3 years or more', score: 8 },
+      { label: '2 years or more', score: 6 },
+      { label: '1 year or more', score: 5 },
+      { label: 'Less than 6 months', score: 2 },
+    ],
+  },
+  {
+    id: 'lossTolerance',
+    label: 'How much loss in principal could you tolerate?',
+    options: [
+      { label: 'If the return potential is high, I am okay with high risk too', score: 32 },
+      { label: 'I can tolerate losses of up to 20%', score: 24 },
+      { label: 'I can tolerate losses of up to 10%', score: 16 },
+      { label: 'My principal must be protected no matter what', score: 6 },
+    ],
+  },
+];
+
+const getResult = (score, isEnglish = false) => {
   if (score <= 40) {
     return {
-      grade: '안전형',
-      summary: '예금 또는 적금 수준의 수익률을 기대하며, 투자원금 손실을 원하지 않는 유형',
+      grade: isEnglish ? 'Conservative' : '안전형',
+      summary: isEnglish ? 'You expect returns similar to deposits or savings and do not want any loss of principal.' : '예금 또는 적금 수준의 수익률을 기대하며, 투자원금 손실을 원하지 않는 유형',
       color: 'border-sky-200 bg-sky-50 text-sky-700',
     };
   }
 
   if (score <= 55) {
     return {
-      grade: '안전추구형',
-      summary: '원금 손실은 최소화하되, 예·적금보다 높은 수익을 위해 일부 변동성 자산을 고려하는 유형',
+      grade: isEnglish ? 'Cautious growth' : '안전추구형',
+      summary: isEnglish ? 'You want to minimize loss of principal but are open to some volatility for returns above deposits and savings.' : '원금 손실은 최소화하되, 예·적금보다 높은 수익을 위해 일부 변동성 자산을 고려하는 유형',
       color: 'border-emerald-200 bg-emerald-50 text-emerald-700',
     };
   }
 
   if (score <= 68) {
     return {
-      grade: '위험중립형',
-      summary: '예·적금보다 높은 수익을 목표로 일정 수준의 손실 위험을 감수할 수 있는 유형',
+      grade: isEnglish ? 'Balanced risk' : '위험중립형',
+      summary: isEnglish ? 'You aim for returns above deposits and savings and can accept a reasonable level of loss risk.' : '예·적금보다 높은 수익을 목표로 일정 수준의 손실 위험을 감수할 수 있는 유형',
       color: 'border-amber-200 bg-amber-50 text-amber-700',
     };
   }
 
   if (score <= 80) {
     return {
-      grade: '적극투자형',
-      summary: '높은 투자수익을 위해 투자자금의 상당 부분을 위험자산에 투자할 의향이 있는 유형',
+      grade: isEnglish ? 'Active investor' : '적극투자형',
+      summary: isEnglish ? 'You are willing to place a meaningful share of your money in risky assets to pursue higher returns.' : '높은 투자수익을 위해 투자자금의 상당 부분을 위험자산에 투자할 의향이 있는 유형',
       color: 'border-orange-200 bg-orange-50 text-orange-700',
     };
   }
 
   return {
-    grade: '공격투자형',
-    summary: '시장평균을 크게 넘는 수익을 추구하며 손실 위험도 적극 수용하는 유형',
+    grade: isEnglish ? 'Aggressive investor' : '공격투자형',
+    summary: isEnglish ? 'You pursue returns well above the market average and actively accept the possibility of losses.' : '시장평균을 크게 넘는 수익을 추구하며 손실 위험도 적극 수용하는 유형',
     color: 'border-red-200 bg-red-50 text-red-700',
   };
 };
 
 export default function InvestmentProfileTest() {
+  const { isEnglish } = useLanguage();
   const [answers, setAnswers] = useState(() => Array(QUESTIONS.length).fill(null));
   const answeredCount = answers.filter((value) => value !== null).length;
   const isComplete = answeredCount === QUESTIONS.length;
   const totalScore = answers.reduce((sum, current) => sum + (current || 0), 0);
-  const result = useMemo(() => getResult(totalScore), [totalScore]);
+  const questions = isEnglish ? QUESTIONS_EN : QUESTIONS;
+  const result = useMemo(() => getResult(totalScore, isEnglish), [isEnglish, totalScore]);
 
   const handleSelect = (questionIndex, score) => {
     setAnswers((prev) => {
@@ -125,11 +191,13 @@ export default function InvestmentProfileTest() {
   return (
     <div className="space-y-3">
       <p className="text-[13px] leading-relaxed text-foreground/80">
-        6개 항목에 답하면 투자성향 점수와 등급이 자동 계산됩니다.
+        {isEnglish
+          ? 'Answer all 6 items to calculate your investment profile score and level.'
+          : '6개 항목에 답하면 투자성향 점수와 등급이 자동 계산됩니다.'}
       </p>
 
       <div className="space-y-2">
-        {QUESTIONS.map((question, questionIndex) => (
+        {questions.map((question, questionIndex) => (
           <div key={question.id} className="rounded-xl border border-border bg-muted/25 px-3 py-3">
             <p className="text-[13px] font-bold text-foreground">
               {questionIndex + 1}. {question.label}
@@ -146,7 +214,7 @@ export default function InvestmentProfileTest() {
                       : 'border-border bg-background text-foreground hover:bg-muted'
                   }`}
                 >
-                  {option.label} ({option.score}점)
+                  {option.label} {isEnglish ? `(${option.score} pts)` : `(${option.score}점)`}
                 </button>
               ))}
             </div>
@@ -156,16 +224,16 @@ export default function InvestmentProfileTest() {
 
       <div className="rounded-xl border border-border bg-background px-3 py-3">
         <p className="text-[12px] text-muted-foreground">
-          진행도 {answeredCount}/{QUESTIONS.length}
+          {isEnglish ? `Progress ${answeredCount}/${QUESTIONS.length}` : `진행도 ${answeredCount}/${QUESTIONS.length}`}
         </p>
-        <p className="mt-1 text-[13px] font-bold text-foreground">현재 합산 점수: {totalScore}점</p>
+        <p className="mt-1 text-[13px] font-bold text-foreground">{isEnglish ? `Current total score: ${totalScore} pts` : `현재 합산 점수: ${totalScore}점`}</p>
         {isComplete ? (
           <div className={`mt-2 rounded-lg border px-3 py-2 ${result.color}`}>
             <p className="text-[13px] font-extrabold">{result.grade}</p>
             <p className="mt-1 text-[12px] leading-relaxed">{result.summary}</p>
           </div>
         ) : (
-          <p className="mt-2 text-[12px] text-muted-foreground">모든 문항에 답하면 투자성향 결과가 표시됩니다.</p>
+          <p className="mt-2 text-[12px] text-muted-foreground">{isEnglish ? 'Your investment profile will appear after you answer every question.' : '모든 문항에 답하면 투자성향 결과가 표시됩니다.'}</p>
         )}
       </div>
 
@@ -175,7 +243,7 @@ export default function InvestmentProfileTest() {
           onClick={handleReset}
           className="rounded-lg border border-border bg-background px-3 py-1.5 text-[12px] font-semibold text-foreground hover:bg-muted"
         >
-          다시 하기
+          {isEnglish ? 'Reset' : '다시 하기'}
         </button>
       </div>
     </div>
