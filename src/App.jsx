@@ -13,6 +13,7 @@ const AppShell = lazy(() => import('./components/AppShell'));
 const Study = lazy(() => import('./pages/Study'));
 const StudyDetail = lazy(() => import('./pages/StudyDetail'));
 const Quiz = lazy(() => import('./pages/Quiz'));
+const SurvivalSim = lazy(() => import('./pages/SurvivalSim'));
 const QuizPlay = lazy(() => import('./pages/QuizPlay'));
 const GlossaryQuizPlay = lazy(() => import('./pages/GlossaryQuizPlay'));
 const Glossary = lazy(() => import('./pages/Glossary'));
@@ -154,6 +155,7 @@ const AppRoutes = () => (
         <Route path="/" element={<Study />} />
         <Route path="/study/:topicId" element={<StudyDetail />} />
         <Route path="/quiz" element={<Quiz />} />
+        <Route path="/survival" element={<SurvivalSim />} />
         <Route path="/quiz/:quizId" element={<QuizPlay />} />
         <Route path="/glossary-quiz/:unitId" element={<GlossaryQuizPlay />} />
         <Route path="/glossary" element={<Glossary />} />

@@ -1,11 +1,12 @@
 import { useLocation, useNavigate } from 'react-router-dom';
-import { BookOpen, Trophy, BookMarked, ShoppingBag, Medal } from 'lucide-react';
+import { BookOpen, Trophy, BookMarked, ShoppingBag, Medal, Wallet } from 'lucide-react';
 import { useLanguage } from '@/lib/i18n';
 
 export function getAppTabs(t) {
   return [
     { root: '/', label: t('tabStudy', '금융 상식'), icon: BookOpen },
     { root: '/quiz', label: t('tabQuiz', '퀴즈'), icon: Trophy },
+    { root: '/survival', label: t('tabSurvival', '생존'), icon: Wallet },
     { root: '/leaderboard', label: t('tabLeaderboard', '리그'), icon: Medal },
     { root: '/glossary', label: t('tabGlossary', '용어사전'), icon: BookMarked },
     { root: '/shop', label: t('tabShop', '상점'), icon: ShoppingBag },
@@ -14,6 +15,7 @@ export function getAppTabs(t) {
 
 export function getActiveTab(pathname) {
   if (pathname.startsWith('/quiz')) return '/quiz';
+  if (pathname.startsWith('/survival')) return '/survival';
   if (pathname.startsWith('/leaderboard')) return '/leaderboard';
   if (pathname.startsWith('/glossary')) return '/glossary';
   if (pathname.startsWith('/shop')) return '/shop';
@@ -34,7 +36,10 @@ export default function BottomNav() {
 
   return (
     <nav className="safe-area-bottom fixed bottom-0 left-0 right-0 z-50 border-t border-border/70 bg-card/88 backdrop-blur-xl md:hidden">
-      <div className="mx-auto grid max-w-lg grid-cols-5 px-2 pb-1 pt-2">
+      <div
+        className="mx-auto grid max-w-xl px-2 pb-1 pt-2"
+        style={{ gridTemplateColumns: `repeat(${appTabs.length}, minmax(0, 1fr))` }}
+      >
         {appTabs.map(({ root, label, icon: Icon }) => {
           const active = activeTab === root;
           return (
