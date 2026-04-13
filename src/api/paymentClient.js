@@ -2,6 +2,8 @@ import { supabase } from '@/lib/supabase';
 import { BACKEND_URL } from '@/lib/backendUrl';
 import { buildAppUrl } from '@/lib/appBaseUrl';
 export const PREMIUM_MONTHLY_PRICE = 9900;
+export const SURVIVAL_COIN_PACK_PRICE = 2900;
+export const COIN_PACK_AMOUNT = 10;
 
 const parseJsonResponse = async (response) => {
   const rawText = await response.text();
@@ -20,6 +22,11 @@ const parseJsonResponse = async (response) => {
 export const createPremiumOrderId = () => {
   const randomPart = Math.random().toString(36).slice(2, 12);
   return `premium_monthly_${Date.now()}_${randomPart}`;
+};
+
+export const createSurvivalCoinPackOrderId = () => {
+  const randomPart = Math.random().toString(36).slice(2, 12);
+  return `survival_coinpack_${Date.now()}_${randomPart}`;
 };
 
 export const createTossCheckoutSession = async ({ amount, orderId, orderName, customerName, customerEmail }) => {
@@ -75,6 +82,58 @@ export const confirmTossPayment = async ({ paymentKey, orderId, amount }) => {
   const result = await parseJsonResponse(response);
   if (!response.ok) {
     throw new Error(result?.error || `결제 승인에 실패했습니다. (${response.status})`);
+  }
+
+  return result;
+};
+
+export const createTossSurvivalCoinCheckoutSession = async ({ orderId, orderName, customerName, customerEmail }) => {
+  try {
+    const response = await fetch(`${BACKEND_URL}/api/payments/toss/create-survival-coin-checkout`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        amount: SURVIVAL_COIN_PACK_PRICE,
+        orderId,
+        orderName,
+        customerName,
+        customerEmail,
+        successUrl: buildAppUrl('/survival?coinCheckout=success&provider=toss'),
+        failUrl: buildAppUrl('/survival?coinCheckout=fail&provider=toss'),
+      }),
+    });
+
+    const data = await parseJsonResponse(response);
+
+    if (!response.ok) {
+      throw new Error(data?.error || `코인 결제창 생성 실패 (${response.status})`);
+    }
+
+    if (data?.checkoutUrl) {
+      return { success: true, url: data.checkoutUrl };
+    }
+
+    throw new Error('토스 결제창 URL을 받지 못했습니다.');
+  } catch (error) {
+    console.error('Toss coin checkout error:', error);
+    return { success: false, error: error.message };
+  }
+};
+
+export const confirmTossSurvivalCoinPayment = async ({ paymentKey, orderId, amount }) => {
+  const response = await fetch(`${BACKEND_URL}/api/payments/toss/confirm-survival-coin`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      paymentKey,
+      orderId,
+      amount: Number(amount),
+    }),
+  });
+
+  const result = await parseJsonResponse(response);
+  if (!response.ok) {
+    throw new Error(result?.error || `코인 결제 승인에 실패했습니다. (${response.status})`);
   }
 
   return result;

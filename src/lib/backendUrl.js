@@ -26,7 +26,16 @@ const getBrowserOrigin = () => {
 export const BACKEND_URL = (() => {
   if (import.meta.env.DEV) {
     const localDevUrl = normalizeUrl(import.meta.env.VITE_LOCAL_BACKEND_URL);
-    return localDevUrl || 'http://localhost:3000';
+    if (localDevUrl) {
+      return localDevUrl;
+    }
+
+    const configuredDevUrl = normalizeUrl(import.meta.env.VITE_BACKEND_URL);
+    if (configuredDevUrl) {
+      return configuredDevUrl;
+    }
+
+    return 'http://localhost:3000';
   }
 
   const configuredUrl = normalizeUrl(import.meta.env.VITE_BACKEND_URL);

@@ -36,6 +36,7 @@ const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const openAiApiKey = process.env.OPENAI_API_KEY;
 const openAiModel = process.env.OPENAI_MODEL || 'gpt-4o-mini';
 const PREMIUM_PRICE = 9900;
+const SURVIVAL_COIN_PACK_PRICE = 2900;
 const PORT = process.env.PORT || 3000;
 const QUIZ_CACHE_TTL_MS = 1000 * 60 * 60 * 24;
 const aiQuizCache = new Map();
@@ -1637,6 +1638,59 @@ app.post('/api/payments/toss/create-checkout', createRateLimiter({ key: 'toss-ch
   }
 });
 
+app.post('/api/payments/toss/create-survival-coin-checkout', createRateLimiter({ key: 'toss-survival-coin-checkout', limit: 10, windowMs: 60_000 }), async (req, res) => {
+  if (!tossSecretKey) {
+    return res.status(500).json({ error: 'TOSS_SECRET_KEY is not configured' });
+  }
+
+  const { amount, orderId, orderName, customerName, customerEmail, successUrl, failUrl } = req.body;
+
+  if (amount !== SURVIVAL_COIN_PACK_PRICE) {
+    return res.status(400).json({ error: 'Unexpected survival coin pack amount' });
+  }
+
+  if (!orderId || !String(orderId).startsWith('survival_coinpack_')) {
+    return res.status(400).json({ error: 'Invalid orderId' });
+  }
+
+  if (!isAllowedCallbackUrl(successUrl) || !isAllowedCallbackUrl(failUrl)) {
+    return res.status(400).json({ error: 'Invalid payment redirect URL' });
+  }
+
+  try {
+    const response = await axios.post(
+      'https://api.tosspayments.com/v1/payments',
+      {
+        method: 'CARD',
+        amount,
+        orderId,
+        orderName,
+        customerName,
+        customerEmail,
+        successUrl,
+        failUrl,
+      },
+      {
+        headers: {
+          Authorization: `Basic ${Buffer.from(`${tossSecretKey}:`).toString('base64')}`,
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+
+    return res.json({
+      success: true,
+      checkoutUrl: response.data?.checkout?.url,
+    });
+  } catch (error) {
+    console.error('toss create-survival-coin-checkout error', error.response?.data || error.message);
+    return res.status(error.response?.status || 500).json({
+      error: error.response?.data?.message || error.message,
+      code: error.response?.data?.code || null,
+    });
+  }
+});
+
 app.post('/api/payments/toss/confirm', createRateLimiter({ key: 'toss-confirm', limit: 12, windowMs: 60_000 }), async (req, res) => {
   if (!tossSecretKey) {
     return res.status(500).json({ error: 'TOSS_SECRET_KEY is not configured' });
@@ -1704,6 +1758,55 @@ app.post('/api/payments/toss/confirm', createRateLimiter({ key: 'toss-confirm', 
     });
   } catch (error) {
     console.error('toss confirm error', error.response?.data || error.message);
+    return res.status(error.response?.status || 500).json({
+      error: error.response?.data?.message || error.message,
+      code: error.response?.data?.code || null,
+    });
+  }
+});
+
+app.post('/api/payments/toss/confirm-survival-coin', createRateLimiter({ key: 'toss-confirm-survival-coin', limit: 12, windowMs: 60_000 }), async (req, res) => {
+  if (!tossSecretKey) {
+    return res.status(500).json({ error: 'TOSS_SECRET_KEY is not configured' });
+  }
+
+  const { paymentKey, orderId, amount } = req.body;
+
+  if (!paymentKey || !orderId || !amount) {
+    return res.status(400).json({ error: 'paymentKey, orderId, amount are required' });
+  }
+
+  if (Number(amount) !== SURVIVAL_COIN_PACK_PRICE) {
+    return res.status(400).json({ error: 'Unexpected survival coin pack amount' });
+  }
+
+  if (!String(orderId).startsWith('survival_coinpack_')) {
+    return res.status(400).json({ error: 'Invalid orderId' });
+  }
+
+  try {
+    const tossResponse = await axios.post(
+      'https://api.tosspayments.com/v1/payments/confirm',
+      {
+        paymentKey,
+        orderId,
+        amount: Number(amount),
+      },
+      {
+        headers: {
+          Authorization: `Basic ${Buffer.from(`${tossSecretKey}:`).toString('base64')}`,
+          'Content-Type': 'application/json',
+          'Idempotency-Key': `confirm-survival-coin-${orderId}`,
+        },
+      }
+    );
+
+    return res.json({
+      success: true,
+      payment: tossResponse.data,
+    });
+  } catch (error) {
+    console.error('toss confirm-survival-coin error', error.response?.data || error.message);
     return res.status(error.response?.status || 500).json({
       error: error.response?.data?.message || error.message,
       code: error.response?.data?.code || null,
