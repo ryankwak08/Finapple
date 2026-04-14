@@ -28,8 +28,8 @@ const FAIL_STRESS_THRESHOLD = 90;
 const DEFAULT_START_CASH = 240000;
 const AGE_BY_TURN = [18, 20, 23, 27, 34, 43, 54, 64, 71];
 
-const BEST_KEY = 'finapple:survival:best:v5';
-const GAME_KEY = 'finapple:survival:state:v5';
+const BEST_KEY = 'finapple:survival:best:v6';
+const GAME_KEY = 'finapple:survival:state:v6';
 
 const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
 const randInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
@@ -1197,6 +1197,16 @@ export default function SurvivalSim() {
     setGame(baseGame());
   };
 
+  const startNewGameNow = () => {
+    const confirmed = window.confirm(
+      isEnglish
+        ? 'Start a new game now? Current progress will be reset.'
+        : '지금 새 게임을 시작할까요? 현재 진행은 초기화됩니다.'
+    );
+    if (!confirmed) return;
+    setGame(baseGame());
+  };
+
   const loanDisabled = game.phase !== 'playing' || game.loan.activePayments >= LOAN_MAX_ACTIVE_PAYMENTS;
   const isEmployed = Boolean(game.employment);
   const canContinueWithCoins = game.coinBalance >= CONTINUE_COST_COINS && game.coinPurchasedPacks >= 1;
@@ -1226,6 +1236,13 @@ export default function SurvivalSim() {
                   className="rounded-full border border-border bg-card/90 px-3 py-1.5 text-[12px] font-bold text-foreground"
                 >
                   {isEnglish ? 'Enable turn notifications' : '턴 알림 켜기'}
+                </button>
+                <button
+                  type="button"
+                  onClick={startNewGameNow}
+                  className="rounded-full border border-amber-300 bg-amber-50 px-3 py-1.5 text-[12px] font-bold text-amber-700"
+                >
+                  {isEnglish ? 'New Game' : '새 게임 시작'}
                 </button>
                 <button
                   type="button"
