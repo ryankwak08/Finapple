@@ -1,12 +1,11 @@
 import { useLocation, useNavigate } from 'react-router-dom';
-import { BookOpen, Trophy, BookMarked, ShoppingBag, Medal, Wallet } from 'lucide-react';
+import { BookOpen, Trophy, BookMarked, ShoppingBag, Medal } from 'lucide-react';
 import { useLanguage } from '@/lib/i18n';
 
 export function getAppTabs(t) {
   return [
     { root: '/', label: t('tabStudy', '금융 상식'), icon: BookOpen },
     { root: '/quiz', label: t('tabQuiz', '퀴즈'), icon: Trophy },
-    { root: '/survival', label: t('tabSurvival', '생존'), icon: Wallet },
     { root: '/leaderboard', label: t('tabLeaderboard', '리그'), icon: Medal },
     { root: '/glossary', label: t('tabGlossary', '용어사전'), icon: BookMarked },
     { root: '/shop', label: t('tabShop', '상점'), icon: ShoppingBag },
@@ -15,7 +14,6 @@ export function getAppTabs(t) {
 
 export function getActiveTab(pathname) {
   if (pathname.startsWith('/quiz')) return '/quiz';
-  if (pathname.startsWith('/survival')) return '/survival';
   if (pathname.startsWith('/leaderboard')) return '/leaderboard';
   if (pathname.startsWith('/glossary')) return '/glossary';
   if (pathname.startsWith('/shop')) return '/shop';

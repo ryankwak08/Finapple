@@ -4,6 +4,12 @@
 @tailwind components;
 @tailwind utilities;
 
+html {
+  font-size: 16px;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
 @layer base {
 :root {
     --safe-top: env(safe-area-inset-top, 0px);
@@ -272,8 +278,10 @@
   }
   body {
     @apply bg-background text-foreground font-inter;
+    font-size: 1rem;
     overscroll-behavior-y: none;
     -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
     text-rendering: optimizeLegibility;
   }
   button, [role="tab"], [role="button"], svg, a {

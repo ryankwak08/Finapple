@@ -133,7 +133,9 @@ export default function Quiz() {
                   <ChevronRight className="w-4 h-4 rotate-180 text-muted-foreground" />
                 </button>
               ) : null}
-              <h1 className="truncate text-[26px] font-extrabold tracking-tight text-foreground sm:text-3xl">{isEnglish ? courseMeta.titleEn : courseMeta.title}</h1>
+              <h1 className="max-w-full break-keep text-[26px] font-extrabold tracking-tight text-foreground sm:text-3xl">
+                {isEnglish ? courseMeta.titleEn : courseMeta.title}
+              </h1>
             </div>
             <div className="flex shrink-0 items-center gap-1.5 rounded-full bg-accent/15 px-3 py-1.5">
               <Star className="w-4 h-4 text-accent fill-accent" />

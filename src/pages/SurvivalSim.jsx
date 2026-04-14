@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { AlertTriangle, Coins, Heart, Shield, Wallet } from 'lucide-react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useLanguage } from '@/lib/i18n';
 import useProgress from '@/lib/useProgress';
 import {
@@ -12,6 +13,10 @@ import {
 
 const TOTAL_TURNS = 8;
 const TURN_WAIT_MS = 45 * 1000;
+const INACTIVITY_RESET_MS = 10 * 60 * 1000;
+const EMPLOYMENT_TURN = 2;
+const CROSSROAD_TURNS = new Set([0, 1, 4, 6, 7]);
+const ALLOWANCE_OPEN_AT_TURNS = new Set([4, 6]);
 const CONTINUE_COST_COINS = 10;
 const CONTINUE_CASH_BOOST = 220000;
 const COIN_CASH_TOPUP_COST = 10;
@@ -21,6 +26,7 @@ const LOAN_INSTALLMENT = 90000;
 const LOAN_MAX_ACTIVE_PAYMENTS = 2;
 const FAIL_STRESS_THRESHOLD = 90;
 const DEFAULT_START_CASH = 240000;
+const AGE_BY_TURN = [18, 20, 23, 27, 34, 43, 54, 64, 71];
 
 const BEST_KEY = 'finapple:survival:best:v5';
 const GAME_KEY = 'finapple:survival:state:v5';
@@ -34,7 +40,7 @@ const EMPLOYMENT_PLANS = [
     emoji: '🛵',
     name: '편한 알바',
     nameEn: 'Easy Part-time',
-    moneyPerClick: 30,
+    moneyPerClick: 120,
     stressAfterWork: 8,
     description: '클릭당 수입은 적지만 업무 강도가 낮음.',
     descriptionEn: 'Lower income per tap, lighter workload stress.',
@@ -44,7 +50,7 @@ const EMPLOYMENT_PLANS = [
     emoji: '💼',
     name: '사무직',
     nameEn: 'Office Job',
-    moneyPerClick: 55,
+    moneyPerClick: 170,
     stressAfterWork: 10,
     description: '수입과 강도의 밸런스형.',
     descriptionEn: 'Balanced option between income and stress.',
@@ -54,205 +60,264 @@ const EMPLOYMENT_PLANS = [
     emoji: '🔥',
     name: '고강도 업무',
     nameEn: 'High-intensity Work',
-    moneyPerClick: 90,
+    moneyPerClick: 230,
     stressAfterWork: 12,
     description: '클릭 수익이 큰 대신 스트레스 급상승.',
     descriptionEn: 'Highest tap income with heavy stress load.',
   },
 ];
 
+const EARLY_WORK_EMPLOYMENT_PLANS = [
+  {
+    key: 'service-cashier',
+    emoji: '🧾',
+    name: '매장 캐셔',
+    nameEn: 'Store Cashier',
+    moneyPerClick: 85,
+    stressAfterWork: 8,
+    description: '진입은 빠르지만 초반 소득은 낮은 편.',
+    descriptionEn: 'Fast entry, but lower early income.',
+  },
+  {
+    key: 'delivery-helper',
+    emoji: '🛵',
+    name: '배달 보조',
+    nameEn: 'Delivery Helper',
+    moneyPerClick: 105,
+    stressAfterWork: 10,
+    description: '수입은 조금 높지만 피로도 상승.',
+    descriptionEn: 'Slightly better pay, higher fatigue.',
+  },
+  {
+    key: 'factory-assistant',
+    emoji: '🏭',
+    name: '생산 보조',
+    nameEn: 'Factory Assistant',
+    moneyPerClick: 120,
+    stressAfterWork: 12,
+    description: '초반 최고 수입이지만 체력 소모 큼.',
+    descriptionEn: 'Highest early pay, but physically demanding.',
+  },
+];
+
 const EVENTS = [
   {
-    id: 'rent',
-    title: '월세+관리비 청구',
-    titleEn: 'Rent + Utility Bill',
-    body: '고정비가 한 번에 빠진다. 이번 달 체력 체크 시작.',
-    bodyEn: 'Fixed costs hit all at once. Monthly stamina check begins.',
-    lesson: '고정비를 먼저 확보하면 파산 확률이 크게 줄어요.',
-    lessonEn: 'Prioritizing fixed costs reduces bankruptcy risk.',
+    id: 'school-choice',
+    title: '고등학교 진학 선택',
+    titleEn: 'High School Path Choice',
+    body: '초반 선택이 평생 소득과 신용 습관의 시작점이 됩니다.',
+    bodyEn: 'Early choices shape lifetime income and credit habits.',
+    lesson: '초기 학습 투자와 습관 형성이 장기 소득에 큰 영향을 줍니다.',
+    lessonEn: 'Early education and habits strongly impact long-term income.',
     choices: [
       {
-        label: '고정비 먼저 처리',
-        labelEn: 'Pay fixed costs first',
-        base: { cash: -145000, stress: -1, joy: -1, credit: 3 },
-        variance: { cash: 28000, stress: 3, joy: 2, credit: 1 },
+        id: 'school-path',
+        label: '성실하게 학교 다니기',
+        labelEn: 'Attend school diligently',
+        base: { cash: -90000, stress: 2, joy: -1, credit: 8 },
+        variance: { cash: 25000, stress: 2, joy: 2, credit: 2 },
       },
       {
-        label: '카드로 밀고 현금 보존',
-        labelEn: 'Charge card, preserve cash',
-        base: { cash: -90000, stress: 2, joy: 1, credit: -8 },
+        id: 'early-work-path',
+        label: '학교 건너뛰고 바로 돈벌기',
+        labelEn: 'Skip school and earn now',
+        base: { cash: 45000, stress: 1, joy: 2, credit: -10 },
         variance: { cash: 30000, stress: 3, joy: 3, credit: 3 },
       },
     ],
   },
   {
-    id: 'food',
-    title: '점심비 선택',
-    titleEn: 'Lunch Budget Choice',
-    body: '도시락 루트 vs 프리미엄 런치. 소액 반복의 함정이 숨어있다.',
-    bodyEn: 'Lunchbox route vs premium lunch. Repeating small costs add up.',
-    lesson: '식비는 빈도가 핵심이에요. 단가보다 횟수를 먼저 보세요.',
-    lessonEn: 'Frequency beats ticket size in meal budgets.',
+    id: 'school-habit',
+    title: '학교생활 습관 만들기',
+    titleEn: 'Build School Habits',
+    body: '기초 금융 습관을 만들지, 즉흥 소비를 늘릴지 결정하는 구간입니다.',
+    bodyEn: 'Choose between building financial habits or impulsive spending.',
+    lesson: '소액 반복 소비 관리가 장기 자금관리의 핵심입니다.',
+    lessonEn: 'Managing recurring small spending is key to long-term cash control.',
     choices: [
       {
-        label: '도시락 챌린지',
-        labelEn: 'Lunchbox challenge',
-        base: { cash: 12000, stress: 2, joy: -2, credit: 1 },
-        variance: { cash: 15000, stress: 2, joy: 3, credit: 1 },
+        label: '가계부 습관 들이기',
+        labelEn: 'Start a budget journal',
+        base: { cash: 25000, stress: 1, joy: -1, credit: 5 },
+        variance: { cash: 22000, stress: 2, joy: 2, credit: 2 },
       },
       {
-        label: '매일 프리미엄 런치',
-        labelEn: 'Premium lunch every day',
-        base: { cash: -56000, stress: -2, joy: 5, credit: 0 },
-        variance: { cash: 26000, stress: 3, joy: 3, credit: 1 },
+        label: '충동구매 습관 유지',
+        labelEn: 'Keep impulse buying',
+        base: { cash: -75000, stress: 2, joy: 2, credit: -6 },
+        variance: { cash: 26000, stress: 3, joy: 3, credit: 2 },
       },
     ],
   },
   {
-    id: 'phone',
-    title: '신형 폰 유혹',
-    titleEn: 'New Phone Temptation',
-    body: '업그레이드 유혹이 강하다. 통장과 감정의 줄다리기.',
-    bodyEn: 'Upgrade temptation is strong. Wallet vs emotion tug-of-war.',
-    lesson: '할부는 즉시 부담을 줄이지만 신용 여력은 깎아요.',
-    lessonEn: 'Installments reduce immediate pain but drain credit capacity.',
+    id: 'first-job',
+    title: '첫 취업 시작',
+    titleEn: 'Start First Job',
+    body: '이 턴에서 직업을 고르고, 이후 연타 소득의 기본 단가가 결정됩니다.',
+    bodyEn: 'Choose your job this turn. It sets your tap-income base later.',
+    lesson: '소득원 선택은 신용관리와 부채상환 속도를 좌우합니다.',
+    lessonEn: 'Income source choice affects credit management and debt speed.',
     choices: [
       {
-        label: '배터리 교체로 버티기',
-        labelEn: 'Replace battery and hold',
-        base: { cash: -110000, stress: -1, joy: 0, credit: 4 },
-        variance: { cash: 35000, stress: 3, joy: 2, credit: 2 },
+        label: '안정형 경력 선택',
+        labelEn: 'Choose stable career path',
+        base: { cash: 70000, stress: 1, joy: 0, credit: 4 },
+        variance: { cash: 30000, stress: 2, joy: 2, credit: 2 },
       },
       {
-        label: '할부로 기기변경',
-        labelEn: 'Upgrade on installment',
-        base: { cash: -250000, stress: 3, joy: 8, credit: -12 },
-        variance: { cash: 70000, stress: 3, joy: 4, credit: 3 },
-      },
-    ],
-  },
-  {
-    id: 'sub',
-    title: '구독 폭탄 점검',
-    titleEn: 'Subscription Bomb Check',
-    body: '안 쓰는 결제가 누적됐다. 정리하느냐 미루느냐.',
-    bodyEn: 'Unused subscriptions accumulated. Clean up or postpone?',
-    lesson: '정기결제 정리는 현금흐름 개선의 가장 빠른 방법이에요.',
-    lessonEn: 'Subscription cleanup is the fastest cashflow fix.',
-    choices: [
-      {
-        label: '바로 해지하고 정리',
-        labelEn: 'Cancel now and clean up',
-        base: { cash: 45000, stress: -2, joy: -1, credit: 2 },
-        variance: { cash: 22000, stress: 2, joy: 2, credit: 1 },
-      },
-      {
-        label: '다음 달의 나에게 미루기',
-        labelEn: 'Delay to next-month me',
-        base: { cash: -65000, stress: 2, joy: 1, credit: -2 },
-        variance: { cash: 26000, stress: 2, joy: 2, credit: 1 },
-      },
-    ],
-  },
-  {
-    id: 'weekend',
-    title: '주말 플렉스 제안',
-    titleEn: 'Weekend Flex Plan',
-    body: '여행/호텔/식사 패키지 제안. 이번 달 최대 변수.',
-    bodyEn: 'Travel/hotel/dining package proposal. Biggest monthly variable.',
-    lesson: '경험소비도 예산 상한선 없으면 빠르게 위험해져요.',
-    lessonEn: 'Experience spending becomes dangerous without a hard cap.',
-    choices: [
-      {
-        label: '저예산 타협안 선택',
-        labelEn: 'Choose a budget compromise',
-        base: { cash: -90000, stress: -1, joy: 5, credit: 1 },
-        variance: { cash: 30000, stress: 3, joy: 3, credit: 1 },
-      },
-      {
-        label: '풀패키지로 플렉스',
-        labelEn: 'Go full package flex',
-        base: { cash: -340000, stress: 1, joy: 11, credit: -9 },
-        variance: { cash: 85000, stress: 4, joy: 4, credit: 3 },
-      },
-    ],
-  },
-  {
-    id: 'medical',
-    title: '예상 못한 병원비',
-    titleEn: 'Unexpected Medical Bill',
-    body: '갑작스런 의료비가 발생했다. 현금흐름 내구성 테스트.',
-    bodyEn: 'A surprise medical bill appears. Cashflow durability test.',
-    lesson: '비상금은 투자수익보다 생존확률을 높이는 장치예요.',
-    lessonEn: 'Emergency funds boost survival odds more than returns.',
-    choices: [
-      {
-        label: '현금으로 즉시 처리',
-        labelEn: 'Pay in cash now',
-        base: { cash: -140000, stress: 1, joy: -2, credit: 2 },
-        variance: { cash: 35000, stress: 2, joy: 2, credit: 1 },
-      },
-      {
-        label: '리볼빙으로 버티기',
-        labelEn: 'Survive via revolving credit',
-        base: { cash: -35000, stress: 4, joy: -1, credit: -12 },
-        variance: { cash: 12000, stress: 3, joy: 2, credit: 2 },
-      },
-    ],
-  },
-  {
-    id: 'scam',
-    title: '고수익 투자 DM',
-    titleEn: 'High-Return Investment DM',
-    body: '“일주일 2배 보장” 메시지. 직감은 이미 경고중.',
-    bodyEn: '“Double in a week guaranteed” DM. Your instincts are warning you.',
-    lesson: '비정상 고수익 약속은 대부분 사기 신호예요.',
-    lessonEn: 'Abnormal high-return promises are usually scam signals.',
-    choices: [
-      {
-        label: '차단 + 신고',
-        labelEn: 'Block + report',
-        base: { cash: 0, stress: -1, joy: 0, credit: 5 },
-        variance: { cash: 8000, stress: 2, joy: 1, credit: 2 },
-      },
-      {
-        label: '소액 테스트 투자',
-        labelEn: 'Try a small test investment',
-        base: { cash: -110000, stress: 5, joy: -2, credit: -8 },
+        label: '고수익 고강도 도전',
+        labelEn: 'Take high-pay intense route',
+        base: { cash: 120000, stress: 4, joy: 1, credit: -2 },
         variance: { cash: 50000, stress: 3, joy: 3, credit: 3 },
       },
     ],
   },
   {
-    id: 'settle',
-    title: '월말 정산',
-    titleEn: 'Month-End Settlement',
-    body: '한 달 최종 정산. 이제 생존 결과가 결정된다.',
-    bodyEn: 'Final month-end settlement. Survival outcome is decided now.',
-    lesson: '월말 결산 습관이 다음 달 실수를 줄여줘요.',
-    lessonEn: 'Month-end review reduces next-month mistakes.',
+    id: 'independence',
+    title: '독립 생활 시작',
+    titleEn: 'Start Independent Living',
+    body: '월세와 생활비가 본격적으로 발생합니다. 현금흐름을 지키세요.',
+    bodyEn: 'Rent and living costs kick in. Protect your cash flow.',
+    lesson: '독립 초기에는 고정비를 먼저 통제해야 생존 확률이 올라갑니다.',
+    lessonEn: 'In early independence, controlling fixed costs increases survival odds.',
     choices: [
       {
-        label: '가계부 리뷰 + 다음달 예산',
-        labelEn: 'Review ledger + plan next budget',
-        base: { cash: 35000, stress: -2, joy: 1, credit: 4 },
-        variance: { cash: 18000, stress: 2, joy: 1, credit: 1 },
+        label: '고정비 먼저 정리',
+        labelEn: 'Control fixed costs first',
+        base: { cash: -120000, stress: -1, joy: -1, credit: 3 },
+        variance: { cash: 35000, stress: 2, joy: 2, credit: 2 },
       },
       {
-        label: '정산 미루고 쇼핑',
-        labelEn: 'Delay review and go shopping',
-        base: { cash: -150000, stress: -1, joy: 4, credit: -5 },
-        variance: { cash: 35000, stress: 3, joy: 2, credit: 2 },
+        label: '카드로 버티기',
+        labelEn: 'Survive with card spending',
+        base: { cash: -60000, stress: 2, joy: 1, credit: -8 },
+        variance: { cash: 30000, stress: 3, joy: 2, credit: 2 },
+      },
+    ],
+  },
+  {
+    id: 'allowance',
+    title: '부모님께 용돈 요청',
+    titleEn: 'Ask Parents for Allowance',
+    body: '연타 이벤트! 버튼을 많이 누를수록 용돈이 늘어나지만, 과하면 스트레스가 쌓입니다.',
+    bodyEn: 'Tap event! More taps earn more allowance, but too much raises stress.',
+    lesson: '소득을 늘려도 감정비용(스트레스)을 함께 관리해야 합니다.',
+    lessonEn: 'Even with higher income, emotional costs (stress) must be managed.',
+    choices: [
+      {
+        label: '정중하게 요청하기',
+        labelEn: 'Ask politely',
+        base: { cash: 55000, stress: 0, joy: 1, credit: 2 },
+        variance: { cash: 25000, stress: 2, joy: 2, credit: 1 },
+      },
+      {
+        label: '연타로 용돈 조르기',
+        labelEn: 'Tap-spam allowance request',
+        base: { cash: 15000, stress: 1, joy: 3, credit: -2 },
+        variance: { cash: 15000, stress: 2, joy: 2, credit: 2 },
+        tapEvent: {
+          cashPerTap: 180,
+          maxTaps: 100,
+          stressPer10: 1,
+        },
+      },
+    ],
+  },
+  {
+    id: 'loan-credit',
+    title: '신용카드/대출 관리',
+    titleEn: 'Credit Card / Loan Management',
+    body: '이 시점부터 신용 점수가 낮으면 패널티가 커집니다.',
+    bodyEn: 'From here, low credit causes heavier penalties.',
+    lesson: '신용 점수는 이자, 수수료, 대출 여력에 직접 연결됩니다.',
+    lessonEn: 'Credit score directly impacts fees, interest, and loan capacity.',
+    choices: [
+      {
+        label: '상환 우선 전략',
+        labelEn: 'Repayment-first strategy',
+        base: { cash: -100000, stress: 1, joy: -1, credit: 8 },
+        variance: { cash: 30000, stress: 2, joy: 2, credit: 2 },
+      },
+      {
+        label: '리볼빙으로 버티기',
+        labelEn: 'Rely on revolving credit',
+        base: { cash: -35000, stress: 4, joy: 0, credit: -12 },
+        variance: { cash: 18000, stress: 3, joy: 2, credit: 3 },
+      },
+    ],
+  },
+  {
+    id: 'retirement-prep',
+    title: '퇴직 준비와 연금 설계',
+    titleEn: 'Retirement Prep & Pension Plan',
+    body: '퇴직 직전, 현금흐름과 연금 선택으로 노후 안정성이 갈립니다.',
+    bodyEn: 'Right before retirement, cashflow and pension choices define stability.',
+    lesson: '노후 준비는 늦을수록 비용이 급격히 커집니다.',
+    lessonEn: 'The later retirement prep starts, the higher the cost.',
+    choices: [
+      {
+        label: '지출 줄이고 연금 준비',
+        labelEn: 'Cut spending and prep pension',
+        base: { cash: 80000, stress: 1, joy: -1, credit: 5 },
+        variance: { cash: 26000, stress: 2, joy: 2, credit: 2 },
+      },
+      {
+        label: '퇴직 전 소비 확장',
+        labelEn: 'Expand spending before retirement',
+        base: { cash: -180000, stress: 2, joy: 4, credit: -8 },
+        variance: { cash: 50000, stress: 3, joy: 3, credit: 3 },
+      },
+    ],
+  },
+  {
+    id: 'retirement',
+    title: '퇴직과 연금 수령',
+    titleEn: 'Retirement and Pension Claim',
+    body: '마지막 선택입니다. 연금 수령 방식에 따라 안정성이 달라집니다.',
+    bodyEn: 'Final choice. Pension strategy changes retirement stability.',
+    lesson: '연금은 단순 수령이 아니라 현금흐름 설계입니다.',
+    lessonEn: 'Pension is not just claiming money, it is cashflow design.',
+    choices: [
+      {
+        label: '연금 즉시 수령 + 생활비 관리',
+        labelEn: 'Claim pension now + manage expenses',
+        base: { cash: 260000, stress: -3, joy: 3, credit: 4 },
+        variance: { cash: 45000, stress: 2, joy: 2, credit: 1 },
+      },
+      {
+        label: '연금 일부 미루고 투자 확대',
+        labelEn: 'Delay part of pension and invest more',
+        base: { cash: 120000, stress: 2, joy: 2, credit: -5 },
+        variance: { cash: 80000, stress: 4, joy: 3, credit: 3 },
       },
     ],
   },
 ];
 
+const PASSIVE_TURN_EFFECTS = {
+  3: {
+    title: '초년생 적응기',
+    titleEn: 'Early Career Adjustment',
+    body: '월급은 들어오지만 지출도 빠르게 늘어나는 시기입니다.',
+    bodyEn: 'Salary comes in, but expenses rise quickly too.',
+    base: { cash: -60000, stress: 2, joy: -1, credit: 1 },
+    variance: { cash: 25000, stress: 2, joy: 2, credit: 1 },
+  },
+  5: {
+    title: '가정·주거비 상승기',
+    titleEn: 'Family & Housing Cost Surge',
+    body: '생활비가 커집니다. 현금흐름을 놓치면 바로 흔들립니다.',
+    bodyEn: 'Living costs grow. Lose cashflow control and stability drops fast.',
+    base: { cash: -90000, stress: 3, joy: -1, credit: -1 },
+    variance: { cash: 30000, stress: 2, joy: 2, credit: 2 },
+  },
+};
+
 function baseGame() {
   return {
     phase: 'playing',
     turn: 0,
-    day: 1,
+    age: AGE_BY_TURN[0],
     cash: DEFAULT_START_CASH,
     stress: 30,
     joy: 18,
@@ -276,16 +341,26 @@ function baseGame() {
     lessons: [],
     nextTurnAt: null,
     employment: null,
+    educationPath: 'school',
+    employmentUnlockTurn: EMPLOYMENT_TURN,
     waitingWork: {
       clicks: 0,
       earned: 0,
     },
+    allowanceOpen: false,
+    allowanceTapCount: 0,
+    allowanceOpenedTurns: [],
+    tapCombo: 0,
+    tapMultiplier: 1,
+    lastTapAt: 0,
+    totalTapIncome: 0,
     startBuffApplied: false,
     result: null,
     failReason: '',
     xpAwarded: 0,
     xpAwardedDone: false,
     updatedAt: Date.now(),
+    lastInteractionAt: Date.now(),
   };
 }
 
@@ -323,6 +398,8 @@ function loadGameState() {
     ...baseGame(),
     ...parsed,
     employment: savedEmployment,
+    educationPath: parsed.educationPath || 'school',
+    employmentUnlockTurn: Number.isInteger(parsed.employmentUnlockTurn) ? parsed.employmentUnlockTurn : EMPLOYMENT_TURN,
     waitingWork: {
       ...baseGame().waitingWork,
       ...(parsed.waitingWork || {}),
@@ -386,6 +463,8 @@ function signed(value) {
 }
 
 export default function SurvivalSim() {
+  const navigate = useNavigate();
+  const location = useLocation();
   const { isEnglish } = useLanguage();
   const { awardXp, getProgressSummary } = useProgress();
   const [best, setBest] = useState(loadBestRecord);
@@ -399,9 +478,19 @@ export default function SurvivalSim() {
   const turnNotifyTimerRef = useRef(null);
   const notifiedTurnRef = useRef(-1);
 
-  const currentEvent = EVENTS[Math.min(game.turn, EVENTS.length - 1)] || EVENTS[0];
+  const crossroadEventByTurn = useMemo(() => ({
+    0: EVENTS[0],
+    1: EVENTS[1],
+    4: EVENTS[5],
+    6: EVENTS[6],
+    7: EVENTS[7],
+  }), []);
+  const currentEvent = crossroadEventByTurn[game.turn] || EVENTS[0];
+  const isCrossroadTurn = CROSSROAD_TURNS.has(game.turn);
+  const passiveEffect = PASSIVE_TURN_EFFECTS[game.turn] || null;
   const progress = Math.round((game.turn / TOTAL_TURNS) * 100);
   const progressSummary = getProgressSummary?.() || { completedCount: 0 };
+  const availableEmploymentPlans = game.educationPath === 'early-work' ? EARLY_WORK_EMPLOYMENT_PLANS : EMPLOYMENT_PLANS;
 
   const quizBuff = useMemo(() => {
     const completed = Number(progressSummary.completedCount || 0);
@@ -446,7 +535,7 @@ export default function SurvivalSim() {
       if (Notification.permission === 'granted' && notifiedTurnRef.current !== game.turn) {
         notifiedTurnRef.current = game.turn;
         new Notification(isEnglish ? 'Next turn is ready' : '다음 턴 준비 완료', {
-          body: isEnglish ? 'Come back and continue your one-month run.' : '돌아와서 한달살기를 이어가세요.',
+          body: isEnglish ? 'Come back and continue your life finance run.' : '돌아와서 인생 금융 런을 이어가세요.',
         });
       } else if (Notification.permission !== 'granted') {
         document.title = isEnglish ? 'Turn Ready - Finapple' : '턴 준비 완료 - Finapple';
@@ -510,7 +599,7 @@ export default function SurvivalSim() {
     if (document.visibilityState === 'hidden' && !notifiedRef.current && window.Notification?.permission === 'granted') {
       notifiedRef.current = true;
       new Notification(isEnglish ? 'Next turn is ready' : '다음 턴이 열렸어요', {
-        body: isEnglish ? 'Come back and continue your one-month run.' : '돌아와서 한달살기를 이어가세요.',
+        body: isEnglish ? 'Come back and continue your life finance run.' : '돌아와서 인생 금융 런을 이어가세요.',
       });
     }
   }, [game.nextTurnAt, game.phase, isEnglish, nowTs]);
@@ -634,6 +723,50 @@ export default function SurvivalSim() {
     ? Math.max(0, Math.ceil((game.nextTurnAt - nowTs) / 1000))
     : 0;
 
+  useEffect(() => {
+    const markInteraction = () => {
+      setGame((prev) => {
+        const now = Date.now();
+        if (now - (prev.lastInteractionAt || 0) < 300) {
+          return prev;
+        }
+        return { ...prev, lastInteractionAt: now };
+      });
+    };
+
+    window.addEventListener('touchstart', markInteraction, { passive: true });
+    window.addEventListener('pointerdown', markInteraction);
+    window.addEventListener('keydown', markInteraction);
+
+    return () => {
+      window.removeEventListener('touchstart', markInteraction);
+      window.removeEventListener('pointerdown', markInteraction);
+      window.removeEventListener('keydown', markInteraction);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!['playing', 'waiting', 'bailout'].includes(game.phase)) {
+      return;
+    }
+
+    const lastInteractionAt = game.lastInteractionAt || Date.now();
+    if (nowTs - lastInteractionAt < INACTIVITY_RESET_MS) {
+      return;
+    }
+
+    setGame((prev) => {
+      if (!['playing', 'waiting', 'bailout'].includes(prev.phase)) {
+        return prev;
+      }
+      const inactiveMs = Date.now() - (prev.lastInteractionAt || Date.now());
+      if (inactiveMs < INACTIVITY_RESET_MS) {
+        return prev;
+      }
+      return baseGame();
+    });
+  }, [game.lastInteractionAt, game.phase, nowTs]);
+
   const finalize = (next, success) => {
     const xp = success ? successXp(next) : failXp(next);
     return {
@@ -650,6 +783,9 @@ export default function SurvivalSim() {
   const takeEmployment = (plan) => {
     setGame((prev) => {
       if (prev.phase !== 'playing' || prev.employment) return prev;
+      if (prev.turn !== prev.employmentUnlockTurn) return prev;
+      const allowedPlans = prev.educationPath === 'early-work' ? EARLY_WORK_EMPLOYMENT_PLANS : EMPLOYMENT_PLANS;
+      if (!allowedPlans.some((entry) => entry.key === plan.key)) return prev;
 
       return {
         ...prev,
@@ -719,6 +855,7 @@ export default function SurvivalSim() {
   const applyChoice = (choice) => {
     setGame((prev) => {
       if (prev.phase !== 'playing') return prev;
+      if (prev.turn === prev.employmentUnlockTurn && !prev.employment) return prev;
 
       const rolledRaw = rollChoice(choice);
       const rolled = {
@@ -728,7 +865,7 @@ export default function SurvivalSim() {
         credit: rolledRaw.credit,
       };
       const nextTurn = prev.turn + 1;
-      const nextDay = Math.min(30, Math.round((nextTurn / TOTAL_TURNS) * 30));
+      const nextAge = AGE_BY_TURN[nextTurn] || prev.age + 5;
 
       let nextCash = prev.cash + rolled.cash;
       let nextStress = clamp(prev.stress + rolled.stress, 0, 100);
@@ -771,7 +908,7 @@ export default function SurvivalSim() {
       const next = {
         ...prev,
         turn: nextTurn,
-        day: nextDay,
+        age: nextAge,
         cash: nextCash,
         stress: nextStress,
         joy: nextJoy,
@@ -791,6 +928,16 @@ export default function SurvivalSim() {
         ].slice(0, 6),
       };
 
+      if (currentEvent.id === 'school-choice') {
+        if (choice.id === 'early-work-path') {
+          next.educationPath = 'early-work';
+          next.employmentUnlockTurn = Math.min(prev.turn + 1, TOTAL_TURNS - 1);
+        } else {
+          next.educationPath = 'school';
+          next.employmentUnlockTurn = EMPLOYMENT_TURN;
+        }
+      }
+
       if (isFailed(next)) {
         if (!prev.usedBailout) {
           return { ...next, phase: 'bailout' };
@@ -806,6 +953,87 @@ export default function SurvivalSim() {
         ...next,
         phase: 'waiting',
         waitingWork: { clicks: 0, earned: 0 },
+        allowanceOpen: ALLOWANCE_OPEN_AT_TURNS.has(nextTurn) && !prev.allowanceOpenedTurns.includes(nextTurn),
+        allowanceTapCount: 0,
+        allowanceOpenedTurns: ALLOWANCE_OPEN_AT_TURNS.has(nextTurn) && !prev.allowanceOpenedTurns.includes(nextTurn)
+          ? [...prev.allowanceOpenedTurns, nextTurn]
+          : prev.allowanceOpenedTurns,
+        nextTurnAt: Date.now() + TURN_WAIT_MS,
+      };
+    });
+  };
+
+  const advancePassiveTurn = () => {
+    setGame((prev) => {
+      if (prev.phase !== 'playing' || isCrossroadTurn || prev.turn === prev.employmentUnlockTurn) return prev;
+      const effect = PASSIVE_TURN_EFFECTS[prev.turn];
+      if (!effect) return prev;
+
+      const rolledRaw = {
+        cash: effect.base.cash + randInt(-effect.variance.cash, effect.variance.cash),
+        stress: effect.base.stress + randInt(-effect.variance.stress, effect.variance.stress),
+        joy: effect.base.joy + randInt(-effect.variance.joy, effect.variance.joy),
+        credit: effect.base.credit + randInt(-effect.variance.credit, effect.variance.credit),
+      };
+
+      const nextTurn = prev.turn + 1;
+      const nextAge = AGE_BY_TURN[nextTurn] || prev.age + 5;
+      const nextLoan = { ...prev.loan };
+      let nextCash = prev.cash + rolledRaw.cash;
+      let nextStress = clamp(prev.stress + rolledRaw.stress + 1, 0, 100);
+      let nextJoy = clamp(prev.joy + rolledRaw.joy, 0, 100);
+      let nextCredit = clamp(prev.credit + rolledRaw.credit, 0, 100);
+      let loanNote = '';
+
+      if (nextLoan.activePayments > 0) {
+        nextCash -= LOAN_INSTALLMENT;
+        nextStress = clamp(nextStress + 1, 0, 100);
+        nextLoan.activePayments -= 1;
+        nextLoan.totalRepaid += LOAN_INSTALLMENT;
+        loanNote = isEnglish ? ` (loan payment -${LOAN_INSTALLMENT.toLocaleString()} KRW)` : ` (대출상환 -${LOAN_INSTALLMENT.toLocaleString()}원)`;
+      }
+
+      if (nextCredit < 40) {
+        nextCash -= 18000;
+        nextStress = clamp(nextStress + 2, 0, 100);
+        loanNote += isEnglish ? ' + low-credit fee' : ' + 저신용 패널티';
+      }
+
+      const next = {
+        ...prev,
+        turn: nextTurn,
+        age: nextAge,
+        cash: nextCash,
+        stress: nextStress,
+        joy: nextJoy,
+        credit: nextCredit,
+        loan: nextLoan,
+        logs: [
+          {
+            turn: nextTurn,
+            title: isEnglish ? effect.titleEn : effect.title,
+            delta: `${signed(rolledRaw.cash)}원${loanNote}`,
+          },
+          ...prev.logs,
+        ].slice(0, 6),
+      };
+
+      if (isFailed(next)) {
+        if (!prev.usedBailout) return { ...next, phase: 'bailout' };
+        return finalize(next, false);
+      }
+
+      if (nextTurn >= TOTAL_TURNS) return finalize(next, true);
+
+      return {
+        ...next,
+        phase: 'waiting',
+        waitingWork: { clicks: 0, earned: 0 },
+        allowanceOpen: ALLOWANCE_OPEN_AT_TURNS.has(nextTurn) && !prev.allowanceOpenedTurns.includes(nextTurn),
+        allowanceTapCount: 0,
+        allowanceOpenedTurns: ALLOWANCE_OPEN_AT_TURNS.has(nextTurn) && !prev.allowanceOpenedTurns.includes(nextTurn)
+          ? [...prev.allowanceOpenedTurns, nextTurn]
+          : prev.allowanceOpenedTurns,
         nextTurnAt: Date.now() + TURN_WAIT_MS,
       };
     });
@@ -814,14 +1042,60 @@ export default function SurvivalSim() {
   const clickWorkIcon = () => {
     setGame((prev) => {
       if (prev.phase !== 'waiting' || !prev.employment) return prev;
-      const earned = prev.employment.moneyPerClick;
+      const now = Date.now();
+      const continuedCombo = now - (prev.lastTapAt || 0) <= 700;
+      const nextCombo = continuedCombo ? clamp(prev.tapCombo + 1, 1, 25) : 1;
+      const nextMultiplier = Math.min(2, Number((1 + (nextCombo - 1) * 0.04).toFixed(2)));
+      const earned = Math.round(prev.employment.moneyPerClick * nextMultiplier);
+      const stressGain = nextCombo % 12 === 0 ? 1 : 0;
       return {
         ...prev,
         cash: prev.cash + earned,
+        stress: clamp(prev.stress + stressGain, 0, 100),
         waitingWork: {
           clicks: prev.waitingWork.clicks + 1,
           earned: prev.waitingWork.earned + earned,
         },
+        tapCombo: nextCombo,
+        tapMultiplier: nextMultiplier,
+        lastTapAt: now,
+        totalTapIncome: prev.totalTapIncome + earned,
+      };
+    });
+  };
+
+  const tapAllowanceDuringWait = () => {
+    setGame((prev) => {
+      if (prev.phase !== 'waiting' || !prev.allowanceOpen) return prev;
+      return {
+        ...prev,
+        allowanceTapCount: clamp((prev.allowanceTapCount || 0) + 1, 0, 100),
+      };
+    });
+  };
+
+  const claimAllowance = () => {
+    setGame((prev) => {
+      if (prev.phase !== 'waiting' || !prev.allowanceOpen) return prev;
+      const taps = Math.min(prev.allowanceTapCount || 0, 100);
+      const cashGain = 20000 + taps * 200;
+      const stressGain = Math.floor(taps / 15);
+      return {
+        ...prev,
+        allowanceOpen: false,
+        allowanceTapCount: 0,
+        cash: prev.cash + cashGain,
+        stress: clamp(prev.stress + stressGain, 0, 100),
+        logs: [
+          {
+            turn: prev.turn,
+            title: isEnglish ? 'Allowance chance claimed' : '용돈 찬스 획득',
+            delta: isEnglish
+              ? `+${cashGain.toLocaleString()} KRW (${taps} taps)`
+              : `+${cashGain.toLocaleString()}원 (${taps}연타)`,
+          },
+          ...prev.logs,
+        ].slice(0, 6),
       };
     });
   };
@@ -926,29 +1200,42 @@ export default function SurvivalSim() {
   const loanDisabled = game.phase !== 'playing' || game.loan.activePayments >= LOAN_MAX_ACTIVE_PAYMENTS;
   const isEmployed = Boolean(game.employment);
   const canContinueWithCoins = game.coinBalance >= CONTINUE_COST_COINS && game.coinPurchasedPacks >= 1;
+  const currentFailReason = failureReason(game, isEnglish);
+  const returnTo = location.state?.returnTo && !String(location.state.returnTo).startsWith('/survival')
+    ? location.state.returnTo
+    : '/quiz';
 
   return (
     <div className="relative min-h-[78vh] overflow-hidden rounded-3xl border border-border/70 bg-gradient-to-b from-[#fdf7ee] via-[#f6f4ff] to-[#eef7ff] px-4 pb-8 pt-6 sm:px-6">
       <FloatingBackground />
 
-      <section className="relative z-10 mx-auto max-w-4xl">
-          <header className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <p className="text-[11px] font-black uppercase tracking-[0.2em] text-primary/80">{isEnglish ? 'One-Month Survival' : '한달 생존'}</p>
+	      <section className="relative z-10 mx-auto max-w-4xl">
+	          <header className="flex flex-wrap items-center justify-between gap-3">
+	            <div>
+              <p className="text-[11px] font-black uppercase tracking-[0.2em] text-primary/80">{isEnglish ? 'Life Finance Run' : '인생 금융 런'}</p>
               <h2 className="mt-1 text-[24px] font-extrabold text-foreground">
                 {isEnglish
-                  ? `Day ${Math.max(1, game.day)}/30 · Turn ${Math.min(game.turn + 1, TOTAL_TURNS)}/${TOTAL_TURNS}`
-                  : `${Math.max(1, game.day)}일차 · ${Math.min(game.turn + 1, TOTAL_TURNS)}/${TOTAL_TURNS}턴`}
+                  ? `Age ${game.age} · Turn ${Math.min(game.turn + 1, TOTAL_TURNS)}/${TOTAL_TURNS}`
+                  : `${game.age}세 · ${Math.min(game.turn + 1, TOTAL_TURNS)}/${TOTAL_TURNS}턴`}
               </h2>
-            </div>
-            <button
-              type="button"
-              onClick={requestNotificationPermission}
-              className="rounded-full border border-border bg-card/90 px-3 py-1.5 text-[12px] font-bold text-foreground"
-            >
-              {isEnglish ? 'Enable turn notifications' : '턴 알림 켜기'}
-            </button>
-          </header>
+	            </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={requestNotificationPermission}
+                  className="rounded-full border border-border bg-card/90 px-3 py-1.5 text-[12px] font-bold text-foreground"
+                >
+                  {isEnglish ? 'Enable turn notifications' : '턴 알림 켜기'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => navigate(returnTo)}
+                  className="rounded-full border border-rose-300 bg-rose-50 px-3 py-1.5 text-[12px] font-bold text-rose-700"
+                >
+                  {isEnglish ? 'Exit Game' : '게임 나가기'}
+                </button>
+              </div>
+	          </header>
 
           <div className="mt-3 h-2.5 overflow-hidden rounded-full bg-white/60">
             <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${progress}%` }} />
@@ -962,26 +1249,11 @@ export default function SurvivalSim() {
             <Hud icon={Coins} label={isEnglish ? 'Coins' : '코인'} value={`${game.coinBalance}`} tone="text-violet-700" />
           </div>
 
-          <div className="mt-3 rounded-2xl border border-primary/20 bg-primary/5 p-3">
-            <p className="text-[12px] font-semibold text-foreground">
-              {isEnglish ? 'Quiz benefits linked' : '퀴즈 연동 베네핏'}
-            </p>
-            <p className="mt-1 text-[12px] text-muted-foreground">
-              {game.quizBuff?.level > 0
-                ? (isEnglish
-                  ? `${game.quizBuff.note}: start +${game.quizBuff.bonusCash.toLocaleString()} KRW, stress -${game.quizBuff.stressRelief}, coins +${game.quizBuff.bonusCoins}`
-                  : `${game.quizBuff.note}: 시작 자금 +${game.quizBuff.bonusCash.toLocaleString()}원, 스트레스 -${game.quizBuff.stressRelief}, 코인 +${game.quizBuff.bonusCoins}`)
-                : (isEnglish
-                  ? 'Clear quizzes in the quiz tab to unlock stronger starting buffs for this mode.'
-                  : '퀴즈 탭에서 퀴즈를 풀수록 이 모드 시작 버프가 강해져요.')}
-            </p>
-          </div>
-
-          <div className="mt-3 rounded-2xl border border-border bg-card/80 p-3">
+	          <div className="mt-3 rounded-2xl border border-border bg-card/80 p-3">
             <p className="text-[12px] font-semibold text-foreground">
               {isEnglish
-                ? `Credit role: below 40 triggers low-credit penalty each turn. Loans create mandatory repayments over the next 2 turns.`
-                : `신용 역할: 40 미만이면 매 턴 저신용 패널티 발생. 대출하면 이후 2턴 동안 의무 상환이 걸려요.`}
+                ? `Simple rules: 1) Tap to earn cash 2) Keep credit 40+ to avoid fees 3) Loans give cash now but auto-repay over the next 2 turns.`
+                : `핵심 규칙 3개: 1) 연타로 소득 2) 신용 40 이상 유지 3) 대출은 지금 돈을 주지만 다음 2턴 자동상환.`}
             </p>
             <button
               type="button"
@@ -995,7 +1267,7 @@ export default function SurvivalSim() {
             </button>
           </div>
 
-          <div className="mt-3 rounded-2xl border border-border bg-card/80 p-3">
+	          <div className="mt-3 rounded-2xl border border-border bg-card/80 p-3">
             <p className="text-[12px] font-semibold text-foreground">
               {isEnglish
                 ? `Coin top-up: spend ${COIN_CASH_TOPUP_COST} coins to add ${COIN_CASH_TOPUP_AMOUNT.toLocaleString()} KRW cash.`
@@ -1018,18 +1290,18 @@ export default function SurvivalSim() {
           <div className="mt-3 rounded-2xl border border-border bg-card/80 p-3">
             <p className="text-[12px] font-semibold text-foreground">
               {isEnglish
-                ? 'Employment option: once hired, tap the work icon during turn cooldown to earn money.'
-                : '취업 옵션: 취업하면 턴 대기 시간에 아이콘 연타로 돈을 벌 수 있어요.'}
+                ? `Employment opens on turn ${game.employmentUnlockTurn + 1}. After hiring, tap income stays active.`
+                : `취업은 ${game.employmentUnlockTurn + 1}턴에서 열립니다. 취업 후에는 연타 소득이 계속 적용됩니다.`}
             </p>
-            {isEmployed ? (
-              <p className="mt-2 text-[12px] text-muted-foreground">
+		            {isEmployed ? (
+		              <p className="mt-2 text-[12px] text-muted-foreground">
                 {isEnglish
                   ? `${game.employment.emoji} ${game.employment.nameEn} · +${game.employment.moneyPerClick} KRW per tap · stress +${game.employment.stressAfterWork} after work`
                   : `${game.employment.emoji} ${game.employment.name} · 클릭당 +${game.employment.moneyPerClick}원 · 근무 후 스트레스 +${game.employment.stressAfterWork}`}
               </p>
-            ) : (
+		            ) : game.turn === game.employmentUnlockTurn ? (
               <div className="mt-2 grid gap-2 sm:grid-cols-3">
-                {EMPLOYMENT_PLANS.map((plan) => (
+                {availableEmploymentPlans.map((plan) => (
                   <button
                     key={plan.key}
                     type="button"
@@ -1050,31 +1322,87 @@ export default function SurvivalSim() {
                   </button>
                 ))}
               </div>
-            )}
-          </div>
+		            ) : (
+              <p className="mt-2 text-[12px] text-muted-foreground">
+                {isEnglish
+                  ? `Employment selection unlocks on turn ${game.employmentUnlockTurn + 1}.`
+                  : `취업 선택은 ${game.employmentUnlockTurn + 1}턴에서 열립니다.`}
+              </p>
+		            )}
+	          </div>
 
-          {game.phase === 'playing' ? (
+          <TapIncomePanel
+            isEnglish={isEnglish}
+            enabled={isEmployed && game.phase === 'waiting'}
+            moneyPerClick={game.employment?.moneyPerClick || 0}
+            combo={game.tapCombo}
+            multiplier={game.tapMultiplier}
+            earned={game.totalTapIncome}
+            onTap={clickWorkIcon}
+          />
+
+          {game.phase === 'waiting' && game.allowanceOpen ? (
+            <div className="mt-3 rounded-2xl border border-amber-300 bg-amber-50 p-3">
+              <p className="text-[12px] font-bold text-amber-900">
+                {isEnglish ? 'Allowance path opened: tap and claim.' : '용돈 길이 열렸어요: 연타 후 수령하세요.'}
+              </p>
+              <p className="mt-1 text-[12px] text-amber-800/80">
+                {isEnglish
+                  ? `Taps ${game.allowanceTapCount} · reward = 20,000 + taps x 200 KRW (max 100 taps)`
+                  : `연타 ${game.allowanceTapCount}회 · 보상 = 2만원 + 연타x200원 (최대 100회)`}
+              </p>
+              <button
+                type="button"
+                onClick={tapAllowanceDuringWait}
+                disabled={game.allowanceTapCount >= 100}
+                className={`mt-2 h-14 w-full rounded-2xl border-2 text-[16px] font-extrabold active:scale-[0.98] ${
+                  game.allowanceTapCount >= 100
+                    ? 'border-border bg-muted text-muted-foreground'
+                    : 'border-amber-500 bg-amber-500 text-white'
+                }`}
+              >
+                {game.allowanceTapCount >= 100
+                  ? (isEnglish ? 'MAX TAP REACHED (100)' : '연타 최대치 도달 (100)')
+                  : (isEnglish ? 'TAP FOR ALLOWANCE' : '용돈 조르기 연타')}
+              </button>
+              <button
+                type="button"
+                onClick={claimAllowance}
+                className="mt-2 h-11 w-full rounded-xl border border-amber-400 bg-white text-[14px] font-bold text-amber-800"
+              >
+                {isEnglish ? 'Claim allowance now' : '지금 용돈 수령하기'}
+              </button>
+            </div>
+          ) : null}
+
+          {game.phase === 'playing' && isCrossroadTurn ? (
             <PlayScene
               event={currentEvent}
               isEnglish={isEnglish}
               onChoose={applyChoice}
               workerEmoji={game.employment?.emoji || '🧑‍💼'}
+              choicesLocked={game.turn === game.employmentUnlockTurn && !game.employment}
             />
           ) : null}
 
-          {game.phase === 'waiting' ? (
-            <WorkScene
+          {game.phase === 'playing' && !isCrossroadTurn && game.turn !== game.employmentUnlockTurn && passiveEffect ? (
+            <PassiveScene
               isEnglish={isEnglish}
-              countdown={countdown}
-              totalSeconds={Math.floor(TURN_WAIT_MS / 1000)}
-              workerEmoji={game.employment?.emoji || '🧑‍💼'}
-              canWork={isEmployed}
-              moneyPerClick={game.employment?.moneyPerClick || 0}
-              clickCount={game.waitingWork.clicks}
-              earned={game.waitingWork.earned}
-              onWorkClick={clickWorkIcon}
+              effect={passiveEffect}
+              onAdvance={advancePassiveTurn}
             />
           ) : null}
+
+	          {game.phase === 'waiting' ? (
+	            <WorkScene
+	              isEnglish={isEnglish}
+	              countdown={countdown}
+	              totalSeconds={Math.floor(TURN_WAIT_MS / 1000)}
+	              workerEmoji={game.employment?.emoji || '🧑‍💼'}
+	              clickCount={game.waitingWork.clicks}
+	              earned={game.waitingWork.earned}
+	            />
+	          ) : null}
 
           {game.phase === 'bailout' ? (
             <div className="mt-5 rounded-3xl border border-rose-200 bg-rose-50/95 p-5">
@@ -1082,6 +1410,9 @@ export default function SurvivalSim() {
               <h3 className="mt-1 text-[22px] font-extrabold text-rose-700">
                 {isEnglish ? 'You failed. One continue is available with coins.' : '패배 발생. 코인으로 1회 이어가기 가능.'}
               </h3>
+              <p className="mt-1 text-[13px] font-semibold text-rose-700">
+                {isEnglish ? `Defeat reason: ${currentFailReason}` : `패배 이유: ${currentFailReason}`}
+              </p>
               <p className="mt-1 text-[13px] text-rose-700/80">
                 {isEnglish
                   ? `Coin pack product: ${COIN_PACK_AMOUNT} coins / ${SURVIVAL_COIN_PACK_PRICE.toLocaleString()} KRW`
@@ -1130,8 +1461,8 @@ export default function SurvivalSim() {
               <p className="text-[11px] font-black uppercase tracking-[0.16em] text-primary">{isEnglish ? 'Game Result' : '게임 결과'}</p>
               <h3 className="mt-1 text-[25px] font-extrabold text-foreground">
                 {game.result === 'success'
-                  ? (isEnglish ? 'One-Month Survival Success!' : '한달 생존 성공!')
-                  : (isEnglish ? 'One-Month Survival Failed' : '한달 생존 실패')}
+                  ? (isEnglish ? 'Life Journey Success!' : '인생 경제 여정 성공!')
+                  : (isEnglish ? 'Life Journey Failed' : '인생 경제 여정 실패')}
               </h3>
               <p className="mt-1 text-[13px] text-muted-foreground">
                 {game.result === 'success'
@@ -1176,7 +1507,13 @@ export default function SurvivalSim() {
   );
 }
 
-function PlayScene({ event, isEnglish, onChoose, workerEmoji }) {
+function PlayScene({
+  event,
+  isEnglish,
+  onChoose,
+  workerEmoji,
+  choicesLocked,
+}) {
   return (
     <div className="relative mt-5 min-h-[340px] rounded-3xl border border-white/60 bg-white/35 p-4 backdrop-blur-sm">
       <div className="mt-2 flex justify-center">
@@ -1187,13 +1524,24 @@ function PlayScene({ event, isEnglish, onChoose, workerEmoji }) {
         <p className="mx-auto mt-2 max-w-2xl text-[13px] leading-relaxed text-muted-foreground">{isEnglish ? event.bodyEn : event.body}</p>
       </div>
 
+      {choicesLocked ? (
+        <p className="mt-4 text-center text-[12px] font-bold text-amber-700">
+          {isEnglish ? 'Choose employment first in this turn to proceed.' : '이번 턴은 먼저 취업을 선택해야 진행됩니다.'}
+        </p>
+      ) : null}
+
       <div className="mt-5 grid gap-2 sm:grid-cols-2">
         {event.choices.map((choice) => (
           <button
             key={choice.label}
             type="button"
             onClick={() => onChoose(choice)}
-            className="rounded-2xl border border-border/70 bg-card/90 px-4 py-3 text-left transition-all hover:-translate-y-0.5 hover:border-primary/40"
+            disabled={choicesLocked}
+            className={`rounded-2xl border border-border/70 bg-card/90 px-4 py-3 text-left transition-all ${
+              choicesLocked
+                ? 'cursor-not-allowed opacity-55'
+                : 'hover:-translate-y-0.5 hover:border-primary/40'
+            }`}
           >
             <p className="text-[14px] font-extrabold text-foreground">{isEnglish ? choice.labelEn : choice.label}</p>
             <p className="mt-1 text-[12px] text-muted-foreground">{hint(choice, isEnglish)}</p>
@@ -1204,16 +1552,33 @@ function PlayScene({ event, isEnglish, onChoose, workerEmoji }) {
   );
 }
 
+function PassiveScene({ isEnglish, effect, onAdvance }) {
+  return (
+    <div className="relative mt-5 min-h-[280px] rounded-3xl border border-white/60 bg-white/35 p-4 backdrop-blur-sm">
+      <div className="mt-2 text-center">
+        <p className="text-[20px] font-extrabold text-foreground">{isEnglish ? effect.titleEn : effect.title}</p>
+        <p className="mx-auto mt-2 max-w-2xl text-[13px] leading-relaxed text-muted-foreground">
+          {isEnglish ? effect.bodyEn : effect.body}
+        </p>
+      </div>
+      <button
+        type="button"
+        onClick={onAdvance}
+        className="mt-6 h-14 w-full rounded-2xl border-2 border-primary bg-primary text-[16px] font-extrabold text-primary-foreground active:scale-[0.98]"
+      >
+        {isEnglish ? 'Continue Life' : '인생 계속 진행하기'}
+      </button>
+    </div>
+  );
+}
+
 function WorkScene({
   isEnglish,
   countdown,
   totalSeconds,
   workerEmoji,
-  canWork,
-  moneyPerClick,
   clickCount,
   earned,
-  onWorkClick,
 }) {
   const waitProgress = Math.round(((totalSeconds - countdown) / totalSeconds) * 100);
 
@@ -1267,29 +1632,50 @@ function WorkScene({
 
       <div className="mx-auto mt-3 max-w-md rounded-2xl border border-border/60 bg-white/80 p-3">
         <p className="text-center text-[12px] font-semibold text-foreground">
-          {canWork
-            ? (isEnglish ? `Tap the icon: +${moneyPerClick} KRW per tap` : `아이콘 연타: 클릭당 +${moneyPerClick}원`)
-            : (isEnglish ? 'Get employed first to earn by tapping during cooldown.' : '먼저 취업해야 대기 중 연타 수익을 벌 수 있어요.')}
+          {isEnglish ? 'Income report for this cooldown' : '이번 대기시간 연타 리포트'}
         </p>
-        <div className="mt-2 flex items-center justify-center gap-3">
-          <button
-            type="button"
-            onClick={onWorkClick}
-            disabled={!canWork}
-            className={`h-14 w-14 rounded-full border text-[26px] ${
-              canWork
-                ? 'border-emerald-400 bg-emerald-50 active:scale-95'
-                : 'border-border bg-muted text-muted-foreground'
-            }`}
-          >
-            💸
-          </button>
-          <div className="text-[12px] text-muted-foreground">
-            <p>{isEnglish ? `Taps: ${clickCount}` : `연타 수: ${clickCount}`}</p>
-            <p>{isEnglish ? `Earned: +${earned.toLocaleString()} KRW` : `획득: +${earned.toLocaleString()}원`}</p>
-          </div>
+        <div className="mt-2 text-center text-[12px] text-muted-foreground">
+          <p>{isEnglish ? `Taps: ${clickCount}` : `연타 수: ${clickCount}`}</p>
+          <p>{isEnglish ? `Earned: +${earned.toLocaleString()} KRW` : `획득: +${earned.toLocaleString()}원`}</p>
         </div>
       </div>
+    </div>
+  );
+}
+
+function TapIncomePanel({
+  isEnglish,
+  enabled,
+  moneyPerClick,
+  combo,
+  multiplier,
+  earned,
+  onTap,
+}) {
+  return (
+    <div className="mt-3 rounded-2xl border border-emerald-200 bg-emerald-50/80 p-3">
+      <p className="text-[12px] font-bold text-emerald-900">
+        {isEnglish
+          ? `Tap Income: +${moneyPerClick} KRW base per tap`
+          : `연타 소득: 탭 1회 기본 +${moneyPerClick.toLocaleString()}원`}
+      </p>
+      <p className="mt-1 text-[12px] text-emerald-800/80">
+        {isEnglish
+          ? `Combo x${multiplier.toFixed(2)} (${combo} hits) · Total +${earned.toLocaleString()} KRW`
+          : `콤보 x${multiplier.toFixed(2)} (${combo}연타) · 누적 +${earned.toLocaleString()}원`}
+      </p>
+      <button
+        type="button"
+        onClick={onTap}
+        disabled={!enabled}
+        className={`mt-2 h-16 w-full rounded-2xl text-[18px] font-extrabold transition-transform active:scale-[0.98] ${
+          enabled
+            ? 'border-2 border-emerald-500 bg-emerald-500 text-white'
+            : 'border-2 border-border bg-muted text-muted-foreground'
+        }`}
+      >
+        {isEnglish ? 'TAP TO EARN CASH' : '연타해서 소득 올리기'}
+      </button>
     </div>
   );
 }

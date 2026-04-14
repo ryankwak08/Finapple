@@ -294,12 +294,12 @@ export default function Profile() {
 
       <div className="space-y-5 px-4 sm:px-5">
         {/* Profile Card */}
-        <div className="animate-slide-up rounded-2xl border border-border bg-card p-5 sm:p-6">
-          <div className="flex items-start gap-4">
+        <div className="animate-slide-up rounded-2xl border border-border bg-card p-4 sm:p-6">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
             {/* Avatar */}
-            <div className="relative flex-shrink-0">
+            <div className="relative mx-auto sm:mx-0">
               <div
-                className="flex h-18 w-18 cursor-pointer items-center justify-center overflow-hidden rounded-2xl bg-primary/10 sm:h-20 sm:w-20"
+                className="flex h-24 w-24 cursor-pointer items-center justify-center overflow-hidden rounded-2xl bg-primary/10 sm:h-20 sm:w-20"
                 onClick={() => fileInputRef.current?.click()}
               >
                 {uploadingPhoto ? (
@@ -318,7 +318,7 @@ export default function Profile() {
               </div>
               <button
                 onClick={() => fileInputRef.current?.click()}
-                className="absolute -bottom-1 -right-1 w-7 h-7 bg-primary rounded-full flex items-center justify-center shadow"
+                className="absolute -bottom-1 -right-1 flex h-8 w-8 items-center justify-center rounded-full bg-primary shadow sm:h-7 sm:w-7"
               >
                 <Camera className="w-3.5 h-3.5 text-white" />
               </button>
@@ -332,7 +332,7 @@ export default function Profile() {
             </div>
 
             {/* Name & Email */}
-            <div className="flex-1 min-w-0">
+            <div className="min-w-0 flex-1">
               {editingNickname ? (
                 <div className="flex flex-1 flex-col gap-2">
                   <input
@@ -357,11 +357,11 @@ export default function Profile() {
                   <p className="text-[11px] text-muted-foreground">한글, 영문, 숫자, 밑줄(_) 가능 · {NICKNAME_MAX_LENGTH}자 이하</p>
                 </div>
               ) : (
-                <div className="flex-1 space-y-2">
-                  <div className="flex items-start gap-2">
+                <div className="flex-1 space-y-2 text-center sm:text-left">
+                  <div className="flex items-start gap-2 sm:justify-start">
                     <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <p className="font-bold text-foreground text-[14px]">{displayName}</p>
+                      <div className="flex flex-wrap items-center justify-center gap-2 sm:justify-start">
+                        <p className="truncate font-bold text-[16px] text-foreground">{displayName}</p>
                         {isPremium && <PremiumBadge compact />}
                       </div>
                       <p className="text-xs text-muted-foreground mt-1">닉네임</p>
@@ -375,7 +375,7 @@ export default function Profile() {
                   </div>
               </div>
               )}
-              <p className="text-muted-foreground text-[12px] mt-0.5 truncate">{user?.email || ''}</p>
+              <p className="mt-0.5 break-all text-[12px] text-muted-foreground">{user?.email || ''}</p>
             </div>
           </div>
           {photoError ? <p className="mt-3 text-[12px] text-destructive">{photoError}</p> : null}
