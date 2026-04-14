@@ -133,7 +133,7 @@ export default function GlossaryQuizPlay() {
   const [score, setScore] = useState(0);
   const [finished, setFinished] = useState(false);
   const [xpEarned, setXpEarned] = useState(0);
-  const isTrackComingSoon = fixedCourse === 'start' || fixedCourse === 'one';
+  const isTrackComingSoon = fixedCourse === 'start';
 
   if (!progress) {
     return (

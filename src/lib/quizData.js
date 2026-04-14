@@ -1,4 +1,5 @@
 import { teenQuizUnits } from './teenQuizData.js';
+import { oneQuizUnits } from './oneQuizData.js';
 
 const _baseUnits = [
   {
@@ -1323,7 +1324,7 @@ export const unit16 = [
   }
 ];
 
-export const quizUnits = [..._baseUnits, ...extraUnits, ...unit7to9, ...unit10to11, ...unit12, ...unit13to14, ...unit15, ...unit16, ...teenQuizUnits];
+export const quizUnits = [..._baseUnits, ...extraUnits, ...unit7to9, ...unit10to11, ...unit12, ...unit13to14, ...unit15, ...unit16, ...oneQuizUnits, ...teenQuizUnits];
 
 export function getUnitById(unitId) {
   return quizUnits.find(u => u.id === unitId) || null;

@@ -1,4 +1,5 @@
 import { teenStudyTopics } from './teenStudyData.js';
+import { oneStudyTopics } from './oneStudyData.js';
 
 const SUPABASE_PROJECT_URL = "https://eluwjbpgqnyoohtxrufd.supabase.co";
 const PDF_BUCKET = "KDI Textbooks (Youth)";
@@ -1058,7 +1059,7 @@ export const lifeStudyTopics = [
   },
 ];
 
-export const allStudyTopics = [...lifeStudyTopics, ...studyTopics, ...teenStudyTopics];
+export const allStudyTopics = [...lifeStudyTopics, ...studyTopics, ...oneStudyTopics, ...teenStudyTopics];
 
 export function getStudyTopicById(topicId) {
   return allStudyTopics.find((topic) => topic.id === topicId) || null;
@@ -1072,10 +1073,6 @@ export function getLessonChunkForQuiz(topicId, quizId) {
 
   const quizMatch = String(quizId).match(/quiz(\d+)$/);
   const quizOrder = Number(quizMatch?.[1] || 1);
-  const chunkSize = Math.max(1, Math.ceil((topic.learningPoints?.length || 0) / 3));
-  const startIndex = (quizOrder - 1) * chunkSize;
-  const selectedPoints = (topic.learningPoints || []).slice(startIndex, startIndex + chunkSize);
-  const concepts = (topic.concepts || []).slice(Math.max(0, quizOrder - 1), Math.max(0, quizOrder - 1) + 2);
   const mapPointType = (point) => {
     if (point.title === '내 소비습관 진단하기') {
       return 'consumption-habit-test';
@@ -1087,17 +1084,21 @@ export function getLessonChunkForQuiz(topicId, quizId) {
 
     return 'text';
   };
-  const learningPoints = (selectedPoints.length > 0 ? selectedPoints : (topic.learningPoints || []).slice(0, 2)).map((point) => ({
+  const learningPoints = (topic.learningPoints || []).map((point) => ({
     ...point,
     pointType: mapPointType(point),
   }));
+  const concepts = (topic.concepts || []).map((concept) => ({
+    ...concept,
+  }));
+  const goals = (topic.goals || []).map((goal) => String(goal));
 
   return {
     topic,
     quizOrder,
-    title: `${topic.title} · 학습 ${quizOrder}`,
+    title: `${topic.title} · 학습 정리`,
     summary: topic.summary,
-    goals: (topic.goals || []).slice(0, 2),
+    goals,
     concepts,
     learningPoints,
   };

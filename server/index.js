@@ -29,8 +29,23 @@ const adminEmails = String(process.env.ADMIN_EMAILS || process.env.VITE_ADMIN_EM
   .split(',')
   .map((email) => email.trim().toLowerCase())
   .filter(Boolean);
+const paymentProvider = String(process.env.PAYMENT_PROVIDER || 'kcp').trim().toLowerCase();
 const tossSecretKey = process.env.TOSS_SECRET_KEY;
 const kakaoAdminKey = process.env.KAKAO_ADMIN_KEY;
+const kcpSiteCd = process.env.KCP_SITE_CD;
+const kcpCertInfo = process.env.KCP_CERT_INFO;
+const kcpStateSigningSecret = process.env.KCP_STATE_SIGNING_SECRET;
+const kcpUseStaging = String(process.env.KCP_USE_STAGING || 'true').trim().toLowerCase() !== 'false';
+const kcpApiBase = String(
+  process.env.KCP_API_BASE || (kcpUseStaging ? 'https://stg-spl.kcp.co.kr' : 'https://spl.kcp.co.kr')
+).trim().replace(/\/$/, '');
+const kcpTradeRegisterPath = String(process.env.KCP_TRADE_REGISTER_PATH || '/std/tradeReg/register').trim();
+const kcpPaymentApiPath = String(process.env.KCP_PAYMENT_API_PATH || '/gw/enc/v1/payment').trim();
+const kcpAuthTranCd = String(process.env.KCP_AUTH_TRAN_CD || '00300001').trim();
+const kcpBillingChargeTranCd = String(process.env.KCP_BILLING_CHARGE_TRAN_CD || '00200000').trim();
+const kcpCronSecret = process.env.KCP_SUBSCRIPTION_CRON_SECRET || process.env.PAYMENT_CRON_SECRET;
+const backendPublicUrl = String(process.env.BACKEND_PUBLIC_URL || `http://127.0.0.1:${process.env.PORT || 3000}`).trim().replace(/\/$/, '');
+const kcpAuthResultPath = String(process.env.KCP_AUTH_RESULT_PATH || '/api/payments/kcp/billing/auth-result').trim();
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const openAiApiKey = process.env.OPENAI_API_KEY;
@@ -44,12 +59,15 @@ const aiQuizInflight = new Map();
 const translationCache = new Map();
 const translationInflight = new Map();
 const rateLimitStore = new Map();
-const MAX_AI_QUIZ_ATTEMPTS = 1;
+const MAX_AI_QUIZ_ATTEMPTS = 3;
 const serverEnvChecklist = [
   { key: 'SUPABASE_URL', configured: Boolean(supabaseUrl), level: 'required' },
   { key: 'SUPABASE_SERVICE_ROLE_KEY', configured: Boolean(supabaseServiceRoleKey), level: 'required' },
   { key: 'FRONTEND_URL', configured: Boolean(FRONTEND_URL), level: 'recommended' },
-  { key: 'TOSS_SECRET_KEY', configured: Boolean(tossSecretKey), level: 'recommended' },
+  { key: 'TOSS_SECRET_KEY', configured: Boolean(tossSecretKey), level: paymentProvider === 'toss' ? 'required' : 'recommended' },
+  { key: 'KCP_SITE_CD', configured: Boolean(kcpSiteCd), level: paymentProvider === 'kcp' ? 'required' : 'recommended' },
+  { key: 'KCP_CERT_INFO', configured: Boolean(kcpCertInfo), level: paymentProvider === 'kcp' ? 'required' : 'recommended' },
+  { key: 'KCP_STATE_SIGNING_SECRET', configured: Boolean(kcpStateSigningSecret), level: paymentProvider === 'kcp' ? 'required' : 'recommended' },
   { key: 'OPENAI_API_KEY', configured: Boolean(openAiApiKey), level: 'recommended' },
 ];
 
@@ -173,10 +191,13 @@ const allowedOrigins = new Set([
 const isAllowedOrigin = (origin) => {
   if (!origin) return true;
   if (allowedOrigins.has(origin)) return true;
+  if (origin === 'capacitor://localhost' || origin === 'ionic://localhost' || origin === 'app://localhost') {
+    return true;
+  }
 
   try {
     const { hostname } = new URL(origin);
-    return hostname.endsWith('.vercel.app');
+    return hostname.endsWith('.vercel.app') || hostname === 'localhost' || hostname === '127.0.0.1';
   } catch {
     return false;
   }
@@ -350,6 +371,111 @@ const isAllowedCallbackUrl = (value) => {
   }
 };
 
+const assertKcpConfigured = () => {
+  if (!kcpSiteCd || !kcpCertInfo || !kcpStateSigningSecret) {
+    return 'KCP env is not fully configured (KCP_SITE_CD, KCP_CERT_INFO, KCP_STATE_SIGNING_SECRET)';
+  }
+
+  return '';
+};
+
+const buildKcpUrl = (pathOrUrl) => {
+  const value = String(pathOrUrl || '').trim();
+  if (!value) {
+    throw new Error('KCP path is required');
+  }
+
+  if (/^https?:\/\//i.test(value)) {
+    return value;
+  }
+
+  return `${kcpApiBase}${value.startsWith('/') ? '' : '/'}${value}`;
+};
+
+const buildKcpAuthResultUrl = () => {
+  const base = backendPublicUrl || FRONTEND_URL;
+  return new URL(kcpAuthResultPath, `${base}/`).toString();
+};
+
+const hmacSha256 = (value) => crypto
+  .createHmac('sha256', kcpStateSigningSecret)
+  .update(value)
+  .digest('base64url');
+
+const encodeKcpState = (payload) => {
+  const payloadRaw = JSON.stringify(payload);
+  const payloadEncoded = Buffer.from(payloadRaw, 'utf8').toString('base64url');
+  const signature = hmacSha256(payloadEncoded);
+  return `${payloadEncoded}.${signature}`;
+};
+
+const decodeKcpState = (token) => {
+  const raw = String(token || '');
+  const dotIndex = raw.lastIndexOf('.');
+  if (dotIndex < 1) {
+    return null;
+  }
+
+  const payloadEncoded = raw.slice(0, dotIndex);
+  const signature = raw.slice(dotIndex + 1);
+  const expected = hmacSha256(payloadEncoded);
+
+  const left = Buffer.from(signature, 'utf8');
+  const right = Buffer.from(expected, 'utf8');
+  if (left.length !== right.length || !crypto.timingSafeEqual(left, right)) {
+    return null;
+  }
+
+  try {
+    const payloadJson = Buffer.from(payloadEncoded, 'base64url').toString('utf8');
+    return JSON.parse(payloadJson);
+  } catch {
+    return null;
+  }
+};
+
+const addMonths = (inputDate, months) => {
+  const result = new Date(inputDate);
+  result.setMonth(result.getMonth() + months);
+  return result;
+};
+
+const getKcpResponseCode = (payload) => String(payload?.res_cd || payload?.resCode || payload?.code || '').trim();
+const getKcpResponseMessage = (payload) => String(payload?.res_msg || payload?.resMessage || payload?.message || '').trim();
+const getKcpBatchKey = (payload) => String(
+  payload?.batch_key
+  || payload?.bt_batch_key
+  || payload?.card_batch_key
+  || payload?.billing_key
+  || ''
+).trim();
+const getKcpBatchGroupId = (payload) => String(
+  payload?.batch_group_id
+  || payload?.bt_group_id
+  || payload?.kcp_group_id
+  || payload?.group_id
+  || ''
+).trim();
+
+const updatePremiumMetadata = async (userId, updates) => {
+  const { data: targetUserData, error: targetUserError } = await supabaseAdmin.auth.admin.getUserById(userId);
+  if (targetUserError) {
+    throw targetUserError;
+  }
+
+  const existingMetadata = targetUserData?.user?.user_metadata || {};
+  const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(userId, {
+    user_metadata: {
+      ...existingMetadata,
+      ...updates,
+    },
+  });
+
+  if (updateError) {
+    throw updateError;
+  }
+};
+
 app.get('/api/health', (_req, res) => {
   const configSummary = getServerConfigSummary();
   const status = configSummary.requiredMissing.length > 0 ? 'degraded' : 'ok';
@@ -364,6 +490,8 @@ app.get('/api/health', (_req, res) => {
       openaiConfigured: Boolean(openAiApiKey),
       supabaseConfigured: Boolean(supabaseAdmin),
       tossConfigured: Boolean(tossSecretKey),
+      kcpConfigured: Boolean(kcpSiteCd && kcpCertInfo && kcpStateSigningSecret),
+      paymentProvider,
     },
   });
 });
@@ -438,11 +566,16 @@ const buildQuizPrompts = ({ quiz, unit, topic }, locale = 'ko') => {
   const variationBlueprint = getQuizVariationBlueprint(quiz.id);
 
   const topicContext = {
-      title: topic?.title || unit?.title || quiz.unitTitle || '금융 교육',
-      summary: topic?.summary || '',
-      goals: (topic?.goals || []).slice(0, 3),
-      concepts: (topic?.concepts || []).slice(0, 3),
-    };
+    title: topic?.title || unit?.title || quiz.unitTitle || '금융 교육',
+    summary: topic?.summary || '',
+    goals: topic?.goals || [],
+    concepts: topic?.concepts || [],
+    learningPoints: (topic?.learningPoints || []).map((point) => ({
+      emoji: point?.emoji || '',
+      title: point?.title || '',
+      content: point?.content || '',
+    })),
+  };
 
   const systemPrompt = [
     isEnglish
@@ -484,6 +617,9 @@ const buildQuizPrompts = ({ quiz, unit, topic }, locale = 'ko') => {
     isEnglish
       ? 'Use the style examples only as calibration references and never copy their phrasing.'
       : '제공된 스타일 예시는 학습용 기준점으로만 참고하고, 문장을 베끼지 않는다.',
+    isEnglish
+      ? 'Use the full lesson context including boxed tips and table-like comparisons when present; do not ignore detailed learning points.'
+      : '표 형태 비교, 박스형 팁 등 세부 학습 포인트가 있으면 반드시 반영하고 요약으로 생략하지 않는다.',
     isEnglish
       ? 'If a unit has style examples, prioritize their difficulty, concept accuracy, and practical usefulness.'
       : '스타일 예시가 있는 단원은 해당 예시의 난이도, 개념 정확도, 실전성을 우선적으로 따른다.',
@@ -849,6 +985,10 @@ const generateAiQuizQuestions = async (quizId, options = {}) => {
     let questions = null;
 
     for (let attempt = 1; attempt <= MAX_AI_QUIZ_ATTEMPTS; attempt += 1) {
+      const attemptUserPrompt = attempt === 1
+        ? userPrompt
+        : `${userPrompt}\n\nPrevious attempt quality issues:\n${qualityFailures.map((item) => `- ${item}`).join('\n')}\nPlease regenerate a better set that fixes every issue above.`;
+
       console.info(
         `[AI quiz] OpenAI request started quizId=${quizId} attempt=${attempt}/${MAX_AI_QUIZ_ATTEMPTS} model=${openAiModel} key=${maskApiKey(openAiApiKey)}`
       );
@@ -869,7 +1009,7 @@ const generateAiQuizQuestions = async (quizId, options = {}) => {
             },
             {
               role: 'user',
-              content: [{ type: 'input_text', text: userPrompt }],
+              content: [{ type: 'input_text', text: attemptUserPrompt }],
             },
           ],
           text: {
@@ -956,6 +1096,7 @@ app.use(cors({
 }));
 app.use(applySecurityHeaders);
 app.use(express.json({ limit: '32kb' }));
+app.use(express.urlencoded({ extended: false }));
 
 app.get('/', (_req, res) => {
   res.json({ ok: true, service: 'finapple-payments' });
@@ -1585,6 +1726,489 @@ app.post('/api/content/translate', createRateLimiter({ key: 'content-translate',
   }
 });
 
+app.post('/api/payments/kcp/create-billing-auth', createRateLimiter({ key: 'kcp-billing-auth', limit: 10, windowMs: 60_000 }), async (req, res) => {
+  const kcpConfigError = assertKcpConfigured();
+  if (kcpConfigError) {
+    return res.status(500).json({ error: kcpConfigError });
+  }
+
+  if (!supabaseAdmin) {
+    return res.status(500).json({ error: 'Supabase admin is not configured' });
+  }
+
+  const { amount, orderId, orderName, customerName, customerEmail, successUrl, failUrl, accessToken } = req.body || {};
+
+  if (!accessToken) {
+    return res.status(400).json({ error: 'accessToken is required' });
+  }
+
+  if (Number(amount) !== PREMIUM_PRICE) {
+    return res.status(400).json({ error: 'Unexpected premium amount' });
+  }
+
+  if (!orderId || !String(orderId).startsWith('premium_monthly_')) {
+    return res.status(400).json({ error: 'Invalid orderId' });
+  }
+
+  if (!isAllowedCallbackUrl(successUrl) || !isAllowedCallbackUrl(failUrl)) {
+    return res.status(400).json({ error: 'Invalid payment redirect URL' });
+  }
+
+  try {
+    const { data: authData, error: authError } = await supabaseAdmin.auth.getUser(accessToken);
+    if (authError || !authData?.user) {
+      return res.status(401).json({ error: 'Invalid Supabase session' });
+    }
+
+    const stateToken = encodeKcpState({
+      userId: authData.user.id,
+      orderId: String(orderId),
+      amount: Number(amount),
+      successUrl: String(successUrl),
+      failUrl: String(failUrl),
+      issuedAt: new Date().toISOString(),
+      expiresAt: new Date(Date.now() + (1000 * 60 * 20)).toISOString(),
+    });
+
+    const registerPayload = {
+      site_cd: kcpSiteCd,
+      ordr_idxx: String(orderId),
+      good_name: String(orderName || 'Finapple 프리미엄 구독'),
+      good_mny: String(Number(amount)),
+      pay_method: 'CARD',
+      Ret_URL: buildKcpAuthResultUrl(),
+      user_name: String(customerName || authData.user.user_metadata?.nickname || authData.user.email || 'Finapple User'),
+      user_mail: String(customerEmail || authData.user.email || ''),
+      currency: '410',
+      param_opt_1: stateToken,
+    };
+
+    const registerResponse = await axios.post(
+      buildKcpUrl(kcpTradeRegisterPath),
+      registerPayload,
+      {
+        headers: { 'Content-Type': 'application/json' },
+        timeout: 15_000,
+      }
+    );
+
+    const responseCode = getKcpResponseCode(registerResponse.data);
+    if (responseCode && responseCode !== '0000') {
+      return res.status(400).json({
+        error: getKcpResponseMessage(registerResponse.data) || 'KCP trade register failed',
+        code: responseCode,
+        details: registerResponse.data,
+      });
+    }
+
+    const checkoutUrl = String(
+      registerResponse.data?.PayUrl
+      || registerResponse.data?.pay_url
+      || registerResponse.data?.payUrl
+      || registerResponse.data?.approval_url
+      || ''
+    ).trim();
+
+    if (!checkoutUrl) {
+      return res.status(500).json({
+        error: 'KCP checkout URL is missing from response',
+        details: registerResponse.data,
+      });
+    }
+
+    return res.json({
+      success: true,
+      checkoutUrl,
+      formData: registerResponse.data,
+    });
+  } catch (error) {
+    console.error('kcp create-billing-auth error', error.response?.data || error.message);
+    return res.status(error.response?.status || 500).json({
+      error: getKcpResponseMessage(error.response?.data) || error.message,
+      code: getKcpResponseCode(error.response?.data) || null,
+      details: error.response?.data || null,
+    });
+  }
+});
+
+app.post('/api/payments/kcp/billing/auth-result', async (req, res) => {
+  const kcpConfigError = assertKcpConfigured();
+  if (kcpConfigError) {
+    return res.status(500).send(kcpConfigError);
+  }
+
+  if (!supabaseAdmin) {
+    return res.status(500).send('Supabase admin is not configured');
+  }
+
+  const resCd = String(req.body?.res_cd || '');
+  const resMsg = String(req.body?.res_msg || '');
+  const encInfo = String(req.body?.enc_info || '');
+  const encData = String(req.body?.enc_data || '');
+  const tranCd = String(req.body?.tran_cd || kcpAuthTranCd);
+  const orderId = String(req.body?.ordr_idxx || req.body?.order_id || '');
+  const stateToken = String(req.body?.param_opt_1 || '');
+  const state = decodeKcpState(stateToken);
+
+  const fallbackFailUrl = `${FRONTEND_URL.replace(/\/$/, '')}/premium/fail?provider=kcp`;
+  const fallbackSuccessUrl = `${FRONTEND_URL.replace(/\/$/, '')}/premium/success?provider=kcp`;
+  const failUrl = state?.failUrl || fallbackFailUrl;
+  const successUrl = state?.successUrl || fallbackSuccessUrl;
+
+  const redirectWith = (baseUrl, params = {}) => {
+    const url = new URL(baseUrl);
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== null && value !== undefined && String(value) !== '') {
+        url.searchParams.set(key, String(value));
+      }
+    });
+    return res.redirect(url.toString());
+  };
+
+  if (!state) {
+    return redirectWith(failUrl, {
+      provider: 'kcp',
+      reason: 'invalid_state',
+      orderId,
+    });
+  }
+
+  if (state.expiresAt && Date.parse(state.expiresAt) < Date.now()) {
+    return redirectWith(failUrl, {
+      provider: 'kcp',
+      reason: 'expired_state',
+      orderId: state.orderId || orderId,
+    });
+  }
+
+  if (resCd !== '0000') {
+    return redirectWith(failUrl, {
+      provider: 'kcp',
+      reason: 'auth_failed',
+      code: resCd || null,
+      message: resMsg || null,
+      orderId: state.orderId || orderId,
+    });
+  }
+
+  if (!encInfo || !encData) {
+    return redirectWith(failUrl, {
+      provider: 'kcp',
+      reason: 'missing_auth_payload',
+      orderId: state.orderId || orderId,
+    });
+  }
+
+  try {
+    const approvePayload = {
+      tran_cd: tranCd || kcpAuthTranCd,
+      site_cd: kcpSiteCd,
+      kcp_cert_info: kcpCertInfo,
+      ordr_idxx: state.orderId || orderId,
+      enc_info: encInfo,
+      enc_data: encData,
+    };
+
+    const approveResponse = await axios.post(
+      buildKcpUrl(kcpPaymentApiPath),
+      approvePayload,
+      {
+        headers: { 'Content-Type': 'application/json' },
+        timeout: 15_000,
+      }
+    );
+
+    const approveCode = getKcpResponseCode(approveResponse.data);
+    if (approveCode !== '0000') {
+      return redirectWith(failUrl, {
+        provider: 'kcp',
+        reason: 'approve_failed',
+        code: approveCode || null,
+        message: getKcpResponseMessage(approveResponse.data) || null,
+        orderId: state.orderId || orderId,
+      });
+    }
+
+    const batchKey = getKcpBatchKey(approveResponse.data);
+    if (!batchKey) {
+      return redirectWith(failUrl, {
+        provider: 'kcp',
+        reason: 'missing_batch_key',
+        orderId: state.orderId || orderId,
+      });
+    }
+
+    const nowIso = new Date().toISOString();
+    const nextBillingAt = addMonths(new Date(), 1).toISOString();
+    const batchGroupId = getKcpBatchGroupId(approveResponse.data);
+
+    const { error: subscriptionError } = await supabaseAdmin
+      .from('billing_subscriptions')
+      .upsert({
+        user_id: state.userId,
+        provider: 'kcp',
+        status: 'active',
+        plan_code: 'premium_monthly',
+        currency: 'KRW',
+        amount: Number(state.amount || PREMIUM_PRICE),
+        batch_key: batchKey,
+        batch_group_id: batchGroupId || null,
+        last_order_id: state.orderId || orderId,
+        last_paid_at: nowIso,
+        next_billing_at: nextBillingAt,
+        fail_count: 0,
+        metadata: {
+          kcp_approve_code: approveCode,
+          kcp_tno: approveResponse.data?.tno || null,
+        },
+        canceled_at: null,
+        updated_at: nowIso,
+      }, { onConflict: 'user_id,provider' });
+
+    if (subscriptionError) {
+      throw subscriptionError;
+    }
+
+    await updatePremiumMetadata(state.userId, {
+      is_premium: true,
+      premium_plan: 'monthly',
+      premium_provider: 'kcp',
+      premium_status: 'active',
+      premium_updated_at: nowIso,
+      premium_order_id: state.orderId || orderId,
+      premium_expires_at: nextBillingAt,
+    });
+
+    return redirectWith(successUrl, {
+      provider: 'kcp',
+      orderId: state.orderId || orderId,
+      amount: Number(state.amount || PREMIUM_PRICE),
+      subscription: 'active',
+    });
+  } catch (error) {
+    console.error('kcp billing auth-result error', error.response?.data || error.message);
+    return redirectWith(failUrl, {
+      provider: 'kcp',
+      reason: 'server_error',
+      code: getKcpResponseCode(error.response?.data) || null,
+      message: getKcpResponseMessage(error.response?.data) || error.message,
+      orderId: state.orderId || orderId,
+    });
+  }
+});
+
+app.post('/api/payments/kcp/subscriptions/charge-due', createRateLimiter({ key: 'kcp-subscription-charge-due', limit: 6, windowMs: 60_000 }), async (req, res) => {
+  const kcpConfigError = assertKcpConfigured();
+  if (kcpConfigError) {
+    return res.status(500).json({ error: kcpConfigError });
+  }
+
+  if (!supabaseAdmin) {
+    return res.status(500).json({ error: 'Supabase admin is not configured' });
+  }
+
+  const requestSecret = String(req.headers['x-cron-secret'] || req.body?.cronSecret || '');
+  if (kcpCronSecret && requestSecret !== kcpCronSecret) {
+    return res.status(401).json({ error: 'Unauthorized cron request' });
+  }
+
+  const now = new Date();
+  const nowIso = now.toISOString();
+  const batchSize = Math.max(1, Math.min(50, Number(req.body?.batchSize || 25)));
+
+  try {
+    const { data: dueSubscriptions, error: dueError } = await supabaseAdmin
+      .from('billing_subscriptions')
+      .select('*')
+      .eq('provider', 'kcp')
+      .eq('status', 'active')
+      .lte('next_billing_at', nowIso)
+      .limit(batchSize);
+
+    if (dueError) {
+      throw dueError;
+    }
+
+    const report = {
+      total: dueSubscriptions?.length || 0,
+      success: 0,
+      failed: 0,
+      results: [],
+    };
+
+    for (const subscription of (dueSubscriptions || [])) {
+      const renewalOrderId = `premium_monthly_renew_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+
+      try {
+        const chargePayload = {
+          tran_cd: kcpBillingChargeTranCd,
+          site_cd: kcpSiteCd,
+          kcp_cert_info: kcpCertInfo,
+          ordr_idxx: renewalOrderId,
+          good_mny: String(Number(subscription.amount || PREMIUM_PRICE)),
+          good_name: 'Finapple 프리미엄 월 구독',
+          currency: '410',
+          pay_method: 'CARD',
+          bt_batch_key: subscription.batch_key,
+          bt_group_id: subscription.batch_group_id || undefined,
+        };
+
+        const chargeResponse = await axios.post(
+          buildKcpUrl(kcpPaymentApiPath),
+          chargePayload,
+          {
+            headers: { 'Content-Type': 'application/json' },
+            timeout: 15_000,
+          }
+        );
+
+        const chargeCode = getKcpResponseCode(chargeResponse.data);
+        if (chargeCode !== '0000') {
+          throw new Error(getKcpResponseMessage(chargeResponse.data) || `KCP renewal failed (${chargeCode})`);
+        }
+
+        const nextBillingAt = addMonths(new Date(now), 1).toISOString();
+
+        const { error: updateError } = await supabaseAdmin
+          .from('billing_subscriptions')
+          .update({
+            status: 'active',
+            fail_count: 0,
+            last_order_id: renewalOrderId,
+            last_paid_at: nowIso,
+            next_billing_at: nextBillingAt,
+            metadata: {
+              ...(subscription.metadata || {}),
+              kcp_last_charge_code: chargeCode,
+              kcp_last_tno: chargeResponse.data?.tno || null,
+            },
+            updated_at: nowIso,
+          })
+          .eq('id', subscription.id);
+
+        if (updateError) {
+          throw updateError;
+        }
+
+        await updatePremiumMetadata(subscription.user_id, {
+          is_premium: true,
+          premium_plan: 'monthly',
+          premium_provider: 'kcp',
+          premium_status: 'active',
+          premium_updated_at: nowIso,
+          premium_order_id: renewalOrderId,
+          premium_expires_at: nextBillingAt,
+        });
+
+        report.success += 1;
+        report.results.push({ subscriptionId: subscription.id, status: 'success', orderId: renewalOrderId });
+      } catch (chargeError) {
+        const nextFailCount = Number(subscription.fail_count || 0) + 1;
+        const nextStatus = nextFailCount >= 3 ? 'past_due' : 'active';
+
+        await supabaseAdmin
+          .from('billing_subscriptions')
+          .update({
+            status: nextStatus,
+            fail_count: nextFailCount,
+            metadata: {
+              ...(subscription.metadata || {}),
+              last_error: String(chargeError.message || 'renewal failed'),
+            },
+            updated_at: nowIso,
+          })
+          .eq('id', subscription.id);
+
+        if (nextStatus === 'past_due') {
+          await updatePremiumMetadata(subscription.user_id, {
+            is_premium: false,
+            premium_provider: 'kcp',
+            premium_status: 'past_due',
+            premium_updated_at: nowIso,
+          });
+        }
+
+        report.failed += 1;
+        report.results.push({
+          subscriptionId: subscription.id,
+          status: 'failed',
+          failCount: nextFailCount,
+          error: String(chargeError.message || 'renewal failed'),
+        });
+      }
+    }
+
+    return res.json({ success: true, report });
+  } catch (error) {
+    console.error('kcp subscriptions charge-due error', error.response?.data || error.message);
+    return res.status(500).json({
+      error: getKcpResponseMessage(error.response?.data) || error.message,
+      code: getKcpResponseCode(error.response?.data) || null,
+    });
+  }
+});
+
+app.post('/api/payments/kcp/subscriptions/cancel', createRateLimiter({ key: 'kcp-subscription-cancel', limit: 8, windowMs: 60_000 }), async (req, res) => {
+  if (!supabaseAdmin) {
+    return res.status(500).json({ error: 'Supabase admin is not configured' });
+  }
+
+  const accessToken = getRequestAccessToken(req);
+  if (!accessToken) {
+    return res.status(400).json({ error: 'accessToken is required' });
+  }
+
+  try {
+    const { data: authData, error: authError } = await supabaseAdmin.auth.getUser(accessToken);
+    if (authError || !authData?.user) {
+      return res.status(401).json({ error: 'Invalid Supabase session' });
+    }
+
+    const { data: subscription, error: subscriptionError } = await supabaseAdmin
+      .from('billing_subscriptions')
+      .select('*')
+      .eq('user_id', authData.user.id)
+      .eq('provider', 'kcp')
+      .in('status', ['active', 'past_due'])
+      .maybeSingle();
+
+    if (subscriptionError) {
+      throw subscriptionError;
+    }
+
+    if (!subscription) {
+      return res.status(404).json({ error: 'No active KCP subscription found' });
+    }
+
+    const nowIso = new Date().toISOString();
+    const { error: cancelError } = await supabaseAdmin
+      .from('billing_subscriptions')
+      .update({
+        status: 'canceled',
+        canceled_at: nowIso,
+        next_billing_at: null,
+        updated_at: nowIso,
+      })
+      .eq('id', subscription.id);
+
+    if (cancelError) {
+      throw cancelError;
+    }
+
+    await updatePremiumMetadata(authData.user.id, {
+      is_premium: false,
+      premium_provider: 'kcp',
+      premium_status: 'canceled',
+      premium_updated_at: nowIso,
+    });
+
+    return res.json({ success: true });
+  } catch (error) {
+    console.error('kcp subscription cancel error', error.message);
+    return res.status(500).json({ error: error.message || 'Failed to cancel subscription' });
+  }
+});
+
 app.post('/api/payments/toss/create-checkout', createRateLimiter({ key: 'toss-checkout', limit: 10, windowMs: 60_000 }), async (req, res) => {
   if (!tossSecretKey) {
     return res.status(500).json({ error: 'TOSS_SECRET_KEY is not configured' });
@@ -1866,4 +2490,6 @@ app.listen(PORT, () => {
 
   console.log(`[startup] Allowed frontend origins: ${Array.from(allowedOrigins).filter(Boolean).join(', ')}`);
   console.log(`[startup] Healthcheck: http://127.0.0.1:${PORT}/api/health`);
+  console.log(`[startup] Payment provider: ${paymentProvider}`);
+  console.log(`[startup] KCP API base: ${kcpApiBase}`);
 });

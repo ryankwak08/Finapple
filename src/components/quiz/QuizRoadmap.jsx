@@ -33,7 +33,7 @@ function QuizNode({ quiz, status, locked, onSelect, position }) {
     <div className={`flex items-center gap-3 sm:gap-4 ${isLeft ? 'flex-row' : 'flex-row-reverse'}`}>
       <div className="flex flex-col items-center">
         <button
-          onClick={() => !locked && onSelect(quiz.id)}
+          onClick={() => !locked && onSelect(quiz.id, quiz.studyTopicId)}
           onMouseEnter={prefetchQuizResources}
           onFocus={prefetchQuizResources}
           onTouchStart={prefetchQuizResources}

@@ -40,8 +40,13 @@ export default function PremiumResult({ status = 'success' }) {
         const amount = Number(params.get('amount'));
         const provider = params.get('provider');
 
+        if (provider === 'kcp') {
+          setIsDone(true);
+          return;
+        }
+
         if (provider !== 'toss') {
-          throw new Error('아직 자동 승인 흐름은 토스 결제만 지원합니다.');
+          throw new Error('지원하지 않는 결제 공급자입니다.');
         }
 
         if (!paymentKey || !orderId || !amount) {
@@ -111,7 +116,7 @@ export default function PremiumResult({ status = 'success' }) {
               {isUpdating ? (
                 <div className="flex items-center gap-2 text-foreground">
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  <span>토스 결제를 승인하고 프리미엄 권한을 반영하는 중입니다.</span>
+                  <span>결제를 승인하고 프리미엄 권한을 반영하는 중입니다.</span>
                 </div>
               ) : updateError ? (
                 <p className="text-amber-700">{updateError}</p>

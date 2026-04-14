@@ -84,15 +84,11 @@ export default function Quiz() {
     );
   }
 
-  if (fixedCourse) {
-    const trackLabel = fixedCourse === 'start' ? 'Finapple Start' : 'Finapple One';
-    const trackDescription = fixedCourse === 'start'
-      ? (isEnglish
-        ? 'Independent youth curriculum is being prepared by the planning team.'
-        : '자립준비청년 커리큘럼은 현재 기획팀에서 준비 중입니다.')
-      : (isEnglish
-        ? 'Multicultural and migrant worker curriculum is being prepared by the planning team.'
-        : '다문화·외국인 노동자 커리큘럼은 현재 기획팀에서 준비 중입니다.');
+  if (fixedCourse === 'start') {
+    const trackLabel = 'Finapple Start';
+    const trackDescription = isEnglish
+      ? 'Independent youth curriculum is being prepared by the planning team.'
+      : '자립준비청년 커리큘럼은 현재 기획팀에서 준비 중입니다.';
 
     return (
       <div className="px-4 pb-10 pt-10 sm:px-6">
@@ -116,8 +112,13 @@ export default function Quiz() {
     );
   }
 
-  const handleQuizSelect = (quizId) => {
+  const handleQuizSelect = (quizId, studyTopicId) => {
     if (!isPremium && progress.hearts <= 0) return;
+    if (studyTopicId) {
+      navigate(`/study/${studyTopicId}?course=${selectedCourse}`);
+      return;
+    }
+
     navigate(`/quiz/${quizId}?course=${selectedCourse}`);
   };
 

@@ -5,6 +5,8 @@ import { useAuth } from '@/lib/AuthContext';
 import {
   PREMIUM_MONTHLY_PRICE,
   createPremiumOrderId,
+  createKcpBillingAuthSession,
+  submitKcpCheckoutForm,
   createTossCheckoutSession,
   getBankTransferInstructions,
 } from '@/api/paymentClient';
@@ -23,7 +25,7 @@ export default function Premium() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState('toss'); // 'toss' | 'bank'
+  const [paymentMethod, setPaymentMethod] = useState('kcp'); // 'kcp' | 'toss' | 'bank'
   const [iosPackage, setIosPackage] = useState(null);
   const [iosError, setIosError] = useState('');
   const [restoring, setRestoring] = useState(false);
@@ -111,6 +113,26 @@ export default function Premium() {
     setLoading(true);
     try {
       const customerName = user?.user_metadata?.full_name || user?.user_metadata?.nickname || user?.email || 'Finapple User';
+
+      if (paymentMethod === 'kcp') {
+        const response = await createKcpBillingAuthSession({
+          amount: PREMIUM_MONTHLY_PRICE,
+          orderId: createPremiumOrderId(),
+          orderName: 'Finapple 프리미엄 월 구독',
+          customerName,
+          customerEmail: user?.email || undefined,
+        });
+
+        if (response.success && response.checkoutUrl && response.formData) {
+          submitKcpCheckoutForm({
+            checkoutUrl: response.checkoutUrl,
+            formData: response.formData,
+          });
+          return;
+        }
+
+        throw new Error(response.error || 'KCP 결제 세션 생성 실패');
+      }
 
       if (paymentMethod === 'toss') {
         const response = await createTossCheckoutSession({
@@ -210,6 +232,16 @@ export default function Premium() {
               <label className="block text-sm font-semibold text-foreground mb-2">결제 수단 선택</label>
               <div className="space-y-2">
                 <button
+                  onClick={() => setPaymentMethod('kcp')}
+                  className={`w-full py-3 px-4 rounded-xl font-semibold text-sm transition-all ${
+                    paymentMethod === 'kcp'
+                      ? 'bg-primary text-primary-foreground border-2 border-primary'
+                      : 'bg-card border-2 border-border text-foreground hover:border-primary/50'
+                  }`}
+                >
+                  🔁 NHN KCP 월 자동결제
+                </button>
+                <button
                   onClick={() => setPaymentMethod('toss')}
                   className={`w-full py-3 px-4 rounded-xl font-semibold text-sm transition-all ${
                     paymentMethod === 'toss'
@@ -246,6 +278,10 @@ export default function Premium() {
                 : 'App Store로 구독하기'
               : paymentMethod === 'bank' 
               ? "계좌이체 안내 보기" 
+              : paymentMethod === 'kcp'
+              ? loading
+                ? 'KCP 결제창 준비 중...'
+                : 'NHN KCP로 월 구독 시작'
               : loading 
               ? "처리 중..." 
               : "토스페이먼츠로 결제하기"}
@@ -281,7 +317,7 @@ export default function Premium() {
           )}
 
           <p className="text-center text-xs text-muted-foreground mt-3">
-            {nativeIOS ? 'App Store 구독 관리에서 언제든 변경하거나 취소할 수 있어요.' : '언제든 취소 가능 · 토스페이먼츠 보안 결제'}
+            {nativeIOS ? 'App Store 구독 관리에서 언제든 변경하거나 취소할 수 있어요.' : '언제든 취소 가능 · KCP/토스 보안 결제'}
           </p>
         </div>
       </div>

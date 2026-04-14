@@ -1,4 +1,5 @@
 import { teenQuizUnitsCatalog } from './teenQuizCatalog';
+import { oneQuizUnits } from './oneQuizData';
 
 export const youthQuizUnitsCatalog = [
   {
@@ -197,7 +198,19 @@ export const youthQuizUnitsCatalog = [
 
 export const quizCatalogByCourse = {
   start: youthQuizUnitsCatalog,
-  one: youthQuizUnitsCatalog,
+  one: oneQuizUnits.map((unit) => ({
+    id: unit.id,
+    icon: unit.icon,
+    title: unit.title,
+    subtitle: unit.subtitle,
+    studyTopicId: unit.studyTopicId,
+    quizzes: unit.quizzes.map((quiz) => ({
+      id: quiz.id,
+      title: quiz.title,
+      subtitle: quiz.subtitle,
+      xpReward: quiz.xpReward,
+    })),
+  })),
   youth: youthQuizUnitsCatalog,
   teen: teenQuizUnitsCatalog,
 };
@@ -310,7 +323,7 @@ export function getLocalizedQuizMeta(quizId, fallback = {}) {
   };
 }
 
-export const TOTAL_QUIZ_COUNT = [quizCatalogByCourse.youth, quizCatalogByCourse.teen]
+export const TOTAL_QUIZ_COUNT = [quizCatalogByCourse.youth, quizCatalogByCourse.one, quizCatalogByCourse.teen]
   .flat()
   .reduce((count, unit) => count + unit.quizzes.length + 1, 0);
 

@@ -62,6 +62,74 @@ export const createTossCheckoutSession = async ({ amount, orderId, orderName, cu
   }
 };
 
+export const createKcpBillingAuthSession = async ({ amount, orderId, orderName, customerName, customerEmail }) => {
+  const { data, error } = await supabase.auth.getSession();
+  if (error || !data?.session?.access_token) {
+    throw new Error('로그인 세션을 찾지 못했습니다. 다시 로그인해주세요.');
+  }
+
+  try {
+    const response = await fetch(`${BACKEND_URL}/api/payments/kcp/create-billing-auth`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        amount,
+        orderId,
+        orderName,
+        customerName,
+        customerEmail,
+        accessToken: data.session.access_token,
+        successUrl: buildAppUrl('/premium/success?provider=kcp'),
+        failUrl: buildAppUrl('/premium/fail?provider=kcp'),
+      }),
+    });
+
+    const payload = await parseJsonResponse(response);
+    if (!response.ok) {
+      throw new Error(payload?.error || `KCP 결제창 생성 실패 (${response.status})`);
+    }
+
+    if (!payload?.checkoutUrl || !payload?.formData) {
+      throw new Error('KCP 결제창 정보를 받지 못했습니다.');
+    }
+
+    return {
+      success: true,
+      checkoutUrl: payload.checkoutUrl,
+      formData: payload.formData,
+    };
+  } catch (requestError) {
+    console.error('KCP billing auth create error:', requestError);
+    return { success: false, error: requestError.message };
+  }
+};
+
+export const submitKcpCheckoutForm = ({ checkoutUrl, formData }) => {
+  if (!checkoutUrl || typeof formData !== 'object' || !formData) {
+    throw new Error('KCP 결제 요청 데이터가 올바르지 않습니다.');
+  }
+
+  const form = document.createElement('form');
+  form.method = 'POST';
+  form.action = checkoutUrl;
+  form.style.display = 'none';
+
+  Object.entries(formData).forEach(([key, value]) => {
+    if (value === null || value === undefined) {
+      return;
+    }
+
+    const input = document.createElement('input');
+    input.type = 'hidden';
+    input.name = key;
+    input.value = String(value);
+    form.appendChild(input);
+  });
+
+  document.body.appendChild(form);
+  form.submit();
+};
+
 export const confirmTossPayment = async ({ paymentKey, orderId, amount }) => {
   const { data, error } = await supabase.auth.getSession();
   if (error || !data?.session?.access_token) {

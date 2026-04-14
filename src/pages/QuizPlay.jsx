@@ -89,7 +89,7 @@ export default function QuizPlay() {
     [isEnglish, lessonChunk]
   );
   const displayLessonChunk = isEnglish ? (localizedLessonChunk || cachedLessonChunk) : lessonChunk;
-  const isTrackComingSoon = fixedCourse === 'start' || fixedCourse === 'one';
+  const isTrackComingSoon = fixedCourse === 'start';
 
   useEffect(() => {
     setQuestions(null);

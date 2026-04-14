@@ -30,9 +30,15 @@ export const BACKEND_URL = (() => {
       return localDevUrl;
     }
 
-    const configuredDevUrl = normalizeUrl(import.meta.env.VITE_BACKEND_URL);
-    if (configuredDevUrl) {
-      return configuredDevUrl;
+    const useRemoteBackendInDev = String(import.meta.env.VITE_USE_REMOTE_BACKEND_IN_DEV || 'false')
+      .toLowerCase()
+      .trim() === 'true';
+
+    if (useRemoteBackendInDev) {
+      const configuredDevUrl = normalizeUrl(import.meta.env.VITE_BACKEND_URL);
+      if (configuredDevUrl) {
+        return configuredDevUrl;
+      }
     }
 
     return 'http://localhost:3000';
