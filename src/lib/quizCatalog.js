@@ -58,7 +58,7 @@ export const youthQuizUnitsCatalog = [
     studyTopicId: 'financial-products',
     quizzes: [
       { id: 'unit5-quiz1', title: '퀴즈 1', subtitle: '안전성·수익성·유동성', xpReward: 70 },
-      { id: 'unit5-quiz2', title: '퀴즈 2', subtitle: '예·적금·주식·펼드 비교', xpReward: 70 },
+      { id: 'unit5-quiz2', title: '퀴즈 2', subtitle: '예·적금·주식·펀드 비교', xpReward: 70 },
       { id: 'unit5-quiz3', title: '퀴즈 3', subtitle: '투자성향 진단', xpReward: 70 },
     ],
   },
@@ -69,7 +69,7 @@ export const youthQuizUnitsCatalog = [
     subtitle: '청년기 부채, 이것만은 알아두자',
     studyTopicId: 'debt-management',
     quizzes: [
-      { id: 'unit6-quiz1', title: '퀴즈 1', subtitle: '읓은 부채 vs 나쁜 부채', xpReward: 70 },
+      { id: 'unit6-quiz1', title: '퀴즈 1', subtitle: '좋은 부채 vs 나쁜 부채', xpReward: 70 },
       { id: 'unit6-quiz2', title: '퀴즈 2', subtitle: '금리 유형과 상환 방식', xpReward: 70 },
       { id: 'unit6-quiz3', title: '퀴즈 3', subtitle: '청년 금융 지원 제도', xpReward: 70 },
     ],

@@ -3,12 +3,13 @@ export const teenQuizUnitsCatalog = [
     id: 'teen-unit1',
     icon: '🤝',
     title: '난 함께 쓴다!',
-    subtitle: '재화와 서비스의 효과적 관리',
+    subtitle: '공유 자원과 책임 있는 사용',
     studyTopicId: 'teen-shared-spending',
     quizzes: [
-      { id: 'teen-unit1-quiz1', title: '퀴즈 1', subtitle: '핵심 개념 이해', xpReward: 50 },
-      { id: 'teen-unit1-quiz2', title: '퀴즈 2', subtitle: '상황별 판단', xpReward: 50 },
-      { id: 'teen-unit1-quiz3', title: '퀴즈 3', subtitle: '실전 적용', xpReward: 50 },
+      { id: 'teen-unit1-quiz1', title: '퀴즈 1', subtitle: '공유지의 비극', xpReward: 50 },
+      { id: 'teen-unit1-quiz2', title: '퀴즈 2', subtitle: '공용 자원이란 무엇인가?', xpReward: 50 },
+      { id: 'teen-unit1-quiz3', title: '퀴즈 3', subtitle: '공용 자원 사용의 문제점 분석', xpReward: 50 },
+      { id: 'teen-unit1-quiz4', title: '퀴즈 4', subtitle: '공용 자원의 효과적 사용 방안', xpReward: 50 },
     ],
   },
   {
@@ -18,9 +19,9 @@ export const teenQuizUnitsCatalog = [
     subtitle: '합리적 소비',
     studyTopicId: 'teen-smart-consumption',
     quizzes: [
-      { id: 'teen-unit2-quiz1', title: '퀴즈 1', subtitle: '핵심 개념 이해', xpReward: 50 },
-      { id: 'teen-unit2-quiz2', title: '퀴즈 2', subtitle: '상황별 판단', xpReward: 50 },
-      { id: 'teen-unit2-quiz3', title: '퀴즈 3', subtitle: '실전 적용', xpReward: 50 },
+      { id: 'teen-unit2-quiz1', title: '퀴즈 1', subtitle: '자원의 희소성', xpReward: 50 },
+      { id: 'teen-unit2-quiz2', title: '퀴즈 2', subtitle: '합리적 선택', xpReward: 50 },
+      { id: 'teen-unit2-quiz3', title: '퀴즈 3', subtitle: '비합리적 소비', xpReward: 50 },
     ],
   },
   {
@@ -30,9 +31,8 @@ export const teenQuizUnitsCatalog = [
     subtitle: '다양한 지불수단과 효과적인 체크카드 사용 방법에 대한 이해',
     studyTopicId: 'teen-check-card',
     quizzes: [
-      { id: 'teen-unit3-quiz1', title: '퀴즈 1', subtitle: '핵심 개념 이해', xpReward: 50 },
-      { id: 'teen-unit3-quiz2', title: '퀴즈 2', subtitle: '상황별 판단', xpReward: 50 },
-      { id: 'teen-unit3-quiz3', title: '퀴즈 3', subtitle: '실전 적용', xpReward: 50 },
+      { id: 'teen-unit3-quiz1', title: '퀴즈 1', subtitle: '지불수단의 종류와 특징', xpReward: 50 },
+      { id: 'teen-unit3-quiz2', title: '퀴즈 2', subtitle: '체크카드의 효과적 사용', xpReward: 50 },
     ],
   },
   {
@@ -42,9 +42,9 @@ export const teenQuizUnitsCatalog = [
     subtitle: '전자상거래 사용에 유의하는 태도',
     studyTopicId: 'teen-ecommerce',
     quizzes: [
-      { id: 'teen-unit4-quiz1', title: '퀴즈 1', subtitle: '핵심 개념 이해', xpReward: 50 },
-      { id: 'teen-unit4-quiz2', title: '퀴즈 2', subtitle: '상황별 판단', xpReward: 50 },
-      { id: 'teen-unit4-quiz3', title: '퀴즈 3', subtitle: '실전 적용', xpReward: 50 },
+      { id: 'teen-unit4-quiz1', title: '퀴즈 1', subtitle: '유형·위험', xpReward: 50 },
+      { id: 'teen-unit4-quiz2', title: '퀴즈 2', subtitle: '피해·환불 기준', xpReward: 50 },
+      { id: 'teen-unit4-quiz3', title: '퀴즈 3', subtitle: '예방·대응 원칙', xpReward: 50 },
     ],
   },
   {
@@ -54,9 +54,9 @@ export const teenQuizUnitsCatalog = [
     subtitle: '용돈 관리',
     studyTopicId: 'teen-allowance',
     quizzes: [
-      { id: 'teen-unit5-quiz1', title: '퀴즈 1', subtitle: '핵심 개념 이해', xpReward: 60 },
-      { id: 'teen-unit5-quiz2', title: '퀴즈 2', subtitle: '상황별 판단', xpReward: 60 },
-      { id: 'teen-unit5-quiz3', title: '퀴즈 3', subtitle: '실전 적용', xpReward: 60 },
+      { id: 'teen-unit5-quiz1', title: '퀴즈 1', subtitle: '수입·지출·저축 구조', xpReward: 60 },
+      { id: 'teen-unit5-quiz2', title: '퀴즈 2', subtitle: '기록·목표 설정', xpReward: 60 },
+      { id: 'teen-unit5-quiz3', title: '퀴즈 3', subtitle: '실행·점검', xpReward: 60 },
     ],
   },
   {
@@ -66,9 +66,9 @@ export const teenQuizUnitsCatalog = [
     subtitle: '아르바이트 등을 통해 번 소득의 관리',
     studyTopicId: 'teen-income-management',
     quizzes: [
-      { id: 'teen-unit6-quiz1', title: '퀴즈 1', subtitle: '핵심 개념 이해', xpReward: 60 },
-      { id: 'teen-unit6-quiz2', title: '퀴즈 2', subtitle: '상황별 판단', xpReward: 60 },
-      { id: 'teen-unit6-quiz3', title: '퀴즈 3', subtitle: '실전 적용', xpReward: 60 },
+      { id: 'teen-unit6-quiz1', title: '퀴즈 1', subtitle: '소득 종류·구분', xpReward: 60 },
+      { id: 'teen-unit6-quiz2', title: '퀴즈 2', subtitle: '정기/비정기와 계획', xpReward: 60 },
+      { id: 'teen-unit6-quiz3', title: '퀴즈 3', subtitle: '분배·통장 분리', xpReward: 60 },
     ],
   },
   {
@@ -78,9 +78,9 @@ export const teenQuizUnitsCatalog = [
     subtitle: '금융상품에 대한 이해와 활용',
     studyTopicId: 'teen-savings',
     quizzes: [
-      { id: 'teen-unit7-quiz1', title: '퀴즈 1', subtitle: '핵심 개념 이해', xpReward: 60 },
-      { id: 'teen-unit7-quiz2', title: '퀴즈 2', subtitle: '상황별 판단', xpReward: 60 },
-      { id: 'teen-unit7-quiz3', title: '퀴즈 3', subtitle: '실전 적용', xpReward: 60 },
+      { id: 'teen-unit7-quiz1', title: '퀴즈 1', subtitle: '은행 역할·예금상품', xpReward: 60 },
+      { id: 'teen-unit7-quiz2', title: '퀴즈 2', subtitle: '단리·복리', xpReward: 60 },
+      { id: 'teen-unit7-quiz3', title: '퀴즈 3', subtitle: '안정성·예금자보호', xpReward: 60 },
     ],
   },
   {
@@ -90,9 +90,9 @@ export const teenQuizUnitsCatalog = [
     subtitle: '부채와 신용의 관리',
     studyTopicId: 'teen-credit-debt',
     quizzes: [
-      { id: 'teen-unit8-quiz1', title: '퀴즈 1', subtitle: '핵심 개념 이해', xpReward: 60 },
-      { id: 'teen-unit8-quiz2', title: '퀴즈 2', subtitle: '상황별 판단', xpReward: 60 },
-      { id: 'teen-unit8-quiz3', title: '퀴즈 3', subtitle: '실전 적용', xpReward: 60 },
+      { id: 'teen-unit8-quiz1', title: '퀴즈 1', subtitle: '신용·신용점수 기초', xpReward: 60 },
+      { id: 'teen-unit8-quiz2', title: '퀴즈 2', subtitle: '점수 영향 요소·오해', xpReward: 60 },
+      { id: 'teen-unit8-quiz3', title: '퀴즈 3', subtitle: '신용관리 실천', xpReward: 60 },
     ],
   },
   {
@@ -102,9 +102,9 @@ export const teenQuizUnitsCatalog = [
     subtitle: '노동의 중요성과 가치에 대한 이해',
     studyTopicId: 'teen-value-of-work',
     quizzes: [
-      { id: 'teen-unit9-quiz1', title: '퀴즈 1', subtitle: '핵심 개념 이해', xpReward: 70 },
-      { id: 'teen-unit9-quiz2', title: '퀴즈 2', subtitle: '상황별 판단', xpReward: 70 },
-      { id: 'teen-unit9-quiz3', title: '퀴즈 3', subtitle: '실전 적용', xpReward: 70 },
+      { id: 'teen-unit9-quiz1', title: '퀴즈 1', subtitle: '노동 vs 근로·개인 가치', xpReward: 70 },
+      { id: 'teen-unit9-quiz2', title: '퀴즈 2', subtitle: '국가 가치·노동생산성', xpReward: 70 },
+      { id: 'teen-unit9-quiz3', title: '퀴즈 3', subtitle: '통계·주요용어', xpReward: 70 },
     ],
   },
   {
@@ -114,9 +114,9 @@ export const teenQuizUnitsCatalog = [
     subtitle: '건설적인 진로 설계',
     studyTopicId: 'teen-career-design',
     quizzes: [
-      { id: 'teen-unit10-quiz1', title: '퀴즈 1', subtitle: '핵심 개념 이해', xpReward: 70 },
-      { id: 'teen-unit10-quiz2', title: '퀴즈 2', subtitle: '상황별 판단', xpReward: 70 },
-      { id: 'teen-unit10-quiz3', title: '퀴즈 3', subtitle: '실전 적용', xpReward: 70 },
+      { id: 'teen-unit10-quiz1', title: '퀴즈 1', subtitle: '자기이해·직업탐색', xpReward: 70 },
+      { id: 'teen-unit10-quiz2', title: '퀴즈 2', subtitle: '비전·R=VD', xpReward: 70 },
+      { id: 'teen-unit10-quiz3', title: '퀴즈 3', subtitle: '로드맵·피드백 실천', xpReward: 70 },
     ],
   },
   {
@@ -126,9 +126,9 @@ export const teenQuizUnitsCatalog = [
     subtitle: '노동권에 대한 이해와 침해 시 대처',
     studyTopicId: 'teen-labor-rights',
     quizzes: [
-      { id: 'teen-unit11-quiz1', title: '퀴즈 1', subtitle: '핵심 개념 이해', xpReward: 70 },
-      { id: 'teen-unit11-quiz2', title: '퀴즈 2', subtitle: '상황별 판단', xpReward: 70 },
-      { id: 'teen-unit11-quiz3', title: '퀴즈 3', subtitle: '실전 적용', xpReward: 70 },
+      { id: 'teen-unit11-quiz1', title: '퀴즈 1', subtitle: '근로계약·근로시간', xpReward: 70 },
+      { id: 'teen-unit11-quiz2', title: '퀴즈 2', subtitle: '임금·휴게·주휴수당', xpReward: 70 },
+      { id: 'teen-unit11-quiz3', title: '퀴즈 3', subtitle: '권리침해 대응', xpReward: 70 },
     ],
   },
   {
@@ -138,9 +138,9 @@ export const teenQuizUnitsCatalog = [
     subtitle: '도박이나 사행성게임에 대한 주의',
     studyTopicId: 'teen-gambling-prevention',
     quizzes: [
-      { id: 'teen-unit12-quiz1', title: '퀴즈 1', subtitle: '핵심 개념 이해', xpReward: 70 },
-      { id: 'teen-unit12-quiz2', title: '퀴즈 2', subtitle: '상황별 판단', xpReward: 70 },
-      { id: 'teen-unit12-quiz3', title: '퀴즈 3', subtitle: '실전 적용', xpReward: 70 },
+      { id: 'teen-unit12-quiz1', title: '퀴즈 1', subtitle: '정의·위험·유인 구조', xpReward: 70 },
+      { id: 'teen-unit12-quiz2', title: '퀴즈 2', subtitle: '2차 범죄·피해', xpReward: 70 },
+      { id: 'teen-unit12-quiz3', title: '퀴즈 3', subtitle: '예방·상담·도움요청', xpReward: 70 },
     ],
   },
 ];

@@ -11,8 +11,9 @@ import { isAdminUser } from '@/lib/premium';
 import { useLanguage } from '@/lib/i18n';
 import { TRACKS, useTrack } from '@/lib/trackContext';
 
-const getFixedCourseByTrack = (activeTrack) => {
-  if (activeTrack === TRACKS.START) return 'start';
+const getFixedCourseByTrack = (activeTrack, canAccessTeenCourse) => {
+  if (activeTrack === TRACKS.YOUTH) return canAccessTeenCourse ? 'teen' : 'youth';
+  if (activeTrack === TRACKS.START) return 'youth';
   if (activeTrack === TRACKS.ONE) return 'one';
   return null;
 };
@@ -21,16 +22,16 @@ export default function Quiz() {
   const navigate = useNavigate();
   const location = useLocation();
   const { activeTrack } = useTrack();
-  const fixedCourse = getFixedCourseByTrack(activeTrack);
+  const { progress, loading, isPremium, isQuizCompleted, getQuizScore, user } = useProgress();
+  const canAccessTeenCourse = isAdminUser(user);
+  const fixedCourse = getFixedCourseByTrack(activeTrack, canAccessTeenCourse);
   const [selectedCourse, setSelectedCourse] = useState(() => {
     const params = new URLSearchParams(window.location.search);
     return fixedCourse || params.get('course') || null;
   });
-  const { progress, loading, isPremium, isQuizCompleted, getQuizScore, user } = useProgress();
   const { isEnglish } = useLanguage();
   const courseMeta = getCourseMeta(selectedCourse || fixedCourse || 'youth');
   const hasCourseSource = Boolean((isEnglish ? courseMeta.sourceLabelEn : courseMeta.sourceLabel) || courseMeta.sourceUrl);
-  const canAccessTeenCourse = isAdminUser(user);
 
   useEffect(() => {
     if (fixedCourse) {
@@ -68,12 +69,6 @@ export default function Quiz() {
     return () => window.removeEventListener('bottomNavReset', handleTabReset);
   }, [fixedCourse]);
 
-  useEffect(() => {
-    if (activeTrack !== TRACKS.YOUTH) return;
-    setSelectedCourse(null);
-    window.history.replaceState({}, '', '/quiz');
-  }, [activeTrack]);
-
   const handleSelectCourse = (course) => {
     setSelectedCourse(course);
     window.history.replaceState({}, '', `/quiz?course=${course}`);
@@ -87,34 +82,6 @@ export default function Quiz() {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
-      </div>
-    );
-  }
-
-  if (fixedCourse === 'start') {
-    const trackLabel = 'Finapple Start';
-    const trackDescription = isEnglish
-      ? 'Independent youth curriculum is being prepared by the planning team.'
-      : '자립준비청년 커리큘럼은 현재 기획팀에서 준비 중입니다.';
-
-    return (
-      <div className="px-4 pb-10 pt-10 sm:px-6">
-        <div className="mx-auto max-w-2xl rounded-3xl border border-border bg-card p-6 sm:p-8">
-          <p className="text-[11px] font-black uppercase tracking-[0.18em] text-primary">{trackLabel}</p>
-          <h1 className="mt-2 text-2xl font-extrabold text-foreground sm:text-3xl">
-            {isEnglish ? 'Quiz Track Coming Soon' : '퀴즈 트랙 준비중'}
-          </h1>
-          <p className="mt-3 text-[14px] leading-relaxed text-muted-foreground">
-            {trackDescription}
-          </p>
-          <div className="mt-5 rounded-2xl border border-primary/20 bg-primary/5 px-4 py-3">
-            <p className="text-[13px] font-semibold text-foreground">
-              {isEnglish
-                ? 'We will open this track as soon as the curriculum draft is delivered.'
-                : '기획팀 개발 완료 후 오픈 예정.'}
-            </p>
-          </div>
-        </div>
       </div>
     );
   }

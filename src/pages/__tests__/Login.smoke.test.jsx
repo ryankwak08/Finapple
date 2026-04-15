@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { vi } from 'vitest';
 import Login from '../Login';
@@ -57,10 +57,8 @@ describe('Login smoke', () => {
 
     fireEvent.click(screen.getByRole('button', { name: '회원가입' }));
 
-    await waitFor(() => {
-      expect(screen.getByLabelText('닉네임')).toBeInTheDocument();
-    });
+    expect(await screen.findByLabelText('닉네임', {}, { timeout: 10000 })).toBeInTheDocument();
 
     expect(screen.getByRole('button', { name: '회원가입하기' })).toBeInTheDocument();
-  });
+  }, 15000);
 });

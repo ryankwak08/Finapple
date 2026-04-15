@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { lifeStudyTopicsCatalog } from '../lib/studyCatalog';
+import { lifeStudyTopicsCatalog } from '../lib/studyData';
 import TopicCard from '../components/study/TopicCard';
 import useProgress from '../lib/useProgress';
 import PullToRefresh from '../components/PullToRefresh';
@@ -48,14 +48,21 @@ export default function Study() {
   const groupedTopics = useMemo(() => {
     const finance = lifeStudyTopicsCatalog.filter((topic) => topic.category === '금융 상식');
     const issues = lifeStudyTopicsCatalog.filter((topic) => topic.category === '세계 이슈');
-    const featuredIssue = issues.find((topic) => topic.featured) || issues[0] || null;
-    const compactIssues = issues.filter((topic) => topic.id !== featuredIssue?.id);
+    const kiepIssues = issues.filter((topic) => {
+      const sourceText = `${topic.sourceLabel || ''} ${topic.sourceUrl || ''}`.toLowerCase();
+      return sourceText.includes('kiep') || sourceText.includes('대외경제정책연구원');
+    });
+    const originalIssues = issues.filter((topic) => (topic.badge || '').toLowerCase() === 'finapple original');
+
+    const featuredKiepIssue = kiepIssues.find((topic) => topic.featured) || kiepIssues[0] || null;
+    const compactKiepIssues = kiepIssues.filter((topic) => topic.id !== featuredKiepIssue?.id);
 
     return {
       finance,
       issues,
-      featuredIssue,
-      compactIssues,
+      featuredKiepIssue,
+      compactKiepIssues,
+      originalIssues,
     };
   }, []);
   const streakStatus = getStreakStatus();
@@ -175,20 +182,34 @@ export default function Study() {
         </div>
       </section>
 
-      {groupedTopics.featuredIssue ? (
+      {groupedTopics.featuredKiepIssue ? (
         <section className="mb-6">
           <div className="mb-3 flex items-center gap-2">
             <Globe2 className="h-4 w-4 text-amber-500" />
-            <h2 className="text-[13px] font-black uppercase tracking-[0.18em] text-foreground">{isEnglish ? 'Global issue now' : '지금 보는 세계 이슈'}</h2>
+            <h2 className="text-[13px] font-black uppercase tracking-[0.18em] text-foreground">{isEnglish ? 'Global issue now x KIEP' : '지금 보는 세계 이슈 X 대외경제정책연구원'}</h2>
           </div>
-          <TopicCard topic={groupedTopics.featuredIssue} index={0} variant="hero" />
-          {groupedTopics.compactIssues.length ? (
+          <TopicCard topic={groupedTopics.featuredKiepIssue} index={0} variant="hero" />
+          {groupedTopics.compactKiepIssues.length ? (
             <div className="mt-3 space-y-3">
-              {groupedTopics.compactIssues.map((topic, i) => (
+              {groupedTopics.compactKiepIssues.map((topic, i) => (
                 <TopicCard key={topic.id} topic={topic} index={i + 1} variant="compact" />
               ))}
             </div>
           ) : null}
+        </section>
+      ) : null}
+
+      {groupedTopics.originalIssues.length ? (
+        <section className="mb-6">
+          <div className="mb-3 flex items-center gap-2">
+            <Globe2 className="h-4 w-4 text-amber-500" />
+            <h2 className="text-[13px] font-black uppercase tracking-[0.18em] text-foreground">FINAPPLE ORIGINAL</h2>
+          </div>
+          <div className="space-y-3">
+            {groupedTopics.originalIssues.map((topic, i) => (
+              <TopicCard key={topic.id} topic={topic} index={i + 1} variant="compact" />
+            ))}
+          </div>
         </section>
       ) : null}
 

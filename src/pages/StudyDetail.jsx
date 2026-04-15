@@ -414,7 +414,27 @@ export default function StudyDetail() {
             </div>
           )}
         </section>
-      ) : null}
+      ) : (
+        <section className="rounded-2xl border border-border bg-card p-4">
+          <div className="mb-2 flex items-center gap-2">
+            <PlayCircle className="h-4 w-4 text-muted-foreground" />
+            <h2 className="text-[13px] font-bold uppercase tracking-wider text-muted-foreground">연결 퀴즈 안내</h2>
+          </div>
+          <p className="mb-4 text-[13px] leading-relaxed text-foreground">
+            이 주제는 아직 전용 퀴즈를 준비 중입니다. 먼저 다른 퀴즈로 학습 흐름을 이어가세요.
+          </p>
+          <button
+            onClick={() => navigate('/quiz')}
+            className="flex w-full items-center justify-between gap-3 rounded-xl border border-border bg-background px-4 py-3 text-left"
+          >
+            <div className="min-w-0">
+              <p className="text-[13px] font-bold text-foreground">퀴즈 목록으로 이동</p>
+              <p className="mt-0.5 text-[12px] text-muted-foreground">현재 이용 가능한 퀴즈를 확인할 수 있어요.</p>
+            </div>
+            <PlayCircle className="h-4 w-4 shrink-0 text-primary" />
+          </button>
+        </section>
+      )}
     </div>
   );
 }

@@ -2,7 +2,7 @@ import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { useEffect, useRef, useState } from 'react';
 import { BookOpen, ChevronDown, Gamepad2 } from 'lucide-react';
 import { getCurrentUser } from '@/services/authService';
-import { getIsPremium } from '@/lib/premium';
+import { getIsPremium, isAdminUser } from '@/lib/premium';
 import { AnimatePresence } from 'framer-motion';
 import BottomNav, { getActiveTab, getAppTabs } from './BottomNav';
 import PageTransition from './PageTransition';
@@ -15,6 +15,7 @@ const getUsageStorageKey = (email) => `totalUsageSeconds:${email || 'guest'}`;
 
 export default function AppShell() {
   const [user, setUser] = useState(null);
+  const [isUserResolved, setIsUserResolved] = useState(false);
   const [trackMenuOpen, setTrackMenuOpen] = useState(false);
   const trackMenuRef = useRef(null);
   const location = useLocation();
@@ -24,6 +25,10 @@ export default function AppShell() {
   const { locale, setLocale, t } = useLanguage();
   const { activeTrack, setActiveTrack, tracks, trackMeta } = useTrack();
   const appTabs = getAppTabs(t);
+  const canAccessTeenTrack = isAdminUser(user);
+  const availableTracks = canAccessTeenTrack
+    ? tracks
+    : tracks.filter((track) => track.key !== TRACKS.YOUTH);
 
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
@@ -63,7 +68,16 @@ export default function AppShell() {
   }, [trackMenuOpen]);
 
   useEffect(() => {
-    getCurrentUser().then(u => setUser(u)).catch(() => {});
+    getCurrentUser()
+      .then((u) => {
+        setUser(u);
+      })
+      .catch(() => {
+        setUser(null);
+      })
+      .finally(() => {
+        setIsUserResolved(true);
+      });
     const start = Date.now();
     let usageEmail = 'guest';
     getCurrentUser()
@@ -93,6 +107,16 @@ export default function AppShell() {
       window.removeEventListener('profilePictureUpdated', handleProfileUpdate);
     };
   }, []);
+
+  useEffect(() => {
+    if (!isUserResolved) {
+      return;
+    }
+
+    if (!canAccessTeenTrack && activeTrack === TRACKS.YOUTH) {
+      setActiveTrack(TRACKS.START);
+    }
+  }, [activeTrack, canAccessTeenTrack, isUserResolved, setActiveTrack]);
 
   return (
     <div
@@ -140,7 +164,7 @@ export default function AppShell() {
 
                     {trackMenuOpen ? (
                       <div className="absolute left-0 top-[calc(100%+8px)] z-50 w-[280px] rounded-2xl border border-border bg-card p-2 shadow-xl">
-                        {tracks.map((track) => {
+                        {availableTracks.map((track) => {
                           const selected = activeTrack === track.key;
 
                           return (

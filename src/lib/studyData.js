@@ -998,10 +998,10 @@ export const lifeStudyTopics = [
     id: 'kiep-global-issues-comic-2026',
     icon: '🌍',
     category: '세계 이슈',
-    title: 'KIEP 세계 이슈 만화 브리핑',
-    subtitle: '국제경제 이슈 20컷 한눈에 보기',
-    summary: 'KIEP 원문 콘텐츠를 컷 단위로 정리한 세계 이슈 만화 브리핑입니다. 금융과 연결되는 국제 이슈 흐름을 빠르게 읽을 수 있습니다.',
-    sourceLabel: '출처: 대외경제정책연구원(KIEP) 세계경제 포커스',
+    title: '최근 이란 전쟁에 따른 중국의 에너지 리스크 대응 및 전망',
+    subtitle: '만화로 보는 세계경제',
+    summary: '이란 전쟁에 따른 중국의 에너지 리스크 대응과 전망을 만화로 쉽게 설명합니다.',
+    sourceLabel: '김영선(글), 안지윤(그림), 「최근 이란 전쟁에 따른 중국의 에너지 리스크 대응 및 전망」, 대외경제정책연구원(KIEP) 『만화로 보는 세계경제』, 2026-04-14, 온라인 자료, 접근일 2026-04-15.',
     sourceUrl: 'https://www.kiep.go.kr/gallery.es?mid=a10104020000&bid=0011',
     coverImage: '/cardnews/kiep-260413/E1.png',
     cardNews: [
@@ -1027,25 +1027,10 @@ export const lifeStudyTopics = [
       { src: '/cardnews/kiep-260413/E20.png', alt: 'KIEP 세계 이슈 만화 컷 20', label: '컷 20' },
     ],
     goals: [
-      '세계 경제 주요 이슈를 금융 관점에서 빠르게 파악한다',
-      '국제 이슈가 국내 금융생활에 연결되는 지점을 이해한다',
+      '이란 전쟁이 중국의 에너지 수급과 국제 경제에 어떤 영향을 미치는지 이해한다',
+      '에너지 안보의 중요성을 인식하며 중동 지역의 불안정이 글로벌 공급망과 유가에 미치는 영향을 설명할 수 있다',
     ],
-    concepts: [
-      { term: '세계 이슈 만화 브리핑', definition: '국제경제 이슈를 컷 단위 이미지로 읽으며 핵심을 빠르게 이해하는 학습 형식입니다.' },
-      { term: '국제 이슈와 금융생활', definition: '환율, 물가, 수출입, 에너지 가격 같은 경로를 통해 세계 이슈는 개인의 금융생활에 영향을 줍니다.' },
-    ],
-    learningPoints: [
-      {
-        emoji: '📚',
-        title: '이번 단원 학습 안내',
-        content: '이 단원은 KIEP 원문을 바탕으로 만든 세계 이슈 만화 20컷 전체를 그대로 제공합니다. 각 컷을 순서대로 읽으면서 흐름을 확인해 보세요.',
-      },
-      {
-        emoji: '🔎',
-        title: '읽는 방법',
-        content: '각 컷은 하나의 이슈 단위를 설명합니다. 제목-본문-핵심 포인트를 따라가며, 내 금융생활(환율·물가·소비·저축)에 어떤 연결이 있는지 함께 체크해 보세요.',
-      },
-    ],
+   
     pdfUrl: '',
   },
 
@@ -1114,6 +1099,40 @@ export const lifeStudyTopics = [
     pdfUrl: '',
   },
 ];
+
+const lifeTopicDisplayMetaById = {
+  'housing-support-2026': {
+    badge: '정책 총정리',
+    readTime: '5분',
+    updatedAt: '2026 기준',
+  },
+  'youth-policy-2026': {
+    badge: '청년 지원 6선',
+    readTime: '5분',
+    updatedAt: '2026 기준',
+  },
+  'year-end-tax-settlement-2026': {
+    badge: '오답노트',
+    readTime: '4분',
+    updatedAt: '2026 시즌',
+  },
+  'kiep-global-issues-comic-2026': {
+    badge: '대외경제정책연구원',
+    featured: true,
+    readTime: '8분',
+    updatedAt: '2026-04',
+  },
+  'iran-war-oil': {
+    badge: 'Finapple Original',
+    readTime: '3분',
+    updatedAt: '2026-04',
+  },
+};
+
+export const lifeStudyTopicsCatalog = lifeStudyTopics.map((topic) => ({
+  ...topic,
+  ...lifeTopicDisplayMetaById[topic.id],
+}));
 
 export const allStudyTopics = [...lifeStudyTopics, ...studyTopics, ...oneStudyTopics, ...teenStudyTopics];
 

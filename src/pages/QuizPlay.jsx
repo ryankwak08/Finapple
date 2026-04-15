@@ -18,8 +18,9 @@ import { isAdminUser } from '@/lib/premium';
 import { useLanguage } from '@/lib/i18n';
 import { TRACKS, useTrack } from '@/lib/trackContext';
 
-const getFixedCourseByTrack = (activeTrack) => {
-  if (activeTrack === TRACKS.START) return 'start';
+const getFixedCourseByTrack = (activeTrack, canAccessTeenCourse) => {
+  if (activeTrack === TRACKS.YOUTH) return canAccessTeenCourse ? 'teen' : 'youth';
+  if (activeTrack === TRACKS.START) return 'youth';
   if (activeTrack === TRACKS.ONE) return 'one';
   return null;
 };
@@ -31,17 +32,6 @@ export default function QuizPlay() {
   const { quizId } = useParams();
   const searchParams = new URLSearchParams(window.location.search);
   const skipLesson = searchParams.get('skipLesson') === '1';
-  const fixedCourse = getFixedCourseByTrack(activeTrack);
-  const requestedCourse = searchParams.get('course');
-  const course = requestedCourse || fixedCourse || 'youth';
-  const courseMeta = getCourseMeta(course);
-  const courseSourceLabel = isEnglish ? courseMeta.sourceLabelEn : courseMeta.sourceLabel;
-  const courseUnits = getQuizUnitsCatalog(course);
-  const lastUnit = courseUnits[courseUnits.length - 1];
-  const lastQuizId = lastUnit?.quizzes?.[lastUnit.quizzes.length - 1]?.id || '';
-  const isLastCourseQuiz = quizId === lastQuizId;
-  const shouldPreferLocalQuestions = course === 'one';
-  const backUrl = fixedCourse ? '/quiz' : `/quiz?course=${course}`;
   const {
     progress,
     isPremium,
@@ -53,6 +43,18 @@ export default function QuizPlay() {
     getReviewNotesForQuiz,
     user,
   } = useProgress();
+  const canAccessTeenCourse = isAdminUser(user);
+  const fixedCourse = getFixedCourseByTrack(activeTrack, canAccessTeenCourse);
+  const requestedCourse = searchParams.get('course');
+  const course = fixedCourse || requestedCourse || 'youth';
+  const courseMeta = getCourseMeta(course);
+  const courseSourceLabel = isEnglish ? courseMeta.sourceLabelEn : courseMeta.sourceLabel;
+  const courseUnits = getQuizUnitsCatalog(course);
+  const lastUnit = courseUnits[courseUnits.length - 1];
+  const lastQuizId = lastUnit?.quizzes?.[lastUnit.quizzes.length - 1]?.id || '';
+  const isLastCourseQuiz = quizId === lastQuizId;
+  const shouldPreferLocalQuestions = course === 'one';
+  const backUrl = fixedCourse ? '/quiz' : `/quiz?course=${course}`;
   const [questions, setQuestions] = useState(null);
   const [loading, setLoading] = useState(true);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -84,7 +86,6 @@ export default function QuizPlay() {
   const reviewCount = getReviewNotesForQuiz(quizId).length;
   const sourcePdfUrl = lessonChunk?.topic?.pdfUrl || '';
   const isTeenQuiz = String(quizId || '').startsWith('teen-');
-  const canAccessTeenCourse = isAdminUser(user);
   const isReplay = isQuizCompleted(quizId);
   const localizedQuizMeta = getLocalizedQuizMeta(quizId, quizData || {});
   const quizDisplayTitle = isEnglish ? localizedQuizMeta.title || quizData?.title : quizData?.title;
@@ -93,7 +94,6 @@ export default function QuizPlay() {
     [isEnglish, lessonChunk]
   );
   const displayLessonChunk = isEnglish ? (localizedLessonChunk || cachedLessonChunk) : lessonChunk;
-  const isTrackComingSoon = fixedCourse === 'start';
 
   useEffect(() => {
     setQuestions(null);
@@ -331,32 +331,6 @@ export default function QuizPlay() {
       <div className="flex flex-col items-center justify-center min-h-screen px-6">
         <p className="text-muted-foreground text-[15px]">{isEnglish ? 'Quiz not found' : '퀴즈를 찾을 수 없습니다'}</p>
         <Link to={backUrl} className="text-primary font-semibold text-[14px] mt-4">{isEnglish ? 'Go back' : '돌아가기'}</Link>
-      </div>
-    );
-  }
-
-  if (isTrackComingSoon) {
-    return (
-      <div className="flex min-h-screen flex-col items-center justify-center px-6 text-center">
-        <div className="mb-4 text-5xl">🚧</div>
-        <h2 className="text-xl font-extrabold text-foreground">
-          {isEnglish ? 'Quiz Track Coming Soon' : '퀴즈 트랙 준비중'}
-        </h2>
-        <p className="mt-2 text-[14px] text-muted-foreground">
-          {fixedCourse === 'start'
-            ? (isEnglish
-              ? 'Finapple Start curriculum is under preparation.'
-              : 'Finapple Start 커리큘럼 준비 중입니다.')
-            : (isEnglish
-              ? 'Finapple One curriculum is under preparation.'
-              : 'Finapple One 커리큘럼 준비 중입니다.')}
-        </p>
-        <Link
-          to="/quiz"
-          className="mt-6 rounded-2xl bg-primary px-6 py-3 text-[14px] font-bold text-primary-foreground"
-        >
-          {isEnglish ? 'Back to quiz tab' : '퀴즈 탭으로 돌아가기'}
-        </Link>
       </div>
     );
   }

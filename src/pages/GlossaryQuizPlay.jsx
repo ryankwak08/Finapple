@@ -101,15 +101,19 @@ export default function GlossaryQuizPlay() {
   const navigate = useNavigate();
   const { activeTrack } = useTrack();
   const { unitId } = useParams();
-  const fixedCourse = activeTrack === TRACKS.START ? 'start' : activeTrack === TRACKS.ONE ? 'one' : null;
-  const requestedCourse = new URLSearchParams(window.location.search).get('course');
-  const course = requestedCourse || fixedCourse || 'youth';
-  const backUrl = fixedCourse ? '/quiz' : `/quiz?course=${course}`;
   const { progress, isPremium, loseHeart, completeQuiz, recordQuizActivity, isQuizCompleted, user } = useProgress();
+  const canAccessTeenCourse = isAdminUser(user);
+  const fixedCourse =
+    activeTrack === TRACKS.YOUTH ? (canAccessTeenCourse ? 'teen' : 'youth') :
+    activeTrack === TRACKS.START ? 'youth' :
+    activeTrack === TRACKS.ONE ? 'one' :
+    null;
+  const requestedCourse = new URLSearchParams(window.location.search).get('course');
+  const course = fixedCourse || requestedCourse || 'youth';
+  const backUrl = fixedCourse ? '/quiz' : `/quiz?course=${course}`;
   const quizUnitsCatalog = getQuizUnitsCatalog(course);
   const unit = quizUnitsCatalog.find((entry) => entry.id === unitId);
   const isTeenUnit = String(unitId || '').startsWith('teen-');
-  const canAccessTeenCourse = isAdminUser(user);
 
   const quizId = `${unitId}-glossary`;
   const completedInUnit = (progress?.completed_quizzes || []).filter((completedQuizId) => (
@@ -133,32 +137,11 @@ export default function GlossaryQuizPlay() {
   const [score, setScore] = useState(0);
   const [finished, setFinished] = useState(false);
   const [xpEarned, setXpEarned] = useState(0);
-  const isTrackComingSoon = fixedCourse === 'start';
 
   if (!progress) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
-      </div>
-    );
-  }
-
-  if (isTrackComingSoon) {
-    return (
-      <div className="flex min-h-screen flex-col items-center justify-center px-6 text-center">
-        <div className="mb-4 text-5xl">🚧</div>
-        <h2 className="text-xl font-extrabold text-foreground">퀴즈 트랙 준비중</h2>
-        <p className="mt-2 text-[14px] text-muted-foreground">
-          {fixedCourse === 'start'
-            ? 'Finapple Start 커리큘럼 준비 중입니다.'
-            : 'Finapple One 커리큘럼 준비 중입니다.'}
-        </p>
-        <Link
-          to="/quiz"
-          className="mt-6 rounded-2xl bg-primary px-6 py-3 text-[14px] font-bold text-primary-foreground"
-        >
-          퀴즈 탭으로 돌아가기
-        </Link>
       </div>
     );
   }
