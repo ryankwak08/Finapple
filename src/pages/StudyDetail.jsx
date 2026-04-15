@@ -94,6 +94,13 @@ export default function StudyDetail() {
       return null;
     }
 
+    if (topic.sourceLabel || topic.sourceUrl) {
+      return {
+        label: topic.sourceLabel || '',
+        url: topic.sourceUrl || '',
+      };
+    }
+
     if (TOSS_FEED_TOPIC_IDS.has(topic.id)) {
       return {
         label: '출처: Toss Feed',
@@ -105,12 +112,16 @@ export default function StudyDetail() {
       return null;
     }
 
-    return {
-      label: topic.course === 'teen'
-        ? '출처: 한국개발연구원(KDI) 「생애주기별 경제교육(청소년기 편)」'
-        : '출처: 한국개발연구원(KDI) 「생애주기별 경제교육(청년기 편)」',
-      url: topic.sourceUrl || '',
-    };
+    if (topic.course === 'teen' || topic.course === 'youth') {
+      return {
+        label: topic.course === 'teen'
+          ? '출처: 한국개발연구원(KDI) 「생애주기별 경제교육(청소년기 편)」'
+          : '출처: 한국개발연구원(KDI) 「생애주기별 경제교육(청년기 편)」',
+        url: topic.sourceUrl || '',
+      };
+    }
+
+    return null;
   }, [topic]);
 
   if (!topic) {
@@ -167,24 +178,30 @@ export default function StudyDetail() {
         </section>
       ) : null}
 
+      {sourceMeta?.label || sourceMeta?.url ? (
+        <section className="mb-6 rounded-2xl border border-border bg-card p-4">
+          <h2 className="text-[13px] font-bold uppercase tracking-wider text-muted-foreground">원문 출처</h2>
+          {sourceMeta?.label ? (
+            <p className="mt-2 text-[13px] text-foreground">{sourceMeta.label}</p>
+          ) : null}
+          {sourceMeta?.url ? (
+            <a
+              href={sourceMeta.url}
+              target="_blank"
+              rel="noreferrer"
+              className="mt-1 inline-block text-[12px] font-semibold text-primary underline-offset-2 hover:underline"
+            >
+              {sourceMeta.url}
+            </a>
+          ) : null}
+        </section>
+      ) : null}
+
       {topic.pdfUrl ? (
         <section className="mb-6 rounded-2xl border border-border bg-card p-4">
           <div className="flex items-center justify-between gap-3">
             <div>
               <h2 className="text-[13px] font-bold uppercase tracking-wider text-muted-foreground">원문 자료</h2>
-              {sourceMeta?.label ? (
-                <p className="mt-1 text-[11px] text-muted-foreground">{sourceMeta.label}</p>
-              ) : null}
-              {sourceMeta?.url ? (
-                <a
-                  href={sourceMeta.url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="mt-0.5 inline-block text-[11px] font-semibold text-primary underline-offset-2 hover:underline"
-                >
-                  원문 출처 보기
-                </a>
-              ) : null}
             </div>
             <button
               type="button"

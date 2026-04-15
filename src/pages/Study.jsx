@@ -45,10 +45,19 @@ function getFreezerHistoryLabel(entry, isEnglish, locale) {
 export default function Study() {
   const { progress, loading, user, isPremium, getStreakStatus } = useProgress();
   const { locale, isEnglish } = useLanguage();
-  const groupedTopics = useMemo(() => ({
-    finance: lifeStudyTopicsCatalog.filter((topic) => topic.category === '금융 상식'),
-    issues: lifeStudyTopicsCatalog.filter((topic) => topic.category === '세계 이슈'),
-  }), []);
+  const groupedTopics = useMemo(() => {
+    const finance = lifeStudyTopicsCatalog.filter((topic) => topic.category === '금융 상식');
+    const issues = lifeStudyTopicsCatalog.filter((topic) => topic.category === '세계 이슈');
+    const featuredIssue = issues.find((topic) => topic.featured) || issues[0] || null;
+    const compactIssues = issues.filter((topic) => topic.id !== featuredIssue?.id);
+
+    return {
+      finance,
+      issues,
+      featuredIssue,
+      compactIssues,
+    };
+  }, []);
   const streakStatus = getStreakStatus();
   const freezerHistory = streakStatus.freezerHistory.slice(0, 3);
   const displayName =
@@ -166,13 +175,20 @@ export default function Study() {
         </div>
       </section>
 
-      {groupedTopics.issues[0] ? (
+      {groupedTopics.featuredIssue ? (
         <section className="mb-6">
           <div className="mb-3 flex items-center gap-2">
             <Globe2 className="h-4 w-4 text-amber-500" />
             <h2 className="text-[13px] font-black uppercase tracking-[0.18em] text-foreground">{isEnglish ? 'Global issue now' : '지금 보는 세계 이슈'}</h2>
           </div>
-          <TopicCard topic={groupedTopics.issues[0]} index={0} />
+          <TopicCard topic={groupedTopics.featuredIssue} index={0} variant="hero" />
+          {groupedTopics.compactIssues.length ? (
+            <div className="mt-3 space-y-3">
+              {groupedTopics.compactIssues.map((topic, i) => (
+                <TopicCard key={topic.id} topic={topic} index={i + 1} variant="compact" />
+              ))}
+            </div>
+          ) : null}
         </section>
       ) : null}
 
