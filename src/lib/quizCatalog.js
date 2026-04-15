@@ -208,6 +208,7 @@ export const quizCatalogByCourse = {
       id: quiz.id,
       title: quiz.title,
       subtitle: quiz.subtitle,
+      studyTopicId: quiz.studyTopicId || unit.studyTopicId,
       xpReward: quiz.xpReward,
     })),
   })),
@@ -328,11 +329,14 @@ export const TOTAL_QUIZ_COUNT = [quizCatalogByCourse.youth, quizCatalogByCourse.
   .reduce((count, unit) => count + unit.quizzes.length + 1, 0);
 
 export function getQuizUnitCatalogByStudyTopicId(studyTopicId, course) {
+  const matchUnit = (unit) =>
+    unit.studyTopicId === studyTopicId || unit.quizzes?.some((quiz) => quiz.studyTopicId === studyTopicId);
+
   if (course) {
-    return getQuizUnitsCatalog(course).find((unit) => unit.studyTopicId === studyTopicId) || null;
+    return getQuizUnitsCatalog(course).find(matchUnit) || null;
   }
 
   return Object.values(quizCatalogByCourse)
     .flat()
-    .find((unit) => unit.studyTopicId === studyTopicId) || null;
+    .find(matchUnit) || null;
 }

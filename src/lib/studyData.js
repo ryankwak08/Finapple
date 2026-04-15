@@ -1061,8 +1061,21 @@ export const lifeStudyTopics = [
 
 export const allStudyTopics = [...lifeStudyTopics, ...studyTopics, ...oneStudyTopics, ...teenStudyTopics];
 
+const LEGACY_TOPIC_ID_ALIASES = {
+  'sage-exchange-teller': 'one-remittance-exchange-methods',
+  'sage-exchange-online': 'one-remittance-exchange-methods',
+  'sage-remittance-teller': 'one-remittance-exchange-methods',
+  'sage-remittance-online': 'one-remittance-exchange-methods',
+  'sage-remittance-mobile': 'one-remittance-methods-and-required-info',
+  'sage-remittance-special': 'one-remittance-methods-and-required-info',
+  'sage-remittance-atm': 'one-remittance-methods-and-required-info',
+  'sage-remittance-fintech': 'one-remittance-methods-and-required-info',
+  'sage-tips-all': 'one-remittance-cost-saving-and-legal-safety',
+};
+
 export function getStudyTopicById(topicId) {
-  return allStudyTopics.find((topic) => topic.id === topicId) || null;
+  const normalizedTopicId = LEGACY_TOPIC_ID_ALIASES[topicId] || topicId;
+  return allStudyTopics.find((topic) => topic.id === normalizedTopicId) || null;
 }
 
 export function getLessonChunkForQuiz(topicId, quizId) {
@@ -1093,13 +1106,25 @@ export function getLessonChunkForQuiz(topicId, quizId) {
   }));
   const goals = (topic.goals || []).map((goal) => String(goal));
 
+  const lessonByQuiz = topic.lessonByQuiz?.[quizOrder];
+  const sectionLearningPoints = (lessonByQuiz?.learningPoints || learningPoints).map((point) => ({
+    ...point,
+    pointType: mapPointType(point),
+  }));
+  const sectionConcepts = (lessonByQuiz?.concepts || concepts).map((concept) => ({
+    ...concept,
+  }));
+  const sectionGoals = (lessonByQuiz?.goals || goals).map((goal) =>
+    typeof goal === 'string' ? goal : String(goal)
+  );
+
   return {
     topic,
     quizOrder,
-    title: `${topic.title} · 학습 정리`,
-    summary: topic.summary,
-    goals,
-    concepts,
-    learningPoints,
+    title: lessonByQuiz?.title ? `${topic.title} · ${lessonByQuiz.title}` : `${topic.title} · 학습 정리`,
+    summary: lessonByQuiz?.summary || topic.summary,
+    goals: sectionGoals,
+    concepts: sectionConcepts,
+    learningPoints: sectionLearningPoints,
   };
 }

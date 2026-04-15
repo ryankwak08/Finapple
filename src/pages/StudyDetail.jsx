@@ -21,6 +21,46 @@ const buildSummaryBullets = (topic) => {
     .filter(Boolean);
 };
 
+function ListSection({ title, items }) {
+  if (!items?.length) {
+    return null;
+  }
+
+  return (
+    <section className="mb-6">
+      <h2 className="mb-3 text-[13px] font-bold uppercase tracking-wider text-muted-foreground">{title}</h2>
+      <div className="space-y-2">
+        {items.map((item, index) => (
+          <div key={`${title}-${index}`} className="flex items-start gap-3 rounded-xl border border-border bg-card px-4 py-3">
+            <span className="mt-0.5 text-[11px] font-black text-primary">{index + 1}</span>
+            <p className="text-[13px] leading-relaxed text-foreground">{item}</p>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function QASection({ quizItems }) {
+  if (!quizItems?.length) {
+    return null;
+  }
+
+  return (
+    <section className="mb-6">
+      <h2 className="mb-3 text-[13px] font-bold uppercase tracking-wider text-muted-foreground">체크 퀴즈 Q&A</h2>
+      <div className="space-y-3">
+        {quizItems.map((item, index) => (
+          <article key={`quiz-${index}`} className="rounded-2xl border border-border bg-card p-4">
+            <p className="text-[13px] font-bold text-foreground">Q{index + 1}. {item.question}</p>
+            <p className="mt-2 text-[13px] leading-relaxed text-foreground/80">A. {item.answer}</p>
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 export default function StudyDetail() {
   const navigate = useNavigate();
   const { topicId } = useParams();
@@ -30,6 +70,24 @@ export default function StudyDetail() {
   const topic = getStudyTopicById(topicId);
   const effectiveCourse = course || topic?.course || '';
   const linkedUnit = getQuizUnitCatalogByStudyTopicId(topicId, effectiveCourse);
+  const buildQuizUrl = (quizId) => {
+    const params = new URLSearchParams();
+    if (effectiveCourse) {
+      params.set('course', effectiveCourse);
+    }
+    params.set('skipLesson', '1');
+    return `/quiz/${quizId}?${params.toString()}`;
+  };
+  const directQuiz = useMemo(() => {
+    if (!linkedUnit?.quizzes?.length || !topic) {
+      return null;
+    }
+
+    const matchedQuiz =
+      linkedUnit.quizzes.find((quiz) => (quiz.studyTopicId || linkedUnit.studyTopicId) === topic.id) || null;
+
+    return matchedQuiz || linkedUnit.quizzes[0] || null;
+  }, [linkedUnit, topic]);
   const summaryBullets = useMemo(() => (topic ? buildSummaryBullets(topic) : []), [topic]);
   const sourceMeta = useMemo(() => {
     if (!topic) {
@@ -41,6 +99,10 @@ export default function StudyDetail() {
         label: '출처: Toss Feed',
         url: TOSS_FEED_SOURCE_URL,
       };
+    }
+
+    if (topic.course === 'one') {
+      return null;
     }
 
     return {
@@ -110,7 +172,9 @@ export default function StudyDetail() {
           <div className="flex items-center justify-between gap-3">
             <div>
               <h2 className="text-[13px] font-bold uppercase tracking-wider text-muted-foreground">원문 자료</h2>
-              <p className="mt-1 text-[11px] text-muted-foreground">{sourceMeta?.label}</p>
+              {sourceMeta?.label ? (
+                <p className="mt-1 text-[11px] text-muted-foreground">{sourceMeta.label}</p>
+              ) : null}
               {sourceMeta?.url ? (
                 <a
                   href={sourceMeta.url}
@@ -187,6 +251,20 @@ export default function StudyDetail() {
         </section>
       ) : null}
 
+      {topic.definition ? (
+        <section className="mb-6">
+          <h2 className="mb-3 text-[13px] font-bold uppercase tracking-wider text-muted-foreground">정의</h2>
+          <div className="rounded-xl border border-border bg-card px-4 py-3">
+            <p className="text-[13px] leading-relaxed text-foreground">{topic.definition}</p>
+          </div>
+        </section>
+      ) : null}
+
+      <ListSection title="주요 특징" items={topic.characteristics} />
+      <ListSection title="주요 유형" items={topic.types} />
+      <ListSection title="사례" items={topic.cases} />
+      <ListSection title="예방 수칙" items={topic.prevention} />
+
       {topic.learningPoints?.length ? (
         <section className="mb-6">
           <h2 className="mb-3 text-[13px] font-bold uppercase tracking-wider text-muted-foreground">학습 내용</h2>
@@ -214,6 +292,60 @@ export default function StudyDetail() {
         </section>
       ) : null}
 
+      {topic.fraudAccount ? (
+        <section className="mb-6 rounded-2xl border border-border bg-card p-4">
+          <h2 className="mb-3 text-[13px] font-bold uppercase tracking-wider text-muted-foreground">대포통장</h2>
+          {topic.fraudAccount.definition ? (
+            <p className="mb-3 text-[13px] leading-relaxed text-foreground">{topic.fraudAccount.definition}</p>
+          ) : null}
+          <ListSection title="대포통장 특징" items={topic.fraudAccount.characteristics} />
+          <ListSection title="대포통장 유형" items={topic.fraudAccount.types} />
+          <ListSection title="대포통장 사례" items={topic.fraudAccount.cases} />
+          <ListSection title="대포통장 예방" items={topic.fraudAccount.prevention} />
+        </section>
+      ) : null}
+
+      {topic.insuranceFraud ? (
+        <section className="mb-6 rounded-2xl border border-border bg-card p-4">
+          <h2 className="mb-3 text-[13px] font-bold uppercase tracking-wider text-muted-foreground">보험사기</h2>
+          {topic.insuranceFraud.definition ? (
+            <p className="mb-3 text-[13px] leading-relaxed text-foreground">{topic.insuranceFraud.definition}</p>
+          ) : null}
+          <ListSection title="보험사기 특징" items={topic.insuranceFraud.characteristics} />
+          <ListSection title="보험사기 유형" items={topic.insuranceFraud.types} />
+          <ListSection title="보험사기 사례" items={topic.insuranceFraud.cases} />
+          <ListSection title="보험사기 예방" items={topic.insuranceFraud.prevention} />
+        </section>
+      ) : null}
+
+      {topic.foreignerPrecautions ? (
+        <section className="mb-6 rounded-2xl border border-border bg-card p-4">
+          <h2 className="mb-3 text-[13px] font-bold uppercase tracking-wider text-muted-foreground">외국인 특화 주의사항</h2>
+          <ListSection title="취약한 이유" items={topic.foreignerPrecautions.reasons} />
+          <ListSection title="핵심 규칙" items={topic.foreignerPrecautions.coreRules} />
+          {topic.foreignerPrecautions.warning ? (
+            <div className="rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3">
+              <p className="text-[13px] leading-relaxed text-foreground">{topic.foreignerPrecautions.warning}</p>
+            </div>
+          ) : null}
+        </section>
+      ) : null}
+
+      {topic.reportingContacts?.length ? (
+        <section className="mb-6">
+          <h2 className="mb-3 text-[13px] font-bold uppercase tracking-wider text-muted-foreground">신고 연락처</h2>
+          <div className="space-y-2">
+            {topic.reportingContacts.map((contact, index) => (
+              <article key={`${contact.organization}-${index}`} className="rounded-xl border border-border bg-card px-4 py-3">
+                <p className="text-[13px] font-bold text-foreground">{contact.organization}</p>
+                <p className="mt-1 text-[12px] text-primary">{contact.phone}</p>
+                <p className="mt-1 text-[12px] text-muted-foreground">{contact.role}</p>
+              </article>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
       {topic.concepts?.length ? (
         <section className="mb-6">
           <h2 className="mb-3 text-[13px] font-bold uppercase tracking-wider text-muted-foreground">핵심 개념</h2>
@@ -225,6 +357,8 @@ export default function StudyDetail() {
         </section>
       ) : null}
 
+      <QASection quizItems={topic.quiz} />
+
       {linkedUnit ? (
         <section className="rounded-2xl border border-primary/15 bg-primary/5 p-4">
           <div className="mb-2 flex items-center gap-2">
@@ -232,13 +366,25 @@ export default function StudyDetail() {
             <h2 className="text-[13px] font-bold uppercase tracking-wider text-primary">읽고 바로 퀴즈 풀기</h2>
           </div>
           <p className="mb-4 text-[13px] leading-relaxed text-foreground">
-            이 주제는 퀴즈 단원과 연결되어 있어요. 각 퀴즈에 들어가면 이 학습 내용을 잘게 나눈 뒤 바로 문제를 풀게 됩니다.
+            이 주제와 연결된 퀴즈로 바로 이동합니다.
           </p>
-          <div className="grid gap-2">
-            {linkedUnit.quizzes.map((quiz) => (
+          {directQuiz ? (
+            <button
+              onClick={() => navigate(buildQuizUrl(directQuiz.id))}
+              className="flex w-full items-center justify-between gap-3 rounded-xl border border-border bg-background px-4 py-3 text-left"
+            >
+              <div className="min-w-0">
+                <p className="text-[13px] font-bold text-foreground">이 내용으로 퀴즈 풀기</p>
+                <p className="mt-0.5 text-[12px] text-muted-foreground">{directQuiz.subtitle}</p>
+              </div>
+              <PlayCircle className="h-4 w-4 shrink-0 text-primary" />
+            </button>
+          ) : (
+            <div className="grid gap-2">
+              {linkedUnit.quizzes.map((quiz) => (
               <button
                 key={quiz.id}
-                onClick={() => navigate(`/quiz/${quiz.id}${effectiveCourse ? `?course=${effectiveCourse}` : ''}`)}
+                onClick={() => navigate(buildQuizUrl(quiz.id))}
                 className="flex items-center justify-between gap-3 rounded-xl border border-border bg-background px-4 py-3 text-left"
               >
                 <div className="min-w-0">
@@ -247,8 +393,9 @@ export default function StudyDetail() {
                 </div>
                 <PlayCircle className="h-4 w-4 shrink-0 text-primary" />
               </button>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </section>
       ) : null}
     </div>

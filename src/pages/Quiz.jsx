@@ -27,9 +27,10 @@ export default function Quiz() {
     return fixedCourse || params.get('course') || null;
   });
   const { progress, loading, isPremium, isQuizCompleted, getQuizScore, user } = useProgress();
-  const courseMeta = getCourseMeta(selectedCourse || fixedCourse || 'youth');
-  const canAccessTeenCourse = isAdminUser(user);
   const { isEnglish } = useLanguage();
+  const courseMeta = getCourseMeta(selectedCourse || fixedCourse || 'youth');
+  const hasCourseSource = Boolean((isEnglish ? courseMeta.sourceLabelEn : courseMeta.sourceLabel) || courseMeta.sourceUrl);
+  const canAccessTeenCourse = isAdminUser(user);
 
   useEffect(() => {
     if (fixedCourse) {
@@ -66,6 +67,12 @@ export default function Quiz() {
     window.addEventListener('bottomNavReset', handleTabReset);
     return () => window.removeEventListener('bottomNavReset', handleTabReset);
   }, [fixedCourse]);
+
+  useEffect(() => {
+    if (activeTrack !== TRACKS.YOUTH) return;
+    setSelectedCourse(null);
+    window.history.replaceState({}, '', '/quiz');
+  }, [activeTrack]);
 
   const handleSelectCourse = (course) => {
     setSelectedCourse(course);
@@ -112,13 +119,8 @@ export default function Quiz() {
     );
   }
 
-  const handleQuizSelect = (quizId, studyTopicId) => {
+  const handleQuizSelect = (quizId) => {
     if (!isPremium && progress.hearts <= 0) return;
-    if (studyTopicId) {
-      navigate(`/study/${studyTopicId}?course=${selectedCourse}`);
-      return;
-    }
-
     navigate(`/quiz/${quizId}?course=${selectedCourse}`);
   };
 
@@ -145,6 +147,7 @@ export default function Quiz() {
           <p className="text-muted-foreground text-[14px]">
             {isEnglish ? 'Check what you learned with a quiz.' : '학습한 내용을 퀴즈로 확인해보세요'}
           </p>
+          {hasCourseSource ? (
           <div className="mt-4 hidden max-w-xl rounded-2xl border border-border bg-card px-4 py-3 lg:block">
               <p className="text-[11px] leading-relaxed text-muted-foreground">
               {isEnglish ? courseMeta.sourceLabelEn : courseMeta.sourceLabel}
@@ -158,6 +161,7 @@ export default function Quiz() {
               {isEnglish ? 'View source' : '원문 출처 보기'}
             </a>
           </div>
+          ) : null}
         </div>
 
         <div className="space-y-4">
@@ -206,6 +210,7 @@ export default function Quiz() {
         </div>
       )}
 
+      {hasCourseSource ? (
       <div className="mb-4 rounded-2xl border border-border bg-card px-4 py-3 lg:hidden">
         <p className="text-[11px] leading-relaxed text-muted-foreground">
           {isEnglish ? courseMeta.sourceLabelEn : courseMeta.sourceLabel}
@@ -219,6 +224,7 @@ export default function Quiz() {
           {isEnglish ? 'View source' : '원문 출처 보기'}
         </a>
       </div>
+      ) : null}
 
       <div className="rounded-3xl border border-border/70 bg-card/60 p-4 sm:p-5 xl:p-6">
         <QuizRoadmap

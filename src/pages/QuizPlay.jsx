@@ -29,14 +29,18 @@ export default function QuizPlay() {
   const { activeTrack } = useTrack();
   const navigate = useNavigate();
   const { quizId } = useParams();
+  const searchParams = new URLSearchParams(window.location.search);
+  const skipLesson = searchParams.get('skipLesson') === '1';
   const fixedCourse = getFixedCourseByTrack(activeTrack);
-  const requestedCourse = new URLSearchParams(window.location.search).get('course');
+  const requestedCourse = searchParams.get('course');
   const course = requestedCourse || fixedCourse || 'youth';
   const courseMeta = getCourseMeta(course);
+  const courseSourceLabel = isEnglish ? courseMeta.sourceLabelEn : courseMeta.sourceLabel;
   const courseUnits = getQuizUnitsCatalog(course);
   const lastUnit = courseUnits[courseUnits.length - 1];
   const lastQuizId = lastUnit?.quizzes?.[lastUnit.quizzes.length - 1]?.id || '';
   const isLastCourseQuiz = quizId === lastQuizId;
+  const shouldPreferLocalQuestions = course === 'one';
   const backUrl = fixedCourse ? '/quiz' : `/quiz?course=${course}`;
   const {
     progress,
@@ -60,7 +64,7 @@ export default function QuizPlay() {
   const [xpEarned, setXpEarned] = useState(0);
   const [showCongrats, setShowCongrats] = useState(false);
   const [isAdvancing, setIsAdvancing] = useState(false);
-  const [hasRequestedQuiz, setHasRequestedQuiz] = useState(false);
+  const [hasRequestedQuiz, setHasRequestedQuiz] = useState(skipLesson);
   const [quizSource, setQuizSource] = useState(null);
   const [showSourceViewer, setShowSourceViewer] = useState(false);
   const [localizedLessonChunk, setLocalizedLessonChunk] = useState(null);
@@ -104,12 +108,12 @@ export default function QuizPlay() {
     setShowCongrats(false);
     setIsAdvancing(false);
     setQuizSource(null);
-    setHasRequestedQuiz(false);
+    setHasRequestedQuiz(skipLesson);
     setShowSourceViewer(false);
     setLocalizedLessonChunk(null);
     setLessonTranslationFailed(false);
     setShowLessonTranslationError(false);
-  }, [quizId]);
+  }, [quizId, skipLesson]);
 
   useEffect(() => {
     let active = true;
@@ -194,6 +198,34 @@ export default function QuizPlay() {
       setLoading(true);
 
       try {
+        if (shouldPreferLocalQuestions) {
+          const localQuestions = quizData?.questions || [];
+          if (isEnglish && localQuestions.length > 0) {
+            try {
+              const translatedQuestions = await translateQuizQuestionsContent(localQuestions, 'en');
+              if (active) {
+                setQuestions(translatedQuestions);
+              }
+            } catch (translationError) {
+              console.error('Local quiz translation failed, using original questions:', translationError);
+              if (active) {
+                setQuestions(localQuestions);
+              }
+            }
+          } else if (active) {
+            setQuestions(localQuestions);
+          }
+
+          if (active) {
+            setQuizSource({
+              source: 'local',
+              model: null,
+              fromCache: false,
+            });
+          }
+          return;
+        }
+
         const generatedQuiz = await generateAiQuiz(quizId, { forceRefresh, locale: isEnglish ? 'en' : 'ko' });
         if (active) {
           setQuestions(generatedQuiz.questions);
@@ -236,7 +268,7 @@ export default function QuizPlay() {
     return () => {
       active = false;
     };
-  }, [hasRequestedQuiz, isEnglish, isReplay, lessonChunk, quizData, quizId]);
+  }, [hasRequestedQuiz, isEnglish, isReplay, lessonChunk, quizData, quizId, shouldPreferLocalQuestions]);
 
   useEffect(() => {
     return () => {
@@ -467,7 +499,9 @@ export default function QuizPlay() {
           <div className="mb-4 rounded-2xl border border-border bg-card p-4">
             <div className="flex items-center justify-between gap-3">
               <div>
-                <p className="text-[11px] text-muted-foreground">{isEnglish ? courseMeta.sourceLabelEn : courseMeta.sourceLabel}</p>
+                {courseSourceLabel ? (
+                  <p className="text-[11px] text-muted-foreground">{courseSourceLabel}</p>
+                ) : null}
                 <p className="mt-0.5 text-[12px] font-semibold text-foreground">{isEnglish ? 'Original PDF' : '원문 PDF'}</p>
               </div>
               <button

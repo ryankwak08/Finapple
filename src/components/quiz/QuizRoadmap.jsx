@@ -116,6 +116,7 @@ function GlossaryNode({ unitId, locked, completed, position, course }) {
 }
 
 export default function QuizRoadmap({ isPremium, isQuizCompleted, getQuizScore, onQuizSelect, course = 'youth' }) {
+  const navigate = useNavigate();
   const { isEnglish } = useLanguage();
   const quizUnitsCatalog = getQuizUnitsCatalog(course).map((unit) => getLocalizedQuizUnit(unit, isEnglish));
 
@@ -157,6 +158,15 @@ export default function QuizRoadmap({ isPremium, isQuizCompleted, getQuizScore, 
               <div className="min-w-0">
                 <p className="text-[15px] font-extrabold text-foreground">{unit.title}</p>
                 <p className="text-[11px] text-muted-foreground">{unit.subtitle}</p>
+                {unit.studyTopicId ? (
+                  <button
+                    type="button"
+                    onClick={() => navigate(`/study/${unit.studyTopicId}?course=${course}`)}
+                    className="mt-1 inline-flex items-center rounded-lg border border-border bg-background px-2.5 py-1 text-[10px] font-semibold text-foreground hover:bg-muted"
+                  >
+                    이번 단원의 학습 자료
+                  </button>
+                ) : null}
                 <p className="text-[10px] text-primary mt-0.5">{isEnglish ? 'Read the lesson and jump straight into the quiz.' : '학습 조각을 읽고 바로 퀴즈로 넘어가요'}</p>
                 {!isPremium ? (
                   <p className="mt-1 text-[10px] text-muted-foreground">
@@ -179,7 +189,7 @@ export default function QuizRoadmap({ isPremium, isQuizCompleted, getQuizScore, 
                     <div className="absolute left-[27px] top-14 z-0 h-8 w-0.5 bg-border sm:left-[31px] sm:top-16" />
                     <div className="relative z-10 py-1 mb-8">
                       <QuizNode
-                        quiz={{ ...quiz, studyTopicId: unit.studyTopicId }}
+                        quiz={{ ...quiz, studyTopicId: quiz.studyTopicId || unit.studyTopicId }}
                         status={{ completed, score: scoreDetails?.score ?? null, total: scoreDetails?.total ?? 5 }}
                         locked={false}
                         onSelect={onQuizSelect}
