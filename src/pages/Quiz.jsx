@@ -7,12 +7,11 @@ import HeartDisplay from '../components/quiz/HeartDisplay';
 import QuizRoadmap from '../components/quiz/QuizRoadmap';
 import PremiumBadge from '@/components/PremiumBadge';
 import { getCourseMeta } from '@/lib/courseMeta';
-import { isAdminUser } from '@/lib/premium';
 import { useLanguage } from '@/lib/i18n';
 import { TRACKS, useTrack } from '@/lib/trackContext';
 
-const getFixedCourseByTrack = (activeTrack, canAccessTeenCourse) => {
-  if (activeTrack === TRACKS.YOUTH) return canAccessTeenCourse ? 'teen' : 'youth';
+const getFixedCourseByTrack = (activeTrack) => {
+  if (activeTrack === TRACKS.YOUTH) return 'teen';
   if (activeTrack === TRACKS.START) return 'youth';
   if (activeTrack === TRACKS.ONE) return 'one';
   return null;
@@ -23,8 +22,7 @@ export default function Quiz() {
   const location = useLocation();
   const { activeTrack } = useTrack();
   const { progress, loading, isPremium, isQuizCompleted, getQuizScore, user } = useProgress();
-  const canAccessTeenCourse = isAdminUser(user);
-  const fixedCourse = getFixedCourseByTrack(activeTrack, canAccessTeenCourse);
+  const fixedCourse = getFixedCourseByTrack(activeTrack);
   const [selectedCourse, setSelectedCourse] = useState(() => {
     const params = new URLSearchParams(window.location.search);
     return fixedCourse || params.get('course') || null;
@@ -43,15 +41,6 @@ export default function Quiz() {
     const params = new URLSearchParams(location.search);
     setSelectedCourse(params.get('course') || null);
   }, [fixedCourse, location.search]);
-
-  useEffect(() => {
-    if (fixedCourse || selectedCourse !== 'teen' || canAccessTeenCourse) {
-      return;
-    }
-
-    setSelectedCourse(null);
-    window.history.replaceState({}, '', '/quiz');
-  }, [canAccessTeenCourse, fixedCourse, selectedCourse]);
 
   useEffect(() => {
     const handleTabReset = (event) => {
@@ -75,7 +64,7 @@ export default function Quiz() {
   };
 
   if (!selectedCourse && !fixedCourse) {
-    return <CourseSelector type="quiz" onSelect={handleSelectCourse} canAccessTeenCourse={canAccessTeenCourse} />;
+    return <CourseSelector type="quiz" onSelect={handleSelectCourse} />;
   }
 
   if (loading) {

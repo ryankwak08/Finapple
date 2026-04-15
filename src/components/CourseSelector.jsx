@@ -1,4 +1,4 @@
-import { ChevronRight, Lock } from 'lucide-react';
+import { ChevronRight } from 'lucide-react';
 import { useLanguage } from '@/lib/i18n';
 
 const courses = [
@@ -24,30 +24,15 @@ const courses = [
     subtitleEn: 'KDI life-stage economics course',
     description: '청소년을 위한 금융 기초와 생활경제\n용돈관리·노동권·진로 설계',
     descriptionEn: 'Finance basics for teens and everyday economics\nAllowance management, labor rights, and career planning',
-    available: false,
-    badge: '준비 중',
-    badgeEn: 'Coming soon',
+    available: true,
+    badge: '현재 수록',
+    badgeEn: 'Available now',
   },
 ];
 
-export default function CourseSelector({ type, onSelect, canAccessTeenCourse = false }) {
+export default function CourseSelector({ type, onSelect }) {
   const { isEnglish } = useLanguage();
-  const renderedCourses = courses.map((course) => {
-    if (course.id !== 'teen') {
-      return course;
-    }
-
-    if (canAccessTeenCourse) {
-      return {
-        ...course,
-        available: true,
-        badge: '관리자 테스트',
-        badgeEn: 'Admin access',
-      };
-    }
-
-    return course;
-  });
+  const renderedCourses = courses;
 
   return (
     <div className="px-4 pb-6 pt-8 sm:px-5 sm:pt-10">
@@ -94,11 +79,7 @@ export default function CourseSelector({ type, onSelect, canAccessTeenCourse = f
                   {isEnglish ? course.descriptionEn : course.description}
                 </p>
               </div>
-              {course.available ? (
-                <ChevronRight className="w-5 h-5 text-muted-foreground/40 mt-1 flex-shrink-0" />
-              ) : (
-                <Lock className="w-4 h-4 text-muted-foreground/30 mt-1 flex-shrink-0" />
-              )}
+              <ChevronRight className="w-5 h-5 text-muted-foreground/40 mt-1 flex-shrink-0" />
             </div>
           </button>
         ))}

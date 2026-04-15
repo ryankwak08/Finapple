@@ -14,12 +14,11 @@ import useSoundEffects from '@/hooks/useSoundEffects';
 import { getLessonChunkForQuiz } from '@/lib/studyData';
 import { getCourseMeta } from '@/lib/courseMeta';
 import { getLocalizedQuizMeta, getQuizUnitsCatalog } from '@/lib/quizCatalog';
-import { isAdminUser } from '@/lib/premium';
 import { useLanguage } from '@/lib/i18n';
 import { TRACKS, useTrack } from '@/lib/trackContext';
 
-const getFixedCourseByTrack = (activeTrack, canAccessTeenCourse) => {
-  if (activeTrack === TRACKS.YOUTH) return canAccessTeenCourse ? 'teen' : 'youth';
+const getFixedCourseByTrack = (activeTrack) => {
+  if (activeTrack === TRACKS.YOUTH) return 'teen';
   if (activeTrack === TRACKS.START) return 'youth';
   if (activeTrack === TRACKS.ONE) return 'one';
   return null;
@@ -41,10 +40,8 @@ export default function QuizPlay() {
     recordQuizActivity,
     isQuizCompleted,
     getReviewNotesForQuiz,
-    user,
   } = useProgress();
-  const canAccessTeenCourse = isAdminUser(user);
-  const fixedCourse = getFixedCourseByTrack(activeTrack, canAccessTeenCourse);
+  const fixedCourse = getFixedCourseByTrack(activeTrack);
   const requestedCourse = searchParams.get('course');
   const course = fixedCourse || requestedCourse || 'youth';
   const courseMeta = getCourseMeta(course);
@@ -85,7 +82,6 @@ export default function QuizPlay() {
   );
   const reviewCount = getReviewNotesForQuiz(quizId).length;
   const sourcePdfUrl = lessonChunk?.topic?.pdfUrl || '';
-  const isTeenQuiz = String(quizId || '').startsWith('teen-');
   const isReplay = isQuizCompleted(quizId);
   const localizedQuizMeta = getLocalizedQuizMeta(quizId, quizData || {});
   const quizDisplayTitle = isEnglish ? localizedQuizMeta.title || quizData?.title : quizData?.title;
@@ -331,24 +327,6 @@ export default function QuizPlay() {
       <div className="flex flex-col items-center justify-center min-h-screen px-6">
         <p className="text-muted-foreground text-[15px]">{isEnglish ? 'Quiz not found' : '퀴즈를 찾을 수 없습니다'}</p>
         <Link to={backUrl} className="text-primary font-semibold text-[14px] mt-4">{isEnglish ? 'Go back' : '돌아가기'}</Link>
-      </div>
-    );
-  }
-
-  if (isTeenQuiz && !canAccessTeenCourse) {
-    return (
-      <div className="flex min-h-screen flex-col items-center justify-center px-6 text-center">
-        <div className="mb-4 text-5xl">🚧</div>
-        <h2 className="text-xl font-extrabold text-foreground">{isEnglish ? 'The teen track is coming soon' : '청소년기편은 준비 중입니다'}</h2>
-        <p className="mt-2 text-[14px] text-muted-foreground">
-          {isEnglish ? 'Right now it is available only for admin test accounts.' : '현재는 관리자 테스트 계정만 접근할 수 있어요.'}
-        </p>
-        <Link
-          to="/quiz"
-          className="mt-6 rounded-2xl bg-primary px-6 py-3 text-[14px] font-bold text-primary-foreground"
-        >
-          {isEnglish ? 'Back to quiz list' : '퀴즈 목록으로 돌아가기'}
-        </Link>
       </div>
     );
   }

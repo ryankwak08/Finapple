@@ -2,7 +2,7 @@ import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { useEffect, useRef, useState } from 'react';
 import { BookOpen, ChevronDown, Gamepad2 } from 'lucide-react';
 import { getCurrentUser } from '@/services/authService';
-import { getIsPremium, isAdminUser } from '@/lib/premium';
+import { getIsPremium } from '@/lib/premium';
 import { AnimatePresence } from 'framer-motion';
 import BottomNav, { getActiveTab, getAppTabs } from './BottomNav';
 import PageTransition from './PageTransition';
@@ -25,10 +25,7 @@ export default function AppShell() {
   const { locale, setLocale, t } = useLanguage();
   const { activeTrack, setActiveTrack, tracks, trackMeta } = useTrack();
   const appTabs = getAppTabs(t);
-  const canAccessTeenTrack = isAdminUser(user);
-  const availableTracks = canAccessTeenTrack
-    ? tracks
-    : tracks.filter((track) => track.key !== TRACKS.YOUTH);
+  const availableTracks = tracks;
 
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
@@ -107,16 +104,6 @@ export default function AppShell() {
       window.removeEventListener('profilePictureUpdated', handleProfileUpdate);
     };
   }, []);
-
-  useEffect(() => {
-    if (!isUserResolved) {
-      return;
-    }
-
-    if (!canAccessTeenTrack && activeTrack === TRACKS.YOUTH) {
-      setActiveTrack(TRACKS.START);
-    }
-  }, [activeTrack, canAccessTeenTrack, isUserResolved, setActiveTrack]);
 
   return (
     <div
