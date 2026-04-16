@@ -275,7 +275,7 @@ export default function Login() {
       setIsResending(true);
       setError('');
       await resendSignupConfirmation(resolvedVerificationEmail);
-      setMessage(`${resolvedVerificationEmail}로 인증 메일을 다시 보냈어요.`);
+      setMessage(`${resolvedVerificationEmail}로 인증 메일을 다시 보냈어요. 받은편지함에 없다면 스팸함도 확인해주세요.`);
     } catch (resendError) {
       console.error('Resend verification failed:', resendError);
       setError(resendError.message || '인증 메일을 다시 보내지 못했습니다.');
@@ -477,7 +477,7 @@ export default function Login() {
           marketingOptIn: agreements.marketing,
         });
         setVerificationEmail(email);
-        setMessage(`${email}로 인증 코드 메일을 보냈어요.`);
+        setMessage(`${email}로 인증 코드 메일을 보냈어요. 받은편지함에 없다면 스팸함도 확인해주세요.`);
         setMode('verify');
         setNickname('');
         setNicknameCheckedValue('');
@@ -623,6 +623,7 @@ export default function Login() {
                   })}
                 </div>
                 <p className="mt-3 text-xs text-[#828282]">메일에 보이는 6자리 숫자를 그대로 입력해주세요.</p>
+                <p className="mt-1 text-xs text-[#828282]">메일이 보이지 않으면 스팸함도 함께 확인해주세요.</p>
               </div>
 
               <StatusMessage tone="error">{error}</StatusMessage>
