@@ -13,12 +13,17 @@ html {
   overflow-x: hidden;
 }
 
-body,
-#root {
+body {
   width: 100%;
   max-width: 100%;
   overflow-x: hidden;
   overscroll-behavior-x: none;
+}
+
+#root {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
 }
 
 @layer base {
@@ -327,8 +332,11 @@ body > #root {
   padding-bottom: var(--safe-bottom);
 }
 
-/* Custom scrollbar for mobile feel */
-::-webkit-scrollbar {
-  width: 0px;
-  background: transparent;
+.scrollbar-hidden {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-hidden::-webkit-scrollbar {
+  display: none;
 }

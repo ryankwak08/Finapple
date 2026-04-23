@@ -1,30 +1,42 @@
 import { useState, useRef, useCallback } from 'react';
 import { Loader2 } from 'lucide-react';
+import { isNativePlatform } from '@/lib/runtimePlatform';
 
 const THRESHOLD = 72;
+const supportsNativePullToRefresh = () => {
+  if (typeof window === 'undefined' || typeof navigator === 'undefined') {
+    return false;
+  }
+
+  return isNativePlatform() && navigator.maxTouchPoints > 0;
+};
 
 export default function PullToRefresh({ onRefresh, children }) {
   const [pullDistance, setPullDistance] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
   const startY = useRef(null);
   const containerRef = useRef(null);
+  const enablePullToRefresh = supportsNativePullToRefresh();
 
   const handleTouchStart = useCallback((e) => {
+    if (!enablePullToRefresh) return;
     const el = containerRef.current;
     if (el && el.scrollTop === 0) {
       startY.current = e.touches[0].clientY;
     }
-  }, []);
+  }, [enablePullToRefresh]);
 
   const handleTouchMove = useCallback((e) => {
+    if (!enablePullToRefresh) return;
     if (startY.current === null || refreshing) return;
     const dy = e.touches[0].clientY - startY.current;
     if (dy > 0) {
       setPullDistance(Math.min(dy * 0.5, THRESHOLD + 20));
     }
-  }, [refreshing]);
+  }, [enablePullToRefresh, refreshing]);
 
   const handleTouchEnd = useCallback(async () => {
+    if (!enablePullToRefresh) return;
     if (pullDistance >= THRESHOLD) {
       setRefreshing(true);
       setPullDistance(THRESHOLD);
@@ -38,16 +50,16 @@ export default function PullToRefresh({ onRefresh, children }) {
       setPullDistance(0);
     }
     startY.current = null;
-  }, [pullDistance, onRefresh]);
+  }, [enablePullToRefresh, pullDistance, onRefresh]);
 
   const progress = Math.min(pullDistance / THRESHOLD, 1);
-  const showIndicator = pullDistance > 4 || refreshing;
+  const showIndicator = enablePullToRefresh && (pullDistance > 4 || refreshing);
 
   return (
     <div
       ref={containerRef}
-      className="relative min-h-[calc(100dvh-5rem)] w-full max-w-full overflow-x-hidden overflow-y-auto overscroll-y-contain"
-      style={{ touchAction: 'pan-y' }}
+      className={`relative w-full max-w-full overflow-x-hidden ${enablePullToRefresh ? 'min-h-[calc(100dvh-5rem)] overflow-y-auto overscroll-y-contain' : ''}`}
+      style={enablePullToRefresh ? { touchAction: 'pan-y' } : undefined}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}

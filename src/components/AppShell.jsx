@@ -107,13 +107,13 @@ export default function AppShell() {
 
   return (
     <div
-      className="app-shell-gradient safe-area-top min-h-[100dvh] w-full max-w-full overflow-x-hidden bg-background"
+      className="app-shell-gradient safe-area-top min-h-screen w-full max-w-full overflow-x-hidden bg-background md:h-screen md:overflow-hidden"
       style={{
         paddingLeft: 'var(--safe-left)',
         paddingRight: 'var(--safe-right)',
       }}
     >
-      <div className={`mx-auto flex min-h-[100dvh] w-full max-w-7xl flex-col overflow-x-hidden md:px-6 xl:px-8 ${isSurvivalRoute ? '' : 'pb-[76px] md:pb-10'}`}>
+      <div className={`mx-auto flex min-h-screen w-full max-w-7xl flex-col overflow-x-hidden md:h-screen md:min-h-0 md:px-6 xl:px-8 ${isSurvivalRoute ? '' : 'pb-[76px] md:pb-10'}`}>
         {isSurvivalRoute ? (
           <main className="min-w-0 flex-1">
             <div className="mx-auto w-full max-w-5xl">
@@ -294,7 +294,7 @@ export default function AppShell() {
                 </div>
               </aside>
 
-              <main className="min-w-0 min-h-0 flex-1">
+              <main className="min-w-0 min-h-0 md:overflow-y-auto scrollbar-hidden">
                 <div className="mx-auto w-full max-w-5xl">
                   <AnimatePresence mode="wait">
                     <PageTransition>
