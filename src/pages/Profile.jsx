@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/lib/AuthContext';
 import { ArrowLeft, Camera, Star, Clock, Crown, Check, Edit2, Loader2, Trash2, NotebookPen, ChartNoAxesColumn } from 'lucide-react';
-import { deleteAccount, getCurrentUser, updateUserProfile, setPremiumStatus, uploadProfilePicture } from '@/services/authService';
+import { cancelPremiumSubscription, deleteAccount, getCurrentUser, updateUserProfile, uploadProfilePicture } from '@/services/authService';
 import { findAdminManagedUser, updateAdminManagedUser } from '@/api/adminClient';
 import { syncLeaderboardEntry } from '@/api/leaderboardClient';
 import { isNicknameAvailable, syncUserProfileRecord } from '@/services/profileService';
@@ -16,6 +16,7 @@ import PremiumBadge from '@/components/PremiumBadge';
 import { Switch } from '@/components/ui/switch';
 import useProgress from '../lib/useProgress';
 import { safeStorage } from '@/lib/safeStorage';
+import { isNativeIOSApp } from '@/lib/runtimePlatform';
 
 const getUsageStorageKey = (email) => `totalUsageSeconds:${email || 'guest'}`;
 
@@ -61,6 +62,9 @@ export default function Profile() {
     user?.user_metadata?.full_name?.trim() ||
     user?.email?.split('@')[0] ||
     '이름 없음';
+  const nativeIOS = isNativeIOSApp();
+  const premiumProvider = String(user?.user_metadata?.premium_provider || user?.premium_provider || '').toLowerCase();
+  const canCancelPremiumOnWeb = premiumProvider === 'kcp';
 
   const syncLeaderboardProfile = async (nextUser, nextPremium = isPremium) => {
     if (!progress || !nextUser?.email) {
@@ -273,8 +277,8 @@ export default function Profile() {
     {
       id: 'premium',
       name: '프리미엄',
-      price: '₩9,900',
-      period: '/ 월',
+      price: '₩5,500 / ₩55,000',
+      period: '월 / 연',
       features: ['모든 학습 콘텐츠', '무제한 하트', 'Streak Freezer 매월 3개 지급', '퀴즈 해설, 진도 확인, 오답노트', '연속 학습 관리', '광고 없음'],
       current: isPremium,
       color: 'border-primary bg-primary/5',
@@ -639,30 +643,50 @@ export default function Profile() {
         </button>
 
         {/* Cancel subscription */}
-        {isPremium && (
+        {isPremium ? (
           <button
             onClick={async () => {
-              if (confirm('정말로 프리미엄 구독을 취소하시겠습니까?')) {
-                await setPremiumStatus(false);
+              const confirmMessage = nativeIOS
+                ? 'App Store 구독 관리 화면으로 이동할까요? 구독 상태 변경은 Apple 계정에서 진행됩니다.'
+                : canCancelPremiumOnWeb
+                ? '정말로 프리미엄 구독을 해지할까요? 다음 결제일부터 자동 청구가 중단됩니다.'
+                : '현재 구독은 앱에서 직접 해지할 수 없습니다. 안내 문구를 확인해주세요.';
+
+              if (!confirm(confirmMessage)) {
+                return;
+              }
+
+              try {
+                const result = await cancelPremiumSubscription(user);
+                if (result.platform === 'ios') {
+                  return;
+                }
+
                 setIsPremium(false);
-                setUser(prev => (
+                setUser((prev) => (
                   prev
                     ? {
                         ...prev,
-                        user_metadata: { ...(prev.user_metadata || {}), is_premium: false },
+                        is_premium: false,
+                        user_metadata: {
+                          ...(prev.user_metadata || {}),
+                          is_premium: false,
+                          premium_status: 'canceled',
+                        },
                       }
                     : null
                 ));
-                // Refresh page to update premium-gated features
-                setTimeout(() => window.location.reload(), 300);
+                await reloadProgress();
+              } catch (error) {
+                alert(error.message || '구독 해지 중 오류가 발생했습니다.');
               }
             }}
             className="w-full py-3 rounded-2xl text-muted-foreground text-[13px] font-medium animate-slide-up hover:text-foreground transition-colors"
             style={{ animationDelay: '320ms', animationFillMode: 'backwards' }}
           >
-            구독 취소
+            {nativeIOS ? 'App Store 구독 관리' : '구독 해지'}
           </button>
-        )}
+        ) : null}
 
         {/* Delete confirmation dialog */}
         {showDeleteDialog && (

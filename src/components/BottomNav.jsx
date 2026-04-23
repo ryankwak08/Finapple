@@ -33,9 +33,14 @@ export default function BottomNav() {
   };
 
   return (
-    <nav className="safe-area-bottom fixed bottom-0 left-0 right-0 z-50 border-t border-border/70 bg-card/88 backdrop-blur-xl md:hidden">
+    <nav
+      className="fixed inset-x-0 bottom-0 z-[120] pointer-events-auto border-t border-border/80 bg-card/98 backdrop-blur-xl shadow-[0_-12px_30px_rgba(15,23,42,0.12)] md:hidden"
+      style={{
+        paddingBottom: 'max(var(--safe-bottom), 4px)',
+      }}
+    >
       <div
-        className="mx-auto grid max-w-xl px-2 pb-1 pt-2"
+        className="mx-auto grid max-w-xl px-2 pb-1 pt-1.5"
         style={{ gridTemplateColumns: `repeat(${appTabs.length}, minmax(0, 1fr))` }}
       >
         {appTabs.map(({ root, label, icon: Icon }) => {
@@ -44,14 +49,14 @@ export default function BottomNav() {
             <button
               key={root}
               onClick={() => handleTabPress(root)}
-              className={`flex min-h-[64px] flex-col items-center justify-center gap-1 rounded-2xl px-1 py-2 transition-all duration-200 outline-none select-none ${
+              className={`flex min-h-[56px] flex-col items-center justify-center gap-1 rounded-xl px-1 py-1.5 transition-all duration-200 outline-none select-none ${
                 active ? 'text-primary' : 'text-muted-foreground'
               }`}
             >
-              <div className={`rounded-2xl p-1.5 transition-all duration-200 ${active ? 'bg-primary/10 shadow-sm shadow-primary/10' : ''}`}>
-                <Icon className="w-5 h-5" strokeWidth={active ? 2.5 : 2} />
+              <div className={`rounded-xl p-1 transition-all duration-200 ${active ? 'bg-primary/10 shadow-sm shadow-primary/10' : ''}`}>
+                <Icon className="h-4 w-4" strokeWidth={active ? 2.5 : 2} />
               </div>
-              <span className={`text-[10px] leading-none sm:text-[11px] ${active ? 'font-semibold' : 'font-medium'}`}>
+              <span className={`text-[9px] leading-none sm:text-[10px] ${active ? 'font-semibold' : 'font-medium'}`}>
                 {label}
               </span>
             </button>

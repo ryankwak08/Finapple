@@ -2,6 +2,11 @@
 
 최종 업데이트: 2026-04-08
 
+## 0) Apple 계정 준비
+- [필수] Apple Developer Program 가입
+- [필수] App Store Connect 접근 확인
+- [필수] Certificates, Identifiers & Profiles에서 Bundle ID 생성 가능 상태 확인
+
 ## 1) 가입/동의 화면
 - [필수] 이용약관 동의
 - [필수] 개인정보 처리방침 동의
@@ -23,8 +28,9 @@ npm run cap:open:ios
 
 Xcode에서:
 - Signing Team 선택
-- Bundle Identifier 확인 (`com.finapple.app`)
+- Bundle Identifier 확인 (`com.hafsfinapple.mobile`)
 - Version / Build Number 업데이트
+- Sign in with Apple capability 추가
 - 실제 기기 테스트
 
 ## 4) App Store Connect 등록
@@ -32,6 +38,8 @@ Xcode에서:
 - 스크린샷 업로드 (아이폰 해상도별)
 - 심사용 계정(필요 시) 제공
 - 개인정보/콘텐츠 등 심사 질문 답변
+- 구독 상품 등록
+- Consumable 코인팩 상품 등록
 
 ## 5) TestFlight -> 심사 제출
 - 내부 테스트

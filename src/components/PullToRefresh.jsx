@@ -46,7 +46,8 @@ export default function PullToRefresh({ onRefresh, children }) {
   return (
     <div
       ref={containerRef}
-      className="relative min-h-[calc(100dvh-5rem)] overflow-x-clip overflow-y-auto"
+      className="relative min-h-[calc(100dvh-5rem)] w-full max-w-full overflow-x-hidden overflow-y-auto overscroll-y-contain"
+      style={{ touchAction: 'pan-y' }}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}

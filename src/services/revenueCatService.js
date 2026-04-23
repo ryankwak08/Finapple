@@ -7,6 +7,8 @@ const REVENUECAT_USER_KEY = 'finapple_revenuecat_user_id';
 const REVENUECAT_API_KEY = import.meta.env.VITE_REVENUECAT_APPLE_API_KEY || '';
 const REVENUECAT_ENTITLEMENT_ID = import.meta.env.VITE_REVENUECAT_ENTITLEMENT_ID || 'premium';
 const REVENUECAT_OFFERING_ID = import.meta.env.VITE_REVENUECAT_OFFERING_ID || '';
+const REVENUECAT_SURVIVAL_COIN_OFFERING_ID = import.meta.env.VITE_REVENUECAT_SURVIVAL_COIN_OFFERING_ID || '';
+const REVENUECAT_SURVIVAL_COIN_PACKAGE_ID = import.meta.env.VITE_REVENUECAT_SURVIVAL_COIN_PACKAGE_ID || '';
 
 let isConfigured = false;
 let activeAppUserId = null;
@@ -111,7 +113,7 @@ export const syncRevenueCatPremiumStatus = async (user) => {
   return customerInfo;
 };
 
-export const getRevenueCatPaywall = async (user) => {
+const getRevenueCatOfferingPackage = async ({ user, offeringId, fallbackToCurrent = false, packageFilter } = {}) => {
   if (!canUseRevenueCat()) {
     return null;
   }
@@ -121,17 +123,68 @@ export const getRevenueCatPaywall = async (user) => {
   }
 
   const offerings = await Purchases.getOfferings();
-  const offering = (REVENUECAT_OFFERING_ID && offerings.all?.[REVENUECAT_OFFERING_ID]) || offerings.current;
+  const offering = (offeringId && offerings.all?.[offeringId]) || (fallbackToCurrent ? offerings.current : null);
 
   if (!offering) {
     return null;
   }
 
-  const selectedPackage = offering.monthly || offering.availablePackages?.[0] || null;
+  const availablePackages = offering.availablePackages || [];
+  const selectedPackage = typeof packageFilter === 'function'
+    ? availablePackages.find(packageFilter) || null
+    : availablePackages[0] || null;
 
   return {
     offering,
     selectedPackage,
+    availablePackages,
+  };
+};
+
+export const getRevenueCatPaywall = async (user) => {
+  const paywall = await getRevenueCatOfferingPackage({
+    user,
+    offeringId: REVENUECAT_OFFERING_ID,
+    fallbackToCurrent: true,
+  });
+
+  if (!paywall) {
+    return null;
+  }
+
+  const monthlyPackage = paywall.availablePackages?.find((pkg) => pkg?.packageType === 'MONTHLY') || null;
+  const annualPackage = paywall.availablePackages?.find((pkg) => pkg?.packageType === 'ANNUAL') || null;
+
+  return {
+    offering: paywall.offering,
+    selectedPackage: monthlyPackage || annualPackage || paywall.selectedPackage || paywall.availablePackages?.[0] || null,
+    monthlyPackage,
+    annualPackage,
+    availablePackages: paywall.availablePackages || [],
+  };
+};
+
+export const getRevenueCatSurvivalCoinPack = async (user) => {
+  const paywall = await getRevenueCatOfferingPackage({
+    user,
+    offeringId: REVENUECAT_SURVIVAL_COIN_OFFERING_ID,
+    fallbackToCurrent: false,
+    packageFilter: (pkg) => {
+      if (!REVENUECAT_SURVIVAL_COIN_PACKAGE_ID) {
+        return true;
+      }
+
+      return pkg?.identifier === REVENUECAT_SURVIVAL_COIN_PACKAGE_ID;
+    },
+  });
+
+  if (!paywall) {
+    return null;
+  }
+
+  return {
+    offering: paywall.offering,
+    selectedPackage: paywall.selectedPackage || paywall.availablePackages?.[0] || null,
   };
 };
 
@@ -148,6 +201,20 @@ export const purchaseRevenueCatPackage = async ({ user, aPackage }) => {
   const result = await Purchases.purchasePackage({ aPackage });
   await syncPremiumFlagIfNeeded(user, result.customerInfo);
   return result.customerInfo;
+};
+
+export const purchaseRevenueCatSurvivalCoinPack = async ({ user, aPackage }) => {
+  if (!canUseRevenueCat()) {
+    throw new Error('iOS 인앱결제 설정이 아직 완료되지 않았습니다.');
+  }
+
+  if (!aPackage) {
+    throw new Error('구매 가능한 코인팩 상품을 찾지 못했습니다. Apple Developer Program 가입 후 App Store Connect와 RevenueCat 상품을 연결해주세요.');
+  }
+
+  await initializeRevenueCatForUser(user);
+  const result = await Purchases.purchasePackage({ aPackage });
+  return result;
 };
 
 export const restoreRevenueCatPurchases = async (user) => {

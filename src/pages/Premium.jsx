@@ -4,9 +4,8 @@ import { ArrowLeft } from "lucide-react";
 import { useAuth } from '@/lib/AuthContext';
 import {
   PREMIUM_MONTHLY_PRICE,
+  PREMIUM_ANNUAL_PRICE,
   createPremiumOrderId,
-  createKcpBillingAuthSession,
-  submitKcpCheckoutForm,
   createTossCheckoutSession,
   getBankTransferInstructions,
 } from '@/api/paymentClient';
@@ -25,15 +24,31 @@ export default function Premium() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState('kcp'); // 'kcp' | 'toss' | 'bank'
+  const [paymentMethod, setPaymentMethod] = useState('toss'); // 'toss' | 'bank'
   const [iosPackage, setIosPackage] = useState(null);
+  const [iosPackages, setIosPackages] = useState({ monthly: null, annual: null });
+  const [selectedPlan, setSelectedPlan] = useState('monthly');
   const [iosError, setIosError] = useState('');
   const [restoring, setRestoring] = useState(false);
   const nativeIOS = isNativeIOSApp();
   const revenueCatEnabled = canUseRevenueCat();
-  const priceLabel = nativeIOS
-    ? (iosPackage?.product?.priceString || 'App Store 연동 예정')
+  const selectedFallbackPrice = selectedPlan === 'annual'
+    ? `₩${PREMIUM_ANNUAL_PRICE.toLocaleString()}`
     : `₩${PREMIUM_MONTHLY_PRICE.toLocaleString()}`;
+  const selectedBillingPeriodLabel = selectedPlan === 'annual' ? '/년' : '/월';
+  const activePackageType = iosPackage?.packageType === 'ANNUAL' ? 'annual' : 'monthly';
+  const displayPlan = nativeIOS
+    ? (iosPackage ? activePackageType : selectedPlan)
+    : 'monthly';
+  const priceLabel = nativeIOS
+    ? (iosPackage?.product?.priceString || selectedFallbackPrice)
+    : `₩${PREMIUM_MONTHLY_PRICE.toLocaleString()}`;
+  const billingPeriodLabel = nativeIOS
+    ? (iosPackage?.packageType === 'ANNUAL' ? '/년' : selectedBillingPeriodLabel)
+    : '/월';
+  const titleLabel = nativeIOS
+    ? (displayPlan === 'annual' ? 'App Store 연간 구독' : 'App Store 월간 구독')
+    : '프리미엄 구독';
   const hasPremiumAccess = Boolean(user?.user_metadata?.is_premium || user?.is_premium);
 
   useEffect(() => {
@@ -53,7 +68,21 @@ export default function Premium() {
         setIosError('');
         const paywall = await getRevenueCatPaywall(user);
         if (!cancelled) {
-          setIosPackage(paywall?.selectedPackage || null);
+          const nextMonthlyPackage = paywall?.monthlyPackage || null;
+          const nextAnnualPackage = paywall?.annualPackage || null;
+          const nextSelectedPackage = paywall?.selectedPackage || null;
+          setIosPackages({
+            monthly: nextMonthlyPackage,
+            annual: nextAnnualPackage,
+          });
+          setIosPackage(nextSelectedPackage);
+          if (nextSelectedPackage?.packageType === 'ANNUAL') {
+            setSelectedPlan('annual');
+          } else if (nextSelectedPackage || nextMonthlyPackage) {
+            setSelectedPlan('monthly');
+          } else if (nextAnnualPackage) {
+            setSelectedPlan('annual');
+          }
         }
       } catch (error) {
         if (!cancelled) {
@@ -114,26 +143,6 @@ export default function Premium() {
     try {
       const customerName = user?.user_metadata?.full_name || user?.user_metadata?.nickname || user?.email || 'Finapple User';
 
-      if (paymentMethod === 'kcp') {
-        const response = await createKcpBillingAuthSession({
-          amount: PREMIUM_MONTHLY_PRICE,
-          orderId: createPremiumOrderId(),
-          orderName: 'Finapple 프리미엄 월 구독',
-          customerName,
-          customerEmail: user?.email || undefined,
-        });
-
-        if (response.success && response.checkoutUrl && response.formData) {
-          submitKcpCheckoutForm({
-            checkoutUrl: response.checkoutUrl,
-            formData: response.formData,
-          });
-          return;
-        }
-
-        throw new Error(response.error || 'KCP 결제 세션 생성 실패');
-      }
-
       if (paymentMethod === 'toss') {
         const response = await createTossCheckoutSession({
           amount: PREMIUM_MONTHLY_PRICE,
@@ -188,14 +197,64 @@ export default function Premium() {
       <div className="max-w-md w-full">
         <div className="text-center mb-8">
           <div className="text-5xl mb-4">🎓</div>
-          <h1 className="text-2xl font-bold text-foreground">프리미엄 구독</h1>
+          <h1 className="text-2xl font-bold text-foreground">{titleLabel}</h1>
           <p className="text-muted-foreground mt-2">KDI 경제교육 모든 콘텐츠를 무제한으로</p>
         </div>
 
         <div className="bg-card rounded-2xl border border-border p-6 shadow-lg">
+          {nativeIOS ? (
+            <div className="mb-6 grid grid-cols-2 gap-3">
+              {[
+                {
+                  key: 'monthly',
+                  label: '월간',
+                  subLabel: '/월',
+                  aPackage: iosPackages.monthly,
+                },
+                {
+                  key: 'annual',
+                  label: '연간',
+                  subLabel: '/년',
+                  aPackage: iosPackages.annual,
+                },
+              ].map(({ key, label, subLabel, aPackage }) => {
+                const active = displayPlan === key;
+                const fallbackPrice = key === 'annual'
+                  ? `₩${PREMIUM_ANNUAL_PRICE.toLocaleString()}`
+                  : `₩${PREMIUM_MONTHLY_PRICE.toLocaleString()}`;
+
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => {
+                      setSelectedPlan(key);
+                      if (aPackage) {
+                        setIosPackage(aPackage);
+                      } else {
+                        setIosPackage(null);
+                      }
+                    }}
+                    className={`rounded-2xl border p-4 text-left transition-all ${
+                      active
+                        ? 'border-primary bg-primary/5 shadow-sm'
+                        : 'border-border bg-background'
+                    } active:scale-[0.98]`}
+                  >
+                    <p className="text-sm font-bold text-foreground">{label}</p>
+                    <p className="mt-2 text-xl font-extrabold text-foreground">
+                      {aPackage?.product?.priceString || fallbackPrice}
+                    </p>
+                    <p className="mt-1 text-xs text-muted-foreground">{subLabel}</p>
+                  </button>
+                );
+              })}
+            </div>
+          ) : null}
+
           <div className="flex items-end gap-1 mb-6">
             <span className="text-4xl font-bold text-foreground">{priceLabel}</span>
-            <span className="text-muted-foreground mb-1">/월</span>
+            <span className="text-muted-foreground mb-1">{billingPeriodLabel}</span>
           </div>
 
           <ul className="space-y-3 mb-8">
@@ -223,6 +282,15 @@ export default function Premium() {
                   상품: {iosPackage.product.title}
                 </p>
               ) : null}
+              {iosPackage?.packageType ? (
+                <p className="mt-1 text-xs text-amber-800">
+                  선택한 플랜: {iosPackage.packageType === 'ANNUAL' ? '연간 구독' : '월간 구독'}
+                </p>
+              ) : nativeIOS ? (
+                <p className="mt-1 text-xs text-amber-800">
+                  선택한 플랜: {selectedPlan === 'annual' ? '연간 구독' : '월간 구독'}
+                </p>
+              ) : null}
               {iosError ? (
                 <p className="mt-2 text-xs text-red-700">{iosError}</p>
               ) : null}
@@ -231,16 +299,6 @@ export default function Premium() {
             <div className="space-y-3 mb-6">
               <label className="block text-sm font-semibold text-foreground mb-2">결제 수단 선택</label>
               <div className="space-y-2">
-                <button
-                  onClick={() => setPaymentMethod('kcp')}
-                  className={`w-full py-3 px-4 rounded-xl font-semibold text-sm transition-all ${
-                    paymentMethod === 'kcp'
-                      ? 'bg-primary text-primary-foreground border-2 border-primary'
-                      : 'bg-card border-2 border-border text-foreground hover:border-primary/50'
-                  }`}
-                >
-                  🔁 NHN KCP 월 자동결제
-                </button>
                 <button
                   onClick={() => setPaymentMethod('toss')}
                   className={`w-full py-3 px-4 rounded-xl font-semibold text-sm transition-all ${
@@ -267,7 +325,7 @@ export default function Premium() {
 
           <button
             onClick={handleCheckout}
-            disabled={loading || (nativeIOS && (!revenueCatEnabled || !iosPackage))}
+            disabled={loading || hasPremiumAccess || (nativeIOS && (!revenueCatEnabled || !iosPackage))}
             className="w-full bg-primary text-primary-foreground font-bold py-4 rounded-xl text-lg hover:opacity-90 transition-all active:scale-95 disabled:opacity-50"
           >
             {nativeIOS
@@ -275,13 +333,11 @@ export default function Premium() {
                 ? '구독 처리 중...'
                 : hasPremiumAccess
                 ? '이미 프리미엄 이용 중'
-                : 'App Store로 구독하기'
+                : displayPlan === 'annual'
+                ? 'App Store로 연간 구독하기'
+                : 'App Store로 월간 구독하기'
               : paymentMethod === 'bank' 
               ? "계좌이체 안내 보기" 
-              : paymentMethod === 'kcp'
-              ? loading
-                ? 'KCP 결제창 준비 중...'
-                : 'NHN KCP로 월 구독 시작'
               : loading 
               ? "처리 중..." 
               : "토스페이먼츠로 결제하기"}
@@ -317,7 +373,7 @@ export default function Premium() {
           )}
 
           <p className="text-center text-xs text-muted-foreground mt-3">
-            {nativeIOS ? 'App Store 구독 관리에서 언제든 변경하거나 취소할 수 있어요.' : '언제든 취소 가능 · KCP/토스 보안 결제'}
+            {nativeIOS ? '구독 변경과 취소는 App Store 구독 관리에서 진행할 수 있어요.' : '웹에서는 토스페이먼츠 결제와 계좌이체 안내를 제공하며, 기존 KCP 구독 해지는 프로필에서 계속 지원해요.'}
           </p>
         </div>
       </div>

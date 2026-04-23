@@ -6,13 +6,44 @@ import { findMaskedEmailByNickname, initializePasswordRecovery, requestPasswordR
 import { isNicknameAvailable } from '@/services/profileService';
 import { NICKNAME_MAX_LENGTH, normalizeNickname, validateNickname, validatePassword } from '@/lib/profileRules';
 import { useAuth } from '@/lib/AuthContext';
+import { isNativeIOSApp } from '@/lib/runtimePlatform';
 
 const OTP_LENGTH = 6;
-const inputClassName = 'h-10 w-full rounded-lg border border-[#E0E0E0] bg-white px-4 text-sm font-normal text-black outline-none transition placeholder:text-[#828282] focus:border-black/30';
+const inputClassName = 'h-10 w-full rounded-lg border border-[#E0E0E0] bg-white px-4 text-base font-normal text-black outline-none transition placeholder:text-[#828282] focus:border-black/30';
 const primaryButtonClassName = 'flex h-10 w-full items-center justify-center rounded-lg bg-black px-4 text-sm font-medium leading-[140%] text-white transition hover:bg-black/90 disabled:cursor-not-allowed disabled:opacity-60';
 const secondaryButtonClassName = 'flex h-10 w-full items-center justify-center rounded-lg border border-[#E0E0E0] bg-white px-4 text-sm font-medium text-black transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60';
 const linkButtonClassName = 'font-medium text-[12px] text-black transition hover:opacity-70';
 const socialButtonClassName = 'flex h-11 w-full items-center justify-center rounded-lg border border-[#DCDCDC] bg-white px-4 text-sm font-medium text-black transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60';
+const SHOW_APPLE_SIGN_IN = true;
+
+const resetIOSViewportAfterInputZoom = () => {
+  if (!isNativeIOSApp()) {
+    return;
+  }
+
+  const activeElement = document.activeElement;
+  if (activeElement instanceof HTMLElement) {
+    activeElement.blur();
+  }
+
+  const viewportMeta = document.querySelector('meta[name="viewport"]');
+  const originalViewport = viewportMeta?.getAttribute('content') || 'width=device-width, initial-scale=1.0, viewport-fit=cover';
+
+  if (viewportMeta) {
+    viewportMeta.setAttribute('content', 'width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0');
+  }
+
+  requestAnimationFrame(() => {
+    window.scrollTo(0, 0);
+
+    window.setTimeout(() => {
+      if (viewportMeta) {
+        viewportMeta.setAttribute('content', originalViewport);
+      }
+      window.scrollTo(0, 0);
+    }, 250);
+  });
+};
 
 const POLICY_CONTENT = {
   terms: {
@@ -303,6 +334,7 @@ export default function Login() {
       setIsSubmitting(true);
       await verifySignupEmailOtp(resolvedVerificationEmail, verificationCode.trim());
       await checkAppState();
+      resetIOSViewportAfterInputZoom();
       navigate('/');
     } catch (verifyError) {
       console.error('Email verification failed:', verifyError);
@@ -493,6 +525,7 @@ export default function Login() {
       } else {
         await signInWithEmail(email, password);
         await checkAppState();
+        resetIOSViewportAfterInputZoom();
         navigate('/');
       }
     } catch (submitError) {
@@ -592,7 +625,7 @@ export default function Login() {
                   inputMode="numeric"
                   value={verificationCode}
                   onChange={(event) => setVerificationCode(event.target.value.replace(/\D/g, '').slice(0, OTP_LENGTH))}
-                  className="absolute inset-0 opacity-0 pointer-events-none"
+                  className="absolute inset-0 pointer-events-none opacity-0 text-base"
                   placeholder="123456"
                   autoComplete="one-time-code"
                 />
@@ -965,6 +998,16 @@ export default function Login() {
                   </div>
 
                   <div className="space-y-2 pt-3">
+                    {SHOW_APPLE_SIGN_IN ? (
+                      <button
+                        type="button"
+                        onClick={() => handleSocialSignIn('apple')}
+                        disabled={isSocialLoading.length > 0}
+                        className={socialButtonClassName}
+                      >
+                        {isSocialLoading === 'apple' ? 'Apple 로그인 연결 중...' : 'Apple로 로그인'}
+                      </button>
+                    ) : null}
                     <button
                       type="button"
                       onClick={() => handleSocialSignIn('google')}

@@ -17,46 +17,46 @@ export default function TopicCard({ topic, index, course, variant = 'default' })
       className="block animate-slide-up"
       style={{ animationDelay: `${index * 80}ms`, animationFillMode: 'backwards' }}
     >
-      <div className={`rounded-2xl border p-4 transition-all duration-300 active:scale-[0.985] sm:p-5 ${
+      <div className={`rounded-2xl border p-3 transition-all duration-300 active:scale-[0.985] sm:p-5 ${
         isIssue
           ? 'border-orange-200 bg-orange-50 hover:shadow-md hover:shadow-orange-200/50'
           : 'border-border bg-card hover:shadow-lg hover:shadow-primary/5'
-      } ${isCompact ? 'p-3.5 sm:p-4' : ''}`}>
-        <div className="mb-3 flex flex-wrap items-center gap-2">
+      } ${isCompact ? 'p-3 sm:p-4' : ''}`}>
+        <div className="mb-2 flex flex-wrap items-center gap-1.5">
           {topic.category ? (
-            <span className={`rounded-full px-2.5 py-1 text-[10px] font-black tracking-[0.18em] ${
+            <span className={`rounded-full px-2 py-1 text-[9px] font-black tracking-[0.16em] ${
               isIssue ? 'bg-orange-500 text-white' : 'bg-primary/10 text-primary'
             }`}>
               {categoryLabel}
             </span>
           ) : null}
           {topic.badge ? (
-            <span className="rounded-full bg-background px-2.5 py-1 text-[10px] font-bold tracking-[0.04em] text-foreground/80">
+            <span className="rounded-full bg-background px-2 py-1 text-[9px] font-bold tracking-[0.04em] text-foreground/80">
               {topic.badge}
             </span>
           ) : null}
-          <div className="ml-auto flex items-center gap-2 text-[10px] font-medium text-muted-foreground">
+          <div className="basis-full flex items-center gap-1.5 text-[9px] font-medium text-muted-foreground sm:ml-auto sm:basis-auto">
             {topic.updatedAt ? <span>{topic.updatedAt}</span> : null}
             {topic.readTime ? <span>{topic.readTime}</span> : null}
           </div>
         </div>
 
-        <div className={`flex items-start gap-3 sm:gap-4 ${isCompact ? 'gap-2.5 sm:gap-3' : ''}`}>
-          <div className={`mt-0.5 flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl text-[30px] sm:text-3xl ${
+        <div className={`flex items-start gap-2.5 sm:gap-4 ${isCompact ? 'gap-2 sm:gap-3' : ''}`}>
+          <div className={`mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl text-[24px] sm:text-3xl ${
             isIssue ? 'bg-white' : 'bg-primary/5'
-          } ${isCompact ? 'h-10 w-10 text-2xl sm:h-11 sm:w-11' : ''}`}>{topic.icon}</div>
+          } ${isCompact ? 'h-9 w-9 text-[20px] sm:h-11 sm:w-11' : ''}`}>{topic.icon}</div>
           <div className="flex-1 min-w-0">
-            <h3 className={`font-bold leading-snug text-foreground ${isCompact ? 'text-[14px] sm:text-[15px]' : 'text-[15px] sm:text-base'}`}>
+            <h3 className={`font-bold leading-snug text-foreground ${isCompact ? 'text-[13px] sm:text-[15px]' : 'text-[14px] sm:text-base'}`}>
               {topic.title}
             </h3>
-            <p className={`mt-1 leading-relaxed text-muted-foreground ${isCompact ? 'text-[12px]' : 'text-[13px]'}`}>
+            <p className={`mt-1 leading-relaxed text-muted-foreground ${isCompact ? 'text-[11px]' : 'text-[12px]'}`}>
               {topic.subtitle}
             </p>
-            <p className={`mt-2 line-clamp-2 leading-relaxed text-muted-foreground/70 ${isCompact ? 'text-[11px]' : 'text-[12px]'}`}>
+            <p className={`mt-1.5 line-clamp-2 leading-relaxed text-muted-foreground/70 ${isCompact ? 'text-[10px]' : 'text-[11px]'}`}>
               {topic.summary}
             </p>
           </div>
-          <ChevronRight className={`w-5 h-5 mt-1 flex-shrink-0 ${
+          <ChevronRight className={`mt-1 h-4 w-4 flex-shrink-0 ${
             isIssue ? 'text-orange-500/70' : 'text-muted-foreground/40'
           }`} />
         </div>

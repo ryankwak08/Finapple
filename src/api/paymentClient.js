@@ -1,7 +1,8 @@
 import { supabase } from '@/lib/supabase';
 import { BACKEND_URL } from '@/lib/backendUrl';
 import { buildAppUrl } from '@/lib/appBaseUrl';
-export const PREMIUM_MONTHLY_PRICE = 9900;
+export const PREMIUM_MONTHLY_PRICE = 5500;
+export const PREMIUM_ANNUAL_PRICE = 55000;
 export const SURVIVAL_COIN_PACK_PRICE = 2900;
 export const COIN_PACK_AMOUNT = 10;
 

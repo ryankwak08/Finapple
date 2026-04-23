@@ -2,6 +2,8 @@
 
 ## Current status
 
+- App Store Connect, In-App Purchase creation, and TestFlight distribution require an active Apple Developer Program membership first.
+
 - The app is a Vite web app wrapped for iOS with Capacitor.
 - Premium unlocks digital learning content.
 - Because of that, the iOS app must use Apple's In-App Purchase flow instead of Toss, Kakao, Stripe, or bank transfer.
@@ -17,14 +19,15 @@
 
 ## Next steps
 
-1. Create the iOS project with `npx cap add ios`.
-2. Open Xcode with `npm run cap:open:ios`.
-3. Replace the temporary app id `com.finapple.app` with your real bundle id.
-4. Add app icons, launch screen, privacy strings, and signing.
+1. Join Apple Developer Program and unlock App Store Connect access.
+2. Confirm your final bundle id and update it in the project if needed.
+3. Open Xcode with `npm run cap:open:ios`.
+4. Add app icons, launch screen, privacy strings, signing, and Sign in with Apple capability.
 5. Create the App Store subscription product in App Store Connect.
-6. Create the matching entitlement and offering in RevenueCat.
-7. Set `VITE_REVENUECAT_APPLE_API_KEY`, `VITE_REVENUECAT_ENTITLEMENT_ID`, and `VITE_REVENUECAT_OFFERING_ID`.
-8. Test with Sandbox accounts in TestFlight before submission.
+6. Create the App Store consumable product for `Survival Coin Pack 10`.
+7. Create the matching entitlement and offering in RevenueCat.
+8. Set `VITE_REVENUECAT_APPLE_API_KEY`, `VITE_REVENUECAT_ENTITLEMENT_ID`, `VITE_REVENUECAT_OFFERING_ID`, `VITE_REVENUECAT_SURVIVAL_COIN_OFFERING_ID`, and `VITE_REVENUECAT_SURVIVAL_COIN_PACKAGE_ID`.
+9. Test with Sandbox accounts in TestFlight before submission.
 
 ## App Review risks to avoid
 

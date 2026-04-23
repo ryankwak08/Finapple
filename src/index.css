@@ -8,6 +8,17 @@ html {
   font-size: 16px;
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+body,
+#root {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+  overscroll-behavior-x: none;
 }
 
 @layer base {
@@ -283,6 +294,9 @@ html {
     -webkit-text-size-adjust: 100%;
     text-size-adjust: 100%;
     text-rendering: optimizeLegibility;
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
   }
   button, [role="tab"], [role="button"], svg, a {
     user-select: none;
@@ -291,6 +305,12 @@ html {
     -webkit-touch-callout: none;
     outline: none;
   }
+}
+
+body > #root {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
 }
 
 .app-shell-gradient {

@@ -107,13 +107,13 @@ export default function AppShell() {
 
   return (
     <div
-      className="app-shell-gradient min-h-[100dvh] bg-background safe-area-top"
+      className="app-shell-gradient safe-area-top min-h-[100dvh] w-full max-w-full overflow-x-hidden bg-background"
       style={{
         paddingLeft: 'var(--safe-left)',
         paddingRight: 'var(--safe-right)',
       }}
     >
-      <div className={`mx-auto flex min-h-[100dvh] w-full max-w-7xl flex-col md:px-6 xl:px-8 ${isSurvivalRoute ? '' : 'pb-28 md:pb-10'}`}>
+      <div className={`mx-auto flex min-h-[100dvh] w-full max-w-7xl flex-col overflow-x-hidden md:px-6 xl:px-8 ${isSurvivalRoute ? '' : 'pb-[76px] md:pb-10'}`}>
         {isSurvivalRoute ? (
           <main className="min-w-0 flex-1">
             <div className="mx-auto w-full max-w-5xl">
@@ -126,27 +126,27 @@ export default function AppShell() {
           </main>
         ) : (
           <>
-            <div className="sticky top-0 z-40 border-b border-border/60 bg-background/88 px-4 pb-3 pt-3 backdrop-blur-xl md:px-0 md:pt-6">
-              <div className="mx-auto flex max-w-7xl items-center justify-between gap-2 sm:gap-4">
-                <div className="flex items-center gap-3">
+            <div className="sticky top-0 z-40 shrink-0 border-b border-border/60 bg-background/92 px-2.5 pb-2 pt-2 backdrop-blur-xl md:px-0 md:pt-6">
+              <div className="mx-auto flex max-w-7xl flex-col gap-2 sm:gap-4 md:flex-row md:items-center md:justify-between">
+                <div className="flex min-w-0 items-center justify-between gap-3">
                   <div className="relative" ref={trackMenuRef}>
                     <button
                       type="button"
                       onClick={() => setTrackMenuOpen((prev) => !prev)}
-                      className="group flex items-center gap-2 rounded-2xl border border-border bg-card px-2.5 py-2 transition-colors hover:bg-muted/60"
+                      className="group flex max-w-full items-center gap-2 rounded-xl border border-border bg-card px-2 py-1.5 transition-colors hover:bg-muted/60"
                     >
                       <img
                         src="/logo.png"
                         alt="Finapple"
-                        className="h-8 w-8 rounded-xl object-cover"
+                        className="h-6 w-6 rounded-lg object-cover"
                       />
                       <div className="hidden text-left md:block">
-                        <p className="text-[15px] font-extrabold tracking-tight text-foreground">{trackMeta.brand}</p>
+                        <p className="text-[14px] font-extrabold tracking-tight text-foreground">{trackMeta.brand}</p>
                         <p className="text-[11px] text-muted-foreground">
                           {locale === 'en' ? trackMeta.taglineEn : trackMeta.taglineKo}
                         </p>
                       </div>
-                      <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${trackMenuOpen ? 'rotate-180' : ''}`} />
+                      <ChevronDown className={`h-3.5 w-3.5 text-muted-foreground transition-transform ${trackMenuOpen ? 'rotate-180' : ''}`} />
                     </button>
 
                     {trackMenuOpen ? (
@@ -181,18 +181,33 @@ export default function AppShell() {
                   <div className="hidden min-[430px]:block">
                     {getIsPremium(user) && <PremiumBadge compact />}
                   </div>
+                  <Link to="/profile" className="md:hidden">
+                    <div className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-xl bg-primary/10 ring-1 ring-primary/10 transition-transform active:scale-[0.97]">
+                      {(user?.user_metadata?.profile_picture || user?.profile_picture) ? (
+                        <img
+                          src={user?.user_metadata?.profile_picture || user?.profile_picture}
+                          alt="profile"
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        <span className="text-[13px] font-extrabold text-primary">
+                          {(user?.user_metadata?.full_name || user?.user_metadata?.nickname || user?.email || '?')[0] || '?'}
+                        </span>
+                      )}
+                    </div>
+                  </Link>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)] items-center gap-1.5 md:flex md:min-w-0 md:items-center">
                   <button
                     type="button"
                     onClick={handleEnterSurvival}
-                    className="inline-flex h-10 items-center gap-1.5 rounded-2xl border border-primary/30 bg-primary/10 px-3 text-[12px] font-bold text-primary"
+                    className="inline-flex h-8 shrink-0 items-center gap-1 rounded-xl border border-primary/30 bg-primary/10 px-2.5 text-[10px] font-bold text-primary"
                   >
-                    <Gamepad2 className="h-4 w-4" />
-                    {t('tabSurvival', '생존')}
+                    <Gamepad2 className="h-3.5 w-3.5" />
+                    <span className="truncate">{locale === 'en' ? 'Survival' : t('tabSurvival', '생존')}</span>
                   </button>
                   <div
-                    className="inline-flex shrink-0 rounded-2xl border border-border bg-card p-1"
+                    className="inline-flex min-w-0 w-full rounded-xl border border-border bg-card p-1 md:w-auto md:flex-none"
                     role="group"
                     aria-label={t('languageSelector', '언어 선택')}
                   >
@@ -207,7 +222,7 @@ export default function AppShell() {
                           key={option.value}
                           type="button"
                           onClick={() => setLocale(option.value)}
-                          className={`min-w-[68px] whitespace-nowrap rounded-xl px-2.5 py-2 text-[11px] font-bold leading-none transition-colors sm:min-w-[74px] sm:px-3 ${
+                          className={`min-w-0 flex-1 whitespace-nowrap rounded-lg px-2 py-1.5 text-[10px] font-bold leading-none transition-colors md:min-w-[74px] md:flex-none md:px-3 md:text-[11px] ${
                             active ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted'
                           }`}
                         >
@@ -216,8 +231,8 @@ export default function AppShell() {
                       );
                     })}
                   </div>
-                  <Link to="/profile">
-                    <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-2xl bg-primary/10 ring-1 ring-primary/10 transition-transform active:scale-[0.97]">
+                  <Link to="/profile" className="hidden md:block">
+                    <div className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-xl bg-primary/10 ring-1 ring-primary/10 transition-transform active:scale-[0.97]">
                       {(user?.user_metadata?.profile_picture || user?.profile_picture) ? (
                         <img
                           src={user?.user_metadata?.profile_picture || user?.profile_picture}
@@ -225,7 +240,7 @@ export default function AppShell() {
                           className="w-full h-full object-cover"
                         />
                       ) : (
-                        <span className="text-primary font-extrabold text-[14px]">
+                        <span className="text-primary font-extrabold text-[13px]">
                           {(user?.user_metadata?.full_name || user?.user_metadata?.nickname || user?.email || '?')[0] || '?'}
                         </span>
                       )}
@@ -235,7 +250,7 @@ export default function AppShell() {
               </div>
             </div>
 
-            <div className="md:grid md:flex-1 md:grid-cols-[240px_minmax(0,1fr)] md:gap-6 md:pt-6 xl:grid-cols-[260px_minmax(0,1fr)] xl:gap-8">
+            <div className="flex min-h-0 flex-1 flex-col md:grid md:grid-cols-[240px_minmax(0,1fr)] md:gap-6 md:pt-6 xl:grid-cols-[260px_minmax(0,1fr)] xl:gap-8">
               <aside className="hidden md:block">
                 <div className="sticky top-[108px] space-y-4">
                   <div className="rounded-3xl border border-border/70 bg-card/80 p-4 shadow-sm shadow-primary/5">
@@ -279,7 +294,7 @@ export default function AppShell() {
                 </div>
               </aside>
 
-              <main className="min-w-0">
+              <main className="min-w-0 min-h-0 flex-1">
                 <div className="mx-auto w-full max-w-5xl">
                   <AnimatePresence mode="wait">
                     <PageTransition>

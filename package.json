@@ -8,6 +8,9 @@
     "dev:client": "vite",
     "dev:server": "node server/index.js",
     "build": "vite build",
+    "cap:copy:android": "npm run build && npx cap copy android",
+    "cap:sync:android": "npm run build && npx cap sync android",
+    "cap:open:android": "npx cap open android",
     "cap:copy:ios": "npm run build && npx cap copy ios",
     "cap:sync:ios": "npm run build && npx cap sync ios",
     "cap:open:ios": "npx cap open ios",
@@ -19,6 +22,9 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@capacitor/android": "^8.3.1",
+    "@capacitor/app": "^8.1.0",
+    "@capacitor/browser": "^8.0.3",
     "@capacitor/core": "^8.3.0",
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.1",

@@ -79,21 +79,21 @@ export default function Study() {
 
   return (
     <PullToRefresh onRefresh={handleRefresh}>
-    <div className="px-4 pb-6 pt-8 sm:px-5 sm:pt-10">
+    <div className="w-full max-w-full overflow-x-hidden px-2.5 pb-24 pt-3 sm:px-5 sm:pb-8 sm:pt-10">
       {/* Header */}
-      <div className="mb-6 sm:mb-8">
-        <div className="mb-1 flex items-start justify-between gap-3">
-          <h1 className="text-[26px] font-extrabold tracking-tight text-foreground sm:text-3xl">
+      <div className="mb-3 sm:mb-8">
+        <div className="mb-2 flex flex-col gap-2 min-[480px]:flex-row min-[480px]:items-start min-[480px]:justify-between">
+          <h1 className={`text-[18px] font-extrabold tracking-tight text-foreground sm:text-3xl ${isEnglish ? 'max-w-[12ch]' : 'max-w-[9ch] sm:max-w-none'}`}>
             {isEnglish ? 'Build everyday money smarts' : '금융 상식 쌓기'}
           </h1>
           {!loading && progress && (
-            <div className="flex shrink-0 items-center gap-1.5 rounded-full bg-accent/15 px-3 py-1.5">
-              <Star className="w-4 h-4 text-accent fill-accent" />
-              <span className="text-[13px] font-bold text-accent-foreground">{progress.xp || 0} XP</span>
+            <div className="flex w-fit shrink-0 items-center gap-1.5 self-start rounded-full bg-accent/15 px-2 py-1">
+              <Star className="h-3 w-3 fill-accent text-accent" />
+              <span className="text-[10px] font-bold text-accent-foreground">{progress.xp || 0} XP</span>
             </div>
           )}
         </div>
-        <p className="text-muted-foreground text-[14px]">
+        <p className="max-w-lg text-[11px] leading-relaxed text-muted-foreground">
           {isEnglish
             ? 'Read short, sharp explainers on everyday finance and current global issues tied to money.'
             : '실생활 금융 상식부터 지금 세계 이슈까지, 돈과 연결되는 이야기를 짧고 선명하게 읽어요'}
@@ -102,10 +102,10 @@ export default function Study() {
 
       {/* Greeting */}
       {!loading && user && (
-        <div className="animate-slide-up rounded-2xl border border-primary/10 bg-primary/5 p-5 mb-6 xl:p-6">
+        <div className="mb-4 animate-slide-up rounded-2xl border border-primary/10 bg-primary/5 p-3 xl:p-6">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <p className="text-[14px] text-foreground">
+              <p className="text-[11px] text-foreground">
                 {isEnglish ? (
                   <>
                     Welcome back, <span className="font-bold">{displayName}</span>! 👋
@@ -116,27 +116,27 @@ export default function Study() {
                   </>
                 )}
               </p>
-              <p className="text-[12px] text-muted-foreground mt-1">
+              <p className="mt-1 text-[10px] text-muted-foreground">
                 {isEnglish ? 'Even one quick read today can make your next money choice easier.' : '오늘 하나만 읽어도 다음 선택이 훨씬 쉬워져요'}
               </p>
             </div>
           </div>
-          <div className="mt-4 grid grid-cols-1 items-start gap-3 min-[390px]:grid-cols-2 xl:grid-cols-3">
-            <div className="h-fit rounded-xl bg-background/80 border border-border px-4 py-3">
+          <div className="mt-3 grid grid-cols-1 items-start gap-2 sm:grid-cols-2 xl:grid-cols-3">
+            <div className="h-fit rounded-xl border border-border bg-background/80 px-3 py-2">
               <div className="flex items-center gap-2">
-                <Flame className="w-4 h-4 text-orange-500" />
-                <span className="text-[12px] font-semibold text-foreground">{isEnglish ? 'Current streak' : '현재 스트릭'}</span>
+                <Flame className="h-4 w-4 text-orange-500" />
+                <span className="text-[10px] font-semibold text-foreground">{isEnglish ? 'Current streak' : '현재 스트릭'}</span>
               </div>
-              <p className="mt-1 text-[20px] font-extrabold text-foreground">{isEnglish ? `${streakStatus.streakCount} days` : `${streakStatus.streakCount}일`}</p>
-              <p className="text-[11px] text-muted-foreground">{isEnglish ? `Best ${streakStatus.bestStreak} days` : `최고 ${streakStatus.bestStreak}일`}</p>
+              <p className="mt-1 text-[15px] font-extrabold text-foreground">{isEnglish ? `${streakStatus.streakCount} days` : `${streakStatus.streakCount}일`}</p>
+              <p className="text-[10px] text-muted-foreground">{isEnglish ? `Best ${streakStatus.bestStreak} days` : `최고 ${streakStatus.bestStreak}일`}</p>
             </div>
-            <div className="h-fit rounded-xl bg-background/80 border border-border px-4 py-3">
+            <div className="h-fit rounded-xl border border-border bg-background/80 px-3 py-2">
               <div className="flex items-center gap-2">
-                <Snowflake className="w-4 h-4 text-sky-500" />
-                <span className="text-[12px] font-semibold text-foreground">Freezer</span>
+                <Snowflake className="h-4 w-4 text-sky-500" />
+                <span className="text-[10px] font-semibold text-foreground">Freezer</span>
               </div>
-              <p className="mt-1 text-[20px] font-extrabold text-foreground">{isEnglish ? `${streakStatus.streakFreezers}` : `${streakStatus.streakFreezers}개`}</p>
-              <p className="text-[11px] text-muted-foreground">
+              <p className="mt-1 text-[15px] font-extrabold text-foreground">{isEnglish ? `${streakStatus.streakFreezers}` : `${streakStatus.streakFreezers}개`}</p>
+              <p className="text-[10px] leading-relaxed text-muted-foreground">
                 {isPremium
                   ? (isEnglish ? 'It activates automatically when your streak is at risk.' : '스트릭이 깨질 상황이면 자동으로 사용돼요')
                   : (isEnglish ? 'Premium unlocks automatic streak protection.' : '프리미엄에서 자동 보호 기능을 이용할 수 있어요')}
@@ -165,17 +165,17 @@ export default function Study() {
       )}
 
       <section className="mb-6">
-        <div className="rounded-2xl border border-sky-200 bg-sky-50/70 p-4">
+        <div className="rounded-2xl border border-sky-200 bg-sky-50/70 p-3">
           <p className="text-[11px] font-black uppercase tracking-[0.16em] text-sky-700">New</p>
-          <h2 className="mt-1 text-lg font-extrabold text-sky-900">{isEnglish ? 'Youth finance chatbot' : '청년 금융 챗봇'}</h2>
-          <p className="mt-1 text-[13px] text-sky-800/85">
+          <h2 className="mt-1 text-[16px] font-extrabold text-sky-900">{isEnglish ? 'Youth finance chatbot' : '청년 금융 챗봇'}</h2>
+          <p className="mt-1 text-[10px] leading-relaxed text-sky-800/85">
             {isEnglish
               ? 'Ask practical questions and get documents, next actions, and official links in one response.'
               : '실전 질문을 입력하면 필요한 서류, 다음 단계, 공식 링크를 한 번에 안내해요.'}
           </p>
           <Link
             to="/finance-chat"
-            className="mt-3 inline-flex rounded-xl bg-sky-700 px-3 py-2 text-[13px] font-bold text-white"
+            className="mt-3 inline-flex rounded-xl bg-sky-700 px-3 py-1.5 text-[10px] font-bold text-white"
           >
             {isEnglish ? 'Open chatbot' : '챗봇 열기'}
           </Link>
@@ -184,9 +184,11 @@ export default function Study() {
 
       {groupedTopics.featuredKiepIssue ? (
         <section className="mb-6">
-          <div className="mb-3 flex items-center gap-2">
+          <div className="mb-3 flex items-start gap-2">
             <Globe2 className="h-4 w-4 text-amber-500" />
-            <h2 className="text-[13px] font-black uppercase tracking-[0.18em] text-foreground">{isEnglish ? 'Global issue now x KIEP' : '지금 보는 세계 이슈 X 대외경제정책연구원'}</h2>
+            <h2 className="pr-2 text-[12px] font-black uppercase leading-snug tracking-[0.14em] text-foreground whitespace-normal break-words sm:text-[13px] sm:tracking-[0.18em]">
+              {isEnglish ? 'Global issue now x KIEP' : '지금 보는 세계 이슈 X 대외경제정책연구원'}
+            </h2>
           </div>
           <TopicCard topic={groupedTopics.featuredKiepIssue} index={0} variant="hero" />
           {groupedTopics.compactKiepIssues.length ? (
@@ -201,9 +203,9 @@ export default function Study() {
 
       {groupedTopics.originalIssues.length ? (
         <section className="mb-6">
-          <div className="mb-3 flex items-center gap-2">
+          <div className="mb-3 flex items-start gap-2">
             <Globe2 className="h-4 w-4 text-amber-500" />
-            <h2 className="text-[13px] font-black uppercase tracking-[0.18em] text-foreground">FINAPPLE ORIGINAL</h2>
+            <h2 className="pr-2 text-[12px] font-black uppercase leading-snug tracking-[0.14em] text-foreground whitespace-normal break-words sm:text-[13px] sm:tracking-[0.18em]">FINAPPLE ORIGINAL</h2>
           </div>
           <div className="space-y-3">
             {groupedTopics.originalIssues.map((topic, i) => (
@@ -215,7 +217,9 @@ export default function Study() {
 
       <section>
         <div className="mb-3">
-          <h2 className="text-[13px] font-black uppercase tracking-[0.18em] text-foreground">{isEnglish ? 'Everyday finance' : '실생활 금융 상식'}</h2>
+          <h2 className="text-[12px] font-black uppercase leading-snug tracking-[0.14em] text-foreground whitespace-normal break-words sm:text-[13px] sm:tracking-[0.18em]">
+            {isEnglish ? 'Everyday finance' : '실생활 금융 상식'}
+          </h2>
           <p className="mt-1 text-[12px] text-muted-foreground">{isEnglish ? 'Start with practical policy, tax, and housing info you can use right away.' : '바로 써먹을 수 있는 정책, 세금, 주거 정보를 먼저 챙겨요'}</p>
           <p className="mt-1 text-[11px] text-muted-foreground">
             {isEnglish ? 'Source: Toss Feed (' : '출처: Toss Feed ('}

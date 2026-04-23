@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { AlertTriangle, Coins, Heart, Shield, Wallet } from 'lucide-react';
+import { AlertTriangle, Coins, Heart, LoaderCircle, Shield, Wallet } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useLanguage } from '@/lib/i18n';
 import useProgress from '@/lib/useProgress';
+import { useAuth } from '@/lib/AuthContext';
 import {
   COIN_PACK_AMOUNT,
   SURVIVAL_COIN_PACK_PRICE,
@@ -10,6 +11,12 @@ import {
   createTossSurvivalCoinCheckoutSession,
   confirmTossSurvivalCoinPayment,
 } from '@/api/paymentClient';
+import { isNativeIOSApp } from '@/lib/runtimePlatform';
+import {
+  canUseRevenueCat,
+  getRevenueCatSurvivalCoinPack,
+  purchaseRevenueCatSurvivalCoinPack,
+} from '@/services/revenueCatService';
 
 const TOTAL_TURNS = 8;
 const TURN_WAIT_MS = 45 * 1000;
@@ -466,6 +473,7 @@ export default function SurvivalSim() {
   const navigate = useNavigate();
   const location = useLocation();
   const { isEnglish } = useLanguage();
+  const { user } = useAuth();
   const { awardXp, getProgressSummary } = useProgress();
   const [best, setBest] = useState(loadBestRecord);
   const [game, setGame] = useState(() => {
@@ -474,6 +482,10 @@ export default function SurvivalSim() {
   });
   const [nowTs, setNowTs] = useState(Date.now());
   const [coinCheckoutLoading, setCoinCheckoutLoading] = useState(false);
+  const [iosCoinPackage, setIosCoinPackage] = useState(null);
+  const [iosCoinError, setIosCoinError] = useState('');
+  const nativeIOS = isNativeIOSApp();
+  const revenueCatEnabled = canUseRevenueCat();
   const notifiedRef = useRef(false);
   const turnNotifyTimerRef = useRef(null);
   const notifiedTurnRef = useRef(-1);
@@ -491,6 +503,53 @@ export default function SurvivalSim() {
   const progress = Math.round((game.turn / TOTAL_TURNS) * 100);
   const progressSummary = getProgressSummary?.() || { completedCount: 0 };
   const availableEmploymentPlans = game.educationPath === 'early-work' ? EARLY_WORK_EMPLOYMENT_PLANS : EMPLOYMENT_PLANS;
+
+  useEffect(() => {
+    if (!nativeIOS) {
+      setIosCoinPackage(null);
+      setIosCoinError('');
+      return;
+    }
+
+    let cancelled = false;
+
+    const loadCoinPack = async () => {
+      if (!revenueCatEnabled) {
+        if (!cancelled) {
+          setIosCoinPackage(null);
+          setIosCoinError('Apple Developer Program 가입 후 App Store Connect와 RevenueCat에 코인팩 상품을 연결하면 여기서 인앱결제를 사용할 수 있어요.');
+        }
+        return;
+      }
+
+      try {
+        const paywall = await getRevenueCatSurvivalCoinPack(user);
+        if (cancelled) {
+          return;
+        }
+
+        if (!paywall?.selectedPackage) {
+          setIosCoinPackage(null);
+          setIosCoinError('RevenueCat에서 생존 코인팩 offering/package를 아직 찾지 못했어요.');
+          return;
+        }
+
+        setIosCoinPackage(paywall.selectedPackage);
+        setIosCoinError('');
+      } catch (error) {
+        if (!cancelled) {
+          setIosCoinPackage(null);
+          setIosCoinError(error.message || 'iOS 코인팩 상품을 불러오지 못했습니다.');
+        }
+      }
+    };
+
+    void loadCoinPack();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [nativeIOS, revenueCatEnabled, user]);
 
   const quizBuff = useMemo(() => {
     const completed = Number(progressSummary.completedCount || 0);
@@ -1105,6 +1164,33 @@ export default function SurvivalSim() {
 
     setCoinCheckoutLoading(true);
     try {
+      if (nativeIOS) {
+        if (!revenueCatEnabled) {
+          throw new Error('Apple Developer Program 가입 후 App Store Connect와 RevenueCat 설정을 연결해야 iOS 코인팩 인앱결제가 동작합니다.');
+        }
+
+        const selectedPackage = iosCoinPackage || (await getRevenueCatSurvivalCoinPack(user))?.selectedPackage;
+        const result = await purchaseRevenueCatSurvivalCoinPack({ user, aPackage: selectedPackage });
+        if (result?.userCancelled) {
+          return;
+        }
+
+        setGame((prev) => ({
+          ...prev,
+          coinBalance: prev.coinBalance + COIN_PACK_AMOUNT,
+          coinPurchasedPacks: prev.coinPurchasedPacks + 1,
+          logs: [
+            {
+              turn: prev.turn,
+              title: isEnglish ? 'Coin pack purchased' : '코인팩 구매',
+              delta: `${COIN_PACK_AMOUNT}${isEnglish ? ' coins' : '코인'} / ${selectedPackage?.product?.priceString || SURVIVAL_COIN_PACK_PRICE.toLocaleString() + '원'}`,
+            },
+            ...prev.logs,
+          ].slice(0, 6),
+        }));
+        return;
+      }
+
       const response = await createTossSurvivalCoinCheckoutSession({
         orderId: createSurvivalCoinPackOrderId(),
         orderName: isEnglish ? 'Finapple Survival Coin Pack' : '파인애플 생존 코인팩',
@@ -1118,6 +1204,10 @@ export default function SurvivalSim() {
 
       throw new Error(response.error || (isEnglish ? 'Failed to create coin payment.' : '코인 결제창 생성에 실패했습니다.'));
     } catch (error) {
+      if (error?.userCancelled) {
+        return;
+      }
+
       console.error('Coin checkout error:', error);
       window.alert(error.message || (isEnglish ? 'Payment failed. Please retry.' : '결제 처리 중 오류가 발생했습니다.'));
     } finally {
@@ -1431,7 +1521,15 @@ export default function SurvivalSim() {
                 {isEnglish ? `Defeat reason: ${currentFailReason}` : `패배 이유: ${currentFailReason}`}
               </p>
               <p className="mt-1 text-[13px] text-rose-700/80">
-                {isEnglish
+                {nativeIOS
+                  ? (iosCoinPackage?.product?.priceString
+                    ? (isEnglish
+                      ? `Coin pack product: ${COIN_PACK_AMOUNT} coins / ${iosCoinPackage.product.priceString}`
+                      : `코인팩 상품: ${COIN_PACK_AMOUNT}코인 / ${iosCoinPackage.product.priceString}`)
+                    : (isEnglish
+                      ? 'Coin pack will use iOS in-app purchase once App Store Connect and RevenueCat are configured.'
+                      : 'Apple Developer Program 가입 후 App Store Connect와 RevenueCat을 연결하면 iOS 인앱결제로 코인팩을 판매할 수 있어요.'))
+                  : isEnglish
                   ? `Coin pack product: ${COIN_PACK_AMOUNT} coins / ${SURVIVAL_COIN_PACK_PRICE.toLocaleString()} KRW`
                   : `코인팩 상품: ${COIN_PACK_AMOUNT}코인 / ${SURVIVAL_COIN_PACK_PRICE.toLocaleString()}원`}
               </p>
@@ -1439,12 +1537,19 @@ export default function SurvivalSim() {
                 <button
                   type="button"
                   onClick={buyCoinPack}
-                  disabled={coinCheckoutLoading}
-                  className="rounded-2xl border border-rose-300 bg-white px-4 py-3 text-left transition-colors hover:border-rose-500"
+                  disabled={coinCheckoutLoading || (nativeIOS && (!revenueCatEnabled || !iosCoinPackage))}
+                  className="rounded-2xl border border-rose-300 bg-white px-4 py-3 text-left transition-colors hover:border-rose-500 disabled:opacity-60"
                 >
-                  <p className="text-[14px] font-extrabold text-foreground">{isEnglish ? 'Buy coin pack (10)' : '코인팩 구매 (10코인)'}</p>
+                  <p className="flex items-center gap-2 text-[14px] font-extrabold text-foreground">
+                    {coinCheckoutLoading ? <LoaderCircle className="h-4 w-4 animate-spin" /> : null}
+                    {isEnglish ? 'Buy coin pack (10)' : '코인팩 구매 (10코인)'}
+                  </p>
                   <p className="mt-1 text-[12px] text-muted-foreground">
-                    {coinCheckoutLoading
+                    {nativeIOS
+                      ? coinCheckoutLoading
+                        ? (isEnglish ? 'Opening in-app purchase...' : '인앱결제 여는 중...')
+                        : iosCoinPackage?.product?.priceString || (isEnglish ? 'iOS IAP setup required' : 'iOS 인앱결제 설정 필요')
+                      : coinCheckoutLoading
                       ? (isEnglish ? 'Creating Toss checkout...' : '토스 결제창 생성 중...')
                       : `${SURVIVAL_COIN_PACK_PRICE.toLocaleString()}원`}
                   </p>
@@ -1467,6 +1572,9 @@ export default function SurvivalSim() {
                   </p>
                 </button>
               </div>
+              {nativeIOS && iosCoinError ? (
+                <p className="mt-2 text-[12px] text-rose-700/80">{iosCoinError}</p>
+              ) : null}
               <button type="button" onClick={giveUp} className="mt-3 text-[12px] font-semibold text-rose-700 underline">
                 {isEnglish ? 'Give up and finish run' : '포기하고 종료'}
               </button>
