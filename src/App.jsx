@@ -19,7 +19,6 @@ const GlossaryQuizPlay = lazy(() => import('./pages/GlossaryQuizPlay'));
 const Glossary = lazy(() => import('./pages/Glossary'));
 const Profile = lazy(() => import('./pages/Profile'));
 const Premium = lazy(() => import('./pages/Premium'));
-const PremiumResult = lazy(() => import('./pages/PremiumResult'));
 const Shop = lazy(() => import('./pages/Shop'));
 const Login = lazy(() => import('./pages/Login'));
 const Terms = lazy(() => import('./pages/Terms'));
@@ -167,9 +166,9 @@ const AppRoutes = () => (
         <Route path="/review-note/:reviewId" element={<ReviewNote />} />
       </Route>
       <Route path="/premium" element={<Premium />} />
-      <Route path="/premium/success" element={<PremiumResult status="success" />} />
-      <Route path="/premium/fail" element={<PremiumResult status="fail" />} />
-      <Route path="/premium/cancel" element={<PremiumResult status="cancel" />} />
+      <Route path="/premium/success" element={<Navigate to="/premium" replace />} />
+      <Route path="/premium/fail" element={<Navigate to="/premium" replace />} />
+      <Route path="/premium/cancel" element={<Navigate to="/premium" replace />} />
       <Route path="/login" element={<Login />} />
       <Route path="/terms" element={<Terms />} />
       <Route path="/privacy" element={<Privacy />} />

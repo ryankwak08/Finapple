@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { BookOpen, ChevronDown, Gamepad2 } from 'lucide-react';
 import { getCurrentUser } from '@/services/authService';
 import { getIsPremium } from '@/lib/premium';
+import { isFreePremiumAccessEnabled } from '@/lib/runtimePlatform';
 import { AnimatePresence } from 'framer-motion';
 import BottomNav, { getActiveTab, getAppTabs } from './BottomNav';
 import PageTransition from './PageTransition';
@@ -24,6 +25,7 @@ export default function AppShell() {
   const isSurvivalRoute = location.pathname.startsWith('/survival');
   const { locale, setLocale, t } = useLanguage();
   const { activeTrack, setActiveTrack, tracks, trackMeta } = useTrack();
+  const freePremiumAccess = isFreePremiumAccessEnabled();
   const appTabs = getAppTabs(t);
   const availableTracks = tracks;
 
@@ -179,7 +181,7 @@ export default function AppShell() {
                     ) : null}
                   </div>
                   <div className="hidden min-[430px]:block">
-                    {getIsPremium(user) && <PremiumBadge compact />}
+                    {getIsPremium(user) && !freePremiumAccess && <PremiumBadge compact />}
                   </div>
                   <Link to="/profile" className="md:hidden">
                     <div className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-xl bg-primary/10 ring-1 ring-primary/10 transition-transform active:scale-[0.97]">

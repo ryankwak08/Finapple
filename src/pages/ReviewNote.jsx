@@ -3,12 +3,14 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Crown, NotebookPen, RotateCcw, CheckCircle2 } from 'lucide-react';
 import PremiumBadge from '@/components/PremiumBadge';
 import useProgress from '@/lib/useProgress';
+import { isFreePremiumAccessEnabled } from '@/lib/runtimePlatform';
 import QuestionCard from '@/components/quiz/QuestionCard';
 
 export default function ReviewNote() {
   const navigate = useNavigate();
   const { reviewId } = useParams();
   const { isPremium, getWrongReviewNotes, getResolvedReviewNotes, resolveWrongAnswer } = useProgress();
+  const freePremiumAccess = isFreePremiumAccessEnabled();
   const [selectedAnswer, setSelectedAnswer] = useState(null);
   const [confirmed, setConfirmed] = useState(false);
   const [isCorrect, setIsCorrect] = useState(false);
@@ -101,7 +103,7 @@ export default function ReviewNote() {
             <p className="text-[12px] font-semibold text-primary">다시 풀기</p>
             <h1 className="text-lg font-extrabold text-foreground">{reviewTarget.quizTitle}</h1>
           </div>
-          <PremiumBadge compact />
+          {!freePremiumAccess ? <PremiumBadge compact /> : null}
         </div>
 
         <QuestionCard
@@ -131,7 +133,7 @@ export default function ReviewNote() {
         <div>
           <div className="flex items-center gap-2">
             <h1 className="text-2xl font-extrabold text-foreground">오답노트</h1>
-            <PremiumBadge compact />
+            {!freePremiumAccess ? <PremiumBadge compact /> : null}
           </div>
           <p className="text-[13px] text-muted-foreground mt-1">틀린 문제를 다시 풀고 이해도를 높여보세요.</p>
         </div>

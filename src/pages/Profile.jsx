@@ -16,7 +16,7 @@ import PremiumBadge from '@/components/PremiumBadge';
 import { Switch } from '@/components/ui/switch';
 import useProgress from '../lib/useProgress';
 import { safeStorage } from '@/lib/safeStorage';
-import { isNativeIOSApp } from '@/lib/runtimePlatform';
+import { arePaidProductsEnabled, isFreePremiumAccessEnabled, isNativeAndroidApp, isNativeIOSApp, isNativeStoreApp } from '@/lib/runtimePlatform';
 
 const getUsageStorageKey = (email) => `totalUsageSeconds:${email || 'guest'}`;
 
@@ -63,6 +63,10 @@ export default function Profile() {
     user?.email?.split('@')[0] ||
     '이름 없음';
   const nativeIOS = isNativeIOSApp();
+  const nativeAndroid = isNativeAndroidApp();
+  const nativeStore = isNativeStoreApp();
+  const paidProductsEnabled = arePaidProductsEnabled();
+  const freePremiumAccess = isFreePremiumAccessEnabled();
   const premiumProvider = String(user?.user_metadata?.premium_provider || user?.premium_provider || '').toLowerCase();
   const canCancelPremiumOnWeb = premiumProvider === 'kcp';
 
@@ -430,7 +434,7 @@ export default function Profile() {
               <ChartNoAxesColumn className="w-4 h-4 text-primary" />
               <h2 className="font-bold text-foreground text-[15px]">학습 진도</h2>
             </div>
-            {isPremium && <PremiumBadge compact />}
+            {isPremium && !freePremiumAccess && <PremiumBadge compact />}
           </div>
           <div className="mb-3 grid grid-cols-3 gap-2">
             <div className="rounded-xl bg-muted/50 p-3 text-center">
@@ -450,7 +454,11 @@ export default function Profile() {
             <div className="h-full bg-primary rounded-full transition-all duration-500" style={{ width: `${progressSummary.completionRate}%` }} />
           </div>
           <p className="text-[12px] text-muted-foreground mt-3">
-            {isPremium ? '프리미엄으로 진도와 오답노트를 함께 관리할 수 있어요.' : '상세 진도와 오답노트는 프리미엄에서 확인할 수 있어요.'}
+            {freePremiumAccess
+              ? 'Google Play 출시 버전에서는 상세 진도와 오답노트를 무료로 이용할 수 있어요.'
+              : isPremium
+              ? '프리미엄으로 진도와 오답노트를 함께 관리할 수 있어요.'
+              : '상세 진도와 오답노트는 프리미엄에서 확인할 수 있어요.'}
           </p>
         </div>
 
@@ -548,7 +556,7 @@ export default function Profile() {
         )}
 
         <button
-          onClick={() => isPremium ? navigate('/review-note') : navigate('/premium')}
+          onClick={() => isPremium || freePremiumAccess ? navigate('/review-note') : navigate('/premium')}
           className="w-full rounded-2xl border border-border bg-card p-4 text-left animate-slide-up"
           style={{ animationDelay: '140ms', animationFillMode: 'backwards' }}
         >
@@ -560,15 +568,16 @@ export default function Profile() {
               <div className="min-w-0">
                 <p className="text-[14px] font-bold text-foreground">오답노트</p>
                 <p className="text-[12px] text-muted-foreground">
-                  {isPremium ? `${progressSummary.reviewCount}개 문제를 다시 풀 수 있어요` : '프리미엄에서 틀린 문제를 다시 풀 수 있어요'}
+                  {isPremium || freePremiumAccess ? `${progressSummary.reviewCount}개 문제를 다시 풀 수 있어요` : '프리미엄에서 틀린 문제를 다시 풀 수 있어요'}
                 </p>
               </div>
             </div>
-            {isPremium ? <PremiumBadge compact /> : <Crown className="w-4 h-4 text-primary" />}
+            {isPremium && !freePremiumAccess ? <PremiumBadge compact /> : <NotebookPen className="w-4 h-4 text-primary" />}
           </div>
         </button>
 
         {/* Premium Plans */}
+        {paidProductsEnabled ? (
         <div className="animate-slide-up" style={{ animationDelay: '160ms', animationFillMode: 'backwards' }}>
           <div className="mb-3 flex items-center gap-2">
             <Crown className="w-4 h-4 text-accent" />
@@ -620,6 +629,11 @@ export default function Profile() {
             ))}
           </div>
         </div>
+        ) : (
+          <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-[13px] leading-relaxed text-emerald-800 animate-slide-up" style={{ animationDelay: '160ms', animationFillMode: 'backwards' }}>
+            Google Play 출시 버전에서는 유료 상품 없이 학습 기능을 무료로 제공합니다.
+          </div>
+        )}
 
         {/* Logout */}
         <button
@@ -643,11 +657,13 @@ export default function Profile() {
         </button>
 
         {/* Cancel subscription */}
-        {isPremium ? (
+        {paidProductsEnabled && isPremium ? (
           <button
             onClick={async () => {
               const confirmMessage = nativeIOS
                 ? 'App Store 구독 관리 화면으로 이동할까요? 구독 상태 변경은 Apple 계정에서 진행됩니다.'
+                : nativeAndroid
+                ? 'Google Play 구독 관리 화면으로 이동할까요? 구독 상태 변경은 Google Play 계정에서 진행됩니다.'
                 : canCancelPremiumOnWeb
                 ? '정말로 프리미엄 구독을 해지할까요? 다음 결제일부터 자동 청구가 중단됩니다.'
                 : '현재 구독은 앱에서 직접 해지할 수 없습니다. 안내 문구를 확인해주세요.';
@@ -658,7 +674,7 @@ export default function Profile() {
 
               try {
                 const result = await cancelPremiumSubscription(user);
-                if (result.platform === 'ios') {
+                if (result.platform === 'ios' || result.platform === 'android') {
                   return;
                 }
 
@@ -684,7 +700,7 @@ export default function Profile() {
             className="w-full py-3 rounded-2xl text-muted-foreground text-[13px] font-medium animate-slide-up hover:text-foreground transition-colors"
             style={{ animationDelay: '320ms', animationFillMode: 'backwards' }}
           >
-            {nativeIOS ? 'App Store 구독 관리' : '구독 해지'}
+            {nativeStore ? (nativeIOS ? 'App Store 구독 관리' : 'Google Play 구독 관리') : '구독 해지'}
           </button>
         ) : null}
 

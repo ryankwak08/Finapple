@@ -8,6 +8,7 @@ import QuizRoadmap from '../components/quiz/QuizRoadmap';
 import PremiumBadge from '@/components/PremiumBadge';
 import { getCourseMeta } from '@/lib/courseMeta';
 import { useLanguage } from '@/lib/i18n';
+import { isFreePremiumAccessEnabled } from '@/lib/runtimePlatform';
 import { TRACKS, useTrack } from '@/lib/trackContext';
 
 const getFixedCourseByTrack = (activeTrack) => {
@@ -22,6 +23,7 @@ export default function Quiz() {
   const location = useLocation();
   const { activeTrack } = useTrack();
   const { progress, loading, isPremium, isQuizCompleted, getQuizScore, user } = useProgress();
+  const freePremiumAccess = isFreePremiumAccessEnabled();
   const fixedCourse = getFixedCourseByTrack(activeTrack);
   const [selectedCourse, setSelectedCourse] = useState(() => {
     const params = new URLSearchParams(window.location.search);
@@ -158,7 +160,9 @@ export default function Quiz() {
       {isPremium && (
         <div className="bg-primary/10 rounded-2xl p-4 mb-6 border border-primary/20 animate-scale-in">
           <p className="text-[14px] font-bold text-primary text-center">
-            {isEnglish ? '♾ Premium unlimited hearts' : '♾ 프리미엄 무제한 하트'}
+            {freePremiumAccess
+              ? (isEnglish ? '♾ Free launch unlimited hearts' : '♾ 무료 출시 버전 무제한 하트')
+              : (isEnglish ? '♾ Premium unlimited hearts' : '♾ 프리미엄 무제한 하트')}
           </p>
           <p className="text-[12px] text-primary/80 text-center mt-1">
             {isEnglish ? 'Wrong answers do not cost hearts.' : '오답이 나와도 하트가 차감되지 않습니다'}

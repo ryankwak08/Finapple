@@ -1,7 +1,7 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'com.hafsfinapple.mobile',
+  appId: 'com.ryankwak.finapple.app',
   appName: 'Finapple',
   webDir: 'dist',
   bundledWebRuntime: false,

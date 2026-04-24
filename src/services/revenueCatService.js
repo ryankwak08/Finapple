@@ -1,10 +1,10 @@
-import { LOG_LEVEL, Purchases } from '@revenuecat/purchases-capacitor';
 import { safeStorage } from '@/lib/safeStorage';
-import { isNativeIOSApp } from '@/lib/runtimePlatform';
+import { arePaidProductsEnabled, getPlatform, isNativeStoreApp } from '@/lib/runtimePlatform';
 import { setPremiumStatus } from '@/services/authService';
 
 const REVENUECAT_USER_KEY = 'finapple_revenuecat_user_id';
-const REVENUECAT_API_KEY = import.meta.env.VITE_REVENUECAT_APPLE_API_KEY || '';
+const REVENUECAT_APPLE_API_KEY = import.meta.env.VITE_REVENUECAT_APPLE_API_KEY || '';
+const REVENUECAT_GOOGLE_API_KEY = import.meta.env.VITE_REVENUECAT_GOOGLE_API_KEY || '';
 const REVENUECAT_ENTITLEMENT_ID = import.meta.env.VITE_REVENUECAT_ENTITLEMENT_ID || 'premium';
 const REVENUECAT_OFFERING_ID = import.meta.env.VITE_REVENUECAT_OFFERING_ID || '';
 const REVENUECAT_SURVIVAL_COIN_OFFERING_ID = import.meta.env.VITE_REVENUECAT_SURVIVAL_COIN_OFFERING_ID || '';
@@ -13,10 +13,36 @@ const REVENUECAT_SURVIVAL_COIN_PACKAGE_ID = import.meta.env.VITE_REVENUECAT_SURV
 let isConfigured = false;
 let activeAppUserId = null;
 let customerInfoListenerId = null;
+const REVENUECAT_MODULE_NAME = '@revenuecat/purchases-capacitor';
 
-const hasRevenueCatConfig = () => Boolean(REVENUECAT_API_KEY);
+const loadRevenueCat = async () => {
+  if (!canUseRevenueCat()) {
+    throw new Error('스토어 인앱결제 설정이 아직 완료되지 않았습니다.');
+  }
 
-export const canUseRevenueCat = () => isNativeIOSApp() && hasRevenueCatConfig();
+  // Keep RevenueCat out of the Android free-launch bundle. Re-enable the static
+  // native import when paid store products come back.
+  return import(/* @vite-ignore */ REVENUECAT_MODULE_NAME);
+};
+
+const getRevenueCatApiKey = () => {
+  const platform = getPlatform();
+  if (platform === 'android') {
+    return REVENUECAT_GOOGLE_API_KEY;
+  }
+
+  if (platform === 'ios') {
+    return REVENUECAT_APPLE_API_KEY;
+  }
+
+  return '';
+};
+
+const hasRevenueCatConfig = () => Boolean(getRevenueCatApiKey());
+
+export const canUseRevenueCat = () => arePaidProductsEnabled() && isNativeStoreApp() && hasRevenueCatConfig();
+
+export const getRevenueCatStoreLabel = () => (getPlatform() === 'android' ? 'Google Play' : 'App Store');
 
 export const getRevenueCatEntitlementId = () => REVENUECAT_ENTITLEMENT_ID;
 
@@ -61,6 +87,7 @@ const attachCustomerInfoListener = async (user) => {
     return;
   }
 
+  const { Purchases } = await loadRevenueCat();
   customerInfoListenerId = await Purchases.addCustomerInfoUpdateListener(async (customerInfo) => {
     try {
       await syncPremiumFlagIfNeeded(user, customerInfo);
@@ -77,13 +104,15 @@ export const initializeRevenueCatForUser = async (user) => {
 
   const appUserID = user.id;
 
+  const { LOG_LEVEL, Purchases } = await loadRevenueCat();
+
   if (!isConfigured) {
     if (import.meta.env.DEV) {
       await Purchases.setLogLevel({ level: LOG_LEVEL.DEBUG });
     }
 
     await Purchases.configure({
-      apiKey: REVENUECAT_API_KEY,
+      apiKey: getRevenueCatApiKey(),
       appUserID,
     });
     isConfigured = true;
@@ -108,6 +137,7 @@ export const syncRevenueCatPremiumStatus = async (user) => {
     return null;
   }
 
+  const { Purchases } = await loadRevenueCat();
   const { customerInfo } = await Purchases.getCustomerInfo();
   await syncPremiumFlagIfNeeded(user, customerInfo);
   return customerInfo;
@@ -122,6 +152,7 @@ const getRevenueCatOfferingPackage = async ({ user, offeringId, fallbackToCurren
     await initializeRevenueCatForUser(user);
   }
 
+  const { Purchases } = await loadRevenueCat();
   const offerings = await Purchases.getOfferings();
   const offering = (offeringId && offerings.all?.[offeringId]) || (fallbackToCurrent ? offerings.current : null);
 
@@ -190,7 +221,7 @@ export const getRevenueCatSurvivalCoinPack = async (user) => {
 
 export const purchaseRevenueCatPackage = async ({ user, aPackage }) => {
   if (!canUseRevenueCat()) {
-    throw new Error('iOS 인앱 구독 설정이 아직 완료되지 않았습니다.');
+    throw new Error('스토어 인앱 구독 설정이 아직 완료되지 않았습니다.');
   }
 
   if (!aPackage) {
@@ -198,6 +229,7 @@ export const purchaseRevenueCatPackage = async ({ user, aPackage }) => {
   }
 
   await initializeRevenueCatForUser(user);
+  const { Purchases } = await loadRevenueCat();
   const result = await Purchases.purchasePackage({ aPackage });
   await syncPremiumFlagIfNeeded(user, result.customerInfo);
   return result.customerInfo;
@@ -205,24 +237,26 @@ export const purchaseRevenueCatPackage = async ({ user, aPackage }) => {
 
 export const purchaseRevenueCatSurvivalCoinPack = async ({ user, aPackage }) => {
   if (!canUseRevenueCat()) {
-    throw new Error('iOS 인앱결제 설정이 아직 완료되지 않았습니다.');
+    throw new Error('스토어 인앱결제 설정이 아직 완료되지 않았습니다.');
   }
 
   if (!aPackage) {
-    throw new Error('구매 가능한 코인팩 상품을 찾지 못했습니다. Apple Developer Program 가입 후 App Store Connect와 RevenueCat 상품을 연결해주세요.');
+    throw new Error('구매 가능한 코인팩 상품을 찾지 못했습니다. Google Play Console/App Store Connect와 RevenueCat 상품을 연결해주세요.');
   }
 
   await initializeRevenueCatForUser(user);
+  const { Purchases } = await loadRevenueCat();
   const result = await Purchases.purchasePackage({ aPackage });
   return result;
 };
 
 export const restoreRevenueCatPurchases = async (user) => {
   if (!canUseRevenueCat()) {
-    throw new Error('iOS 인앱 구독 설정이 아직 완료되지 않았습니다.');
+    throw new Error('스토어 인앱 구독 설정이 아직 완료되지 않았습니다.');
   }
 
   await initializeRevenueCatForUser(user);
+  const { Purchases } = await loadRevenueCat();
   const { customerInfo } = await Purchases.restorePurchases();
   await syncPremiumFlagIfNeeded(user, customerInfo);
   return customerInfo;
@@ -238,6 +272,7 @@ export const resetRevenueCatSession = async () => {
   const storedUserId = getStoredAppUserId();
   if (storedUserId || activeAppUserId) {
     try {
+      const { Purchases } = await loadRevenueCat();
       await Purchases.logOut();
     } catch (error) {
       console.error('RevenueCat logout failed:', error);

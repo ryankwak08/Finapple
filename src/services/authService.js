@@ -1,7 +1,7 @@
 import { supabase } from '@/lib/supabase';
 import { BACKEND_URL } from '@/lib/backendUrl';
 import { buildAppUrl } from '@/lib/appBaseUrl';
-import { isNativeIOSApp } from '@/lib/runtimePlatform';
+import { isNativeAndroidApp, isNativeIOSApp } from '@/lib/runtimePlatform';
 import { syncUserProfileRecord } from '@/services/profileService';
 import { getIsPremium, getUserRole } from '@/lib/premium';
 import { safeStorage } from '@/lib/safeStorage';
@@ -224,10 +224,30 @@ export const openAppleSubscriptionManagement = () => {
   return true;
 };
 
+export const openGooglePlaySubscriptionManagement = () => {
+  const manageUrl = 'https://play.google.com/store/account/subscriptions';
+
+  if (typeof window === 'undefined') {
+    return false;
+  }
+
+  const opened = window.open(manageUrl, '_blank', 'noopener,noreferrer');
+  if (!opened) {
+    window.location.href = manageUrl;
+  }
+
+  return true;
+};
+
 export const cancelPremiumSubscription = async (user) => {
   if (isNativeIOSApp()) {
     openAppleSubscriptionManagement();
     return { platform: 'ios', redirected: true };
+  }
+
+  if (isNativeAndroidApp()) {
+    openGooglePlaySubscriptionManagement();
+    return { platform: 'android', redirected: true };
   }
 
   const provider = String(user?.user_metadata?.premium_provider || user?.premium_provider || '').toLowerCase();

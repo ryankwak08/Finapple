@@ -1,3 +1,5 @@
+import { isFreePremiumAccessEnabled } from '@/lib/runtimePlatform';
+
 const forcePremium = import.meta.env.VITE_FORCE_PREMIUM === 'true';
 const adminEmails = (import.meta.env.VITE_ADMIN_EMAILS || 'ryankwak08@gmail.com')
   .split(',')
@@ -22,6 +24,10 @@ export function getUserRole(user) {
 }
 
 export function getIsPremium(user) {
+  if (isFreePremiumAccessEnabled()) {
+    return true;
+  }
+
   if (isAdminUser(user)) {
     return true;
   }

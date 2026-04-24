@@ -28,7 +28,7 @@ describe('Quiz smoke', () => {
       </MemoryRouter>
     );
 
-    expect(screen.getByText('청년기 편')).toBeInTheDocument();
+    expect(screen.getByText('청소년기 편')).toBeInTheDocument();
     expect(screen.getByText('학습한 내용을 퀴즈로 확인해보세요')).toBeInTheDocument();
     expect(screen.getAllByText('시사 용어 10개 외우기').length).toBeGreaterThan(0);
   });

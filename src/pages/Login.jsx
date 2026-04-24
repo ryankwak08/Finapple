@@ -7,6 +7,7 @@ import { isNicknameAvailable } from '@/services/profileService';
 import { NICKNAME_MAX_LENGTH, normalizeNickname, validateNickname, validatePassword } from '@/lib/profileRules';
 import { useAuth } from '@/lib/AuthContext';
 import { isNativeIOSApp } from '@/lib/runtimePlatform';
+import { POLICY_CONTENT } from '@/lib/legalContent';
 
 const OTP_LENGTH = 6;
 const inputClassName = 'h-10 w-full rounded-lg border border-[#E0E0E0] bg-white px-4 text-base font-normal text-black outline-none transition placeholder:text-[#828282] focus:border-black/30';
@@ -43,36 +44,6 @@ const resetIOSViewportAfterInputZoom = () => {
       window.scrollTo(0, 0);
     }, 250);
   });
-};
-
-const POLICY_CONTENT = {
-  terms: {
-    title: '이용약관',
-    effectiveDate: '2026년 4월 8일',
-    paragraphs: [
-      '본 약관은 Finapple(이하 "서비스")의 이용과 관련하여 서비스 제공자와 이용자 간의 권리, 의무 및 책임사항을 규정합니다.',
-      '이용자는 본 약관에 동의한 후 서비스를 이용할 수 있으며, 약관에 동의하지 않는 경우 서비스 가입 및 이용이 제한될 수 있습니다.',
-      '서비스 제공자는 관련 법령을 위반하지 않는 범위에서 약관을 변경할 수 있으며, 변경 시 앱 또는 웹사이트를 통해 사전 고지합니다.',
-      '이용자는 계정 정보를 안전하게 관리할 책임이 있으며, 계정 도용 또는 보안 문제를 인지한 경우 즉시 서비스 제공자에게 알려야 합니다.',
-      '서비스 제공자는 안정적인 서비스 운영을 위해 시스템 점검, 업데이트, 정책 변경 등을 수행할 수 있습니다.',
-      '이용자가 관련 법령 또는 본 약관을 위반하는 경우 서비스 이용이 제한되거나 계정이 정지될 수 있습니다.',
-      '본 약관에 명시되지 않은 사항은 관계 법령 및 일반 상관례에 따릅니다.',
-    ],
-  },
-  privacy: {
-    title: '개인정보 처리방침',
-    effectiveDate: '2026년 4월 8일',
-    paragraphs: [
-      'Finapple은 이용자의 개인정보를 중요하게 생각하며, 관련 법령을 준수합니다. 본 방침은 서비스에서 처리하는 개인정보 항목 및 이용 목적을 안내합니다.',
-      '수집 항목: 이메일, 닉네임, 서비스 이용 기록(학습/퀴즈 진행 상태), 결제 상태(프리미엄 여부) 등 서비스 제공에 필요한 최소한의 정보.',
-      '수집 목적: 회원 식별, 로그인 및 계정 관리, 학습 진도 저장, 고객 문의 대응, 서비스 품질 개선.',
-      '보유 기간: 회원 탈퇴 시 지체 없이 파기하되, 관련 법령에 따라 보관이 필요한 정보는 해당 기간 동안 별도 보관합니다.',
-      '제3자 제공: 원칙적으로 이용자 동의 없이 개인정보를 외부에 제공하지 않습니다. 다만 법령상 의무가 있는 경우 예외가 적용될 수 있습니다.',
-      '이용자는 개인정보 열람, 정정, 삭제, 처리정지 요청 등 법령이 보장하는 권리를 행사할 수 있습니다.',
-      '서비스는 개인정보 보호를 위해 접근 통제, 암호화, 권한 관리 등 안전성 확보 조치를 적용하기 위해 노력합니다.',
-      '본 처리방침이 변경되는 경우 서비스 내 공지 또는 별도 고지를 통해 안내합니다.',
-    ],
-  },
 };
 
 const hasPasswordRecoveryContext = () => {
@@ -164,9 +135,16 @@ function PolicyModal({ type, onClose }) {
           </button>
         </div>
         <div className="max-h-[calc(88vh-76px)] overflow-y-auto px-5 py-4">
-          <div className="space-y-4 text-sm leading-relaxed text-[#2D2D2D]">
-            {content.paragraphs.map((paragraph, index) => (
-              <p key={index}>{paragraph}</p>
+          <div className="space-y-5 text-sm leading-relaxed text-[#2D2D2D]">
+            {content.sections.map((section) => (
+              <section key={section.title}>
+                <h3 className="font-semibold text-black">{section.title}</h3>
+                <div className="mt-2 space-y-2">
+                  {section.paragraphs.map((paragraph) => (
+                    <p key={paragraph}>{paragraph}</p>
+                  ))}
+                </div>
+              </section>
             ))}
           </div>
         </div>

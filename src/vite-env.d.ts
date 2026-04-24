@@ -9,8 +9,11 @@ interface ImportMetaEnv {
   readonly VITE_FORCE_PREMIUM?: string;
   readonly VITE_ADMIN_EMAILS?: string;
   readonly VITE_REVENUECAT_APPLE_API_KEY?: string;
+  readonly VITE_REVENUECAT_GOOGLE_API_KEY?: string;
   readonly VITE_REVENUECAT_ENTITLEMENT_ID?: string;
   readonly VITE_REVENUECAT_OFFERING_ID?: string;
+  readonly VITE_REVENUECAT_SURVIVAL_COIN_OFFERING_ID?: string;
+  readonly VITE_REVENUECAT_SURVIVAL_COIN_PACKAGE_ID?: string;
 }
 
 interface ImportMeta {

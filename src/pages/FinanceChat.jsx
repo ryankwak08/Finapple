@@ -2,9 +2,11 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { fetchFinanceChat, fetchYouthCoreQuestions } from '@/api/financeChatClient';
 import { useLanguage } from '@/lib/i18n';
+import { getFinanceChatDisclaimer } from '@/lib/legalContent';
 
 export default function FinanceChat() {
   const { locale, isEnglish } = useLanguage();
+  const disclaimer = getFinanceChatDisclaimer(isEnglish);
   const [query, setQuery] = useState('');
   const [result, setResult] = useState(null);
   const [coreQuestions, setCoreQuestions] = useState({});
@@ -54,6 +56,9 @@ export default function FinanceChat() {
           {isEnglish
             ? 'Ask a question to get required documents and official links.'
             : '질문을 입력하면 필요한 서류와 바로가기 링크를 함께 안내해요.'}
+        </p>
+        <p className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold leading-5 text-amber-900">
+          {disclaimer}
         </p>
         <Link to="/" className="mt-3 inline-block text-xs font-semibold text-primary underline-offset-2 hover:underline">
           {isEnglish ? 'Back to Study Home' : '학습 홈으로 돌아가기'}
@@ -105,6 +110,9 @@ export default function FinanceChat() {
               <p className="text-sm leading-6 text-foreground">{result.assistant_message}</p>
             </div>
           ) : null}
+          <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
+            <p className="text-xs font-semibold leading-5 text-amber-900">{result.disclaimer || disclaimer}</p>
+          </div>
           <div className="rounded-2xl border border-border bg-card p-4">
             <p className="text-sm font-semibold">{isEnglish ? 'Predicted intent' : '예측 의도'}: {result.predicted_intent}</p>
             <p className="mt-1 text-xs text-muted-foreground">

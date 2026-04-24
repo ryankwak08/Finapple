@@ -1,7 +1,6 @@
 import { createContext, useEffect, useState, useContext } from 'react';
 import { supabase } from '@/lib/supabase';
 import { syncUserProfileRecord } from '@/services/profileService';
-import { initializeRevenueCatForUser, resetRevenueCatSession } from '@/services/revenueCatService';
 
 const AuthContext = createContext(null);
 
@@ -12,12 +11,6 @@ const getAuthRequiredError = () => ({ type: 'auth_required', message: '로그인
 const syncProfileSafely = (user) => {
   syncUserProfileRecord(user).catch((syncError) => {
     console.error('Profile sync failed:', syncError);
-  });
-};
-
-const syncNativePremiumSafely = (user) => {
-  initializeRevenueCatForUser(user).catch((syncError) => {
-    console.error('RevenueCat sync failed:', syncError);
   });
 };
 
@@ -35,7 +28,6 @@ export const AuthProvider = ({ children }) => {
       setIsAuthenticated(true);
       setAuthError(null);
       syncProfileSafely(nextUser);
-      syncNativePremiumSafely(nextUser);
       return;
     }
 
@@ -52,9 +44,6 @@ export const AuthProvider = ({ children }) => {
     setUser(emptyUser);
     setIsAuthenticated(false);
     setAuthError(getAuthRequiredError());
-    resetRevenueCatSession().catch((error) => {
-      console.error('RevenueCat reset failed:', error);
-    });
   };
 
   const refreshUser = async () => {

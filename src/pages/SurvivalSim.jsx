@@ -1,22 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { AlertTriangle, Coins, Heart, LoaderCircle, Shield, Wallet } from 'lucide-react';
+import { AlertTriangle, Coins, Heart, Shield, Wallet } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useLanguage } from '@/lib/i18n';
 import useProgress from '@/lib/useProgress';
-import { useAuth } from '@/lib/AuthContext';
-import {
-  COIN_PACK_AMOUNT,
-  SURVIVAL_COIN_PACK_PRICE,
-  createSurvivalCoinPackOrderId,
-  createTossSurvivalCoinCheckoutSession,
-  confirmTossSurvivalCoinPayment,
-} from '@/api/paymentClient';
-import { isNativeIOSApp } from '@/lib/runtimePlatform';
-import {
-  canUseRevenueCat,
-  getRevenueCatSurvivalCoinPack,
-  purchaseRevenueCatSurvivalCoinPack,
-} from '@/services/revenueCatService';
 
 const TOTAL_TURNS = 8;
 const TURN_WAIT_MS = 45 * 1000;
@@ -24,8 +10,6 @@ const INACTIVITY_RESET_MS = 10 * 60 * 1000;
 const EMPLOYMENT_TURN = 2;
 const CROSSROAD_TURNS = new Set([0, 1, 4, 6, 7]);
 const ALLOWANCE_OPEN_AT_TURNS = new Set([4, 6]);
-const CONTINUE_COST_COINS = 10;
-const CONTINUE_CASH_BOOST = 220000;
 const COIN_CASH_TOPUP_COST = 10;
 const COIN_CASH_TOPUP_AMOUNT = 100000;
 const LOAN_PRINCIPAL = 160000;
@@ -473,7 +457,6 @@ export default function SurvivalSim() {
   const navigate = useNavigate();
   const location = useLocation();
   const { isEnglish } = useLanguage();
-  const { user } = useAuth();
   const { awardXp, getProgressSummary } = useProgress();
   const [best, setBest] = useState(loadBestRecord);
   const [game, setGame] = useState(() => {
@@ -481,11 +464,6 @@ export default function SurvivalSim() {
     return loaded || baseGame();
   });
   const [nowTs, setNowTs] = useState(Date.now());
-  const [coinCheckoutLoading, setCoinCheckoutLoading] = useState(false);
-  const [iosCoinPackage, setIosCoinPackage] = useState(null);
-  const [iosCoinError, setIosCoinError] = useState('');
-  const nativeIOS = isNativeIOSApp();
-  const revenueCatEnabled = canUseRevenueCat();
   const notifiedRef = useRef(false);
   const turnNotifyTimerRef = useRef(null);
   const notifiedTurnRef = useRef(-1);
@@ -503,53 +481,6 @@ export default function SurvivalSim() {
   const progress = Math.round((game.turn / TOTAL_TURNS) * 100);
   const progressSummary = getProgressSummary?.() || { completedCount: 0 };
   const availableEmploymentPlans = game.educationPath === 'early-work' ? EARLY_WORK_EMPLOYMENT_PLANS : EMPLOYMENT_PLANS;
-
-  useEffect(() => {
-    if (!nativeIOS) {
-      setIosCoinPackage(null);
-      setIosCoinError('');
-      return;
-    }
-
-    let cancelled = false;
-
-    const loadCoinPack = async () => {
-      if (!revenueCatEnabled) {
-        if (!cancelled) {
-          setIosCoinPackage(null);
-          setIosCoinError('Apple Developer Program 가입 후 App Store Connect와 RevenueCat에 코인팩 상품을 연결하면 여기서 인앱결제를 사용할 수 있어요.');
-        }
-        return;
-      }
-
-      try {
-        const paywall = await getRevenueCatSurvivalCoinPack(user);
-        if (cancelled) {
-          return;
-        }
-
-        if (!paywall?.selectedPackage) {
-          setIosCoinPackage(null);
-          setIosCoinError('RevenueCat에서 생존 코인팩 offering/package를 아직 찾지 못했어요.');
-          return;
-        }
-
-        setIosCoinPackage(paywall.selectedPackage);
-        setIosCoinError('');
-      } catch (error) {
-        if (!cancelled) {
-          setIosCoinPackage(null);
-          setIosCoinError(error.message || 'iOS 코인팩 상품을 불러오지 못했습니다.');
-        }
-      }
-    };
-
-    void loadCoinPack();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [nativeIOS, revenueCatEnabled, user]);
 
   const quizBuff = useMemo(() => {
     const completed = Number(progressSummary.completedCount || 0);
@@ -674,83 +605,6 @@ export default function SurvivalSim() {
 
     setGame((prev) => ({ ...prev, xpAwardedDone: true }));
   }, [awardXp, game.phase, game.xpAwarded, game.xpAwardedDone]);
-
-  useEffect(() => {
-    let cancelled = false;
-    const params = new URLSearchParams(window.location.search);
-    const checkoutState = params.get('coinCheckout');
-    const provider = params.get('provider');
-
-    if (!checkoutState || provider !== 'toss') {
-      return;
-    }
-
-    if (checkoutState === 'fail') {
-      window.alert(isEnglish ? 'Coin payment was cancelled or failed.' : '코인 결제가 취소되었거나 실패했습니다.');
-      window.history.replaceState({}, '', '/survival');
-      return;
-    }
-
-    if (checkoutState !== 'success') {
-      return;
-    }
-
-    const paymentKey = params.get('paymentKey');
-    const orderId = params.get('orderId');
-    const amount = Number(params.get('amount'));
-    const processedKey = orderId ? `finapple:survival:coin-confirmed:${orderId}` : '';
-
-    if (!paymentKey || !orderId || !amount || amount !== SURVIVAL_COIN_PACK_PRICE) {
-      window.alert(isEnglish ? 'Coin payment information is incomplete.' : '코인 결제 정보가 올바르지 않습니다.');
-      window.history.replaceState({}, '', '/survival');
-      return;
-    }
-
-    if (processedKey && window.sessionStorage.getItem(processedKey) === 'done') {
-      window.history.replaceState({}, '', '/survival');
-      return;
-    }
-
-    const verifyAndGrant = async () => {
-      try {
-        await confirmTossSurvivalCoinPayment({ paymentKey, orderId, amount });
-        if (cancelled) return;
-
-        if (processedKey) {
-          window.sessionStorage.setItem(processedKey, 'done');
-        }
-
-        setGame((prev) => ({
-          ...prev,
-          coinBalance: prev.coinBalance + COIN_PACK_AMOUNT,
-          coinPurchasedPacks: prev.coinPurchasedPacks + 1,
-          logs: [
-            {
-              turn: prev.turn,
-              title: isEnglish ? 'Coin pack purchased' : '코인팩 구매',
-              delta: `${COIN_PACK_AMOUNT}${isEnglish ? ' coins' : '코인'} / ${SURVIVAL_COIN_PACK_PRICE.toLocaleString()}원`,
-            },
-            ...prev.logs,
-          ].slice(0, 6),
-        }));
-      } catch (error) {
-        console.error('Survival coin payment confirm failed:', error);
-        if (!cancelled) {
-          window.alert(error.message || (isEnglish ? 'Coin payment confirmation failed.' : '코인 결제 승인에 실패했습니다.'));
-        }
-      } finally {
-        if (!cancelled) {
-          window.history.replaceState({}, '', '/survival');
-        }
-      }
-    };
-
-    void verifyAndGrant();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [isEnglish]);
 
   useEffect(() => {
     if (game.startBuffApplied) return;
@@ -1159,96 +1013,6 @@ export default function SurvivalSim() {
     });
   };
 
-  const buyCoinPack = async () => {
-    if (coinCheckoutLoading) return;
-
-    setCoinCheckoutLoading(true);
-    try {
-      if (nativeIOS) {
-        if (!revenueCatEnabled) {
-          throw new Error('Apple Developer Program 가입 후 App Store Connect와 RevenueCat 설정을 연결해야 iOS 코인팩 인앱결제가 동작합니다.');
-        }
-
-        const selectedPackage = iosCoinPackage || (await getRevenueCatSurvivalCoinPack(user))?.selectedPackage;
-        const result = await purchaseRevenueCatSurvivalCoinPack({ user, aPackage: selectedPackage });
-        if (result?.userCancelled) {
-          return;
-        }
-
-        setGame((prev) => ({
-          ...prev,
-          coinBalance: prev.coinBalance + COIN_PACK_AMOUNT,
-          coinPurchasedPacks: prev.coinPurchasedPacks + 1,
-          logs: [
-            {
-              turn: prev.turn,
-              title: isEnglish ? 'Coin pack purchased' : '코인팩 구매',
-              delta: `${COIN_PACK_AMOUNT}${isEnglish ? ' coins' : '코인'} / ${selectedPackage?.product?.priceString || SURVIVAL_COIN_PACK_PRICE.toLocaleString() + '원'}`,
-            },
-            ...prev.logs,
-          ].slice(0, 6),
-        }));
-        return;
-      }
-
-      const response = await createTossSurvivalCoinCheckoutSession({
-        orderId: createSurvivalCoinPackOrderId(),
-        orderName: isEnglish ? 'Finapple Survival Coin Pack' : '파인애플 생존 코인팩',
-        customerName: 'Finapple User',
-      });
-
-      if (response.success && response.url) {
-        window.location.href = response.url;
-        return;
-      }
-
-      throw new Error(response.error || (isEnglish ? 'Failed to create coin payment.' : '코인 결제창 생성에 실패했습니다.'));
-    } catch (error) {
-      if (error?.userCancelled) {
-        return;
-      }
-
-      console.error('Coin checkout error:', error);
-      window.alert(error.message || (isEnglish ? 'Payment failed. Please retry.' : '결제 처리 중 오류가 발생했습니다.'));
-    } finally {
-      setCoinCheckoutLoading(false);
-    }
-  };
-
-  const continueWithCoins = () => {
-    setGame((prev) => {
-      if (prev.phase !== 'bailout') return prev;
-      if (prev.coinBalance < CONTINUE_COST_COINS) return prev;
-      if (prev.coinPurchasedPacks < 1) return prev;
-
-      const next = {
-        ...prev,
-        phase: 'waiting',
-        usedBailout: true,
-        coinBalance: prev.coinBalance - CONTINUE_COST_COINS,
-        cash: prev.cash + CONTINUE_CASH_BOOST,
-        stress: clamp(prev.stress - 8, 0, 100),
-        joy: clamp(prev.joy + 6, 0, 100),
-        waitingWork: { clicks: 0, earned: 0 },
-        nextTurnAt: Date.now() + TURN_WAIT_MS,
-        logs: [
-          {
-            turn: prev.turn,
-            title: isEnglish ? 'Emergency continue used' : '긴급 이어가기 사용',
-            delta: `+${CONTINUE_CASH_BOOST.toLocaleString()}원 / -${CONTINUE_COST_COINS}${isEnglish ? ' coins' : '코인'}`,
-          },
-          ...prev.logs,
-        ].slice(0, 6),
-      };
-
-      if (isFailed(next)) {
-        return finalize(next, false);
-      }
-
-      return next;
-    });
-  };
-
   const topUpCashWithCoins = () => {
     setGame((prev) => {
       if (prev.phase === 'result') return prev;
@@ -1299,7 +1063,6 @@ export default function SurvivalSim() {
 
   const loanDisabled = game.phase !== 'playing' || game.loan.activePayments >= LOAN_MAX_ACTIVE_PAYMENTS;
   const isEmployed = Boolean(game.employment);
-  const canContinueWithCoins = game.coinBalance >= CONTINUE_COST_COINS && game.coinPurchasedPacks >= 1;
   const currentFailReason = failureReason(game, isEnglish);
   const returnTo = location.state?.returnTo && !String(location.state.returnTo).startsWith('/survival')
     ? location.state.returnTo
@@ -1521,60 +1284,22 @@ export default function SurvivalSim() {
                 {isEnglish ? `Defeat reason: ${currentFailReason}` : `패배 이유: ${currentFailReason}`}
               </p>
               <p className="mt-1 text-[13px] text-rose-700/80">
-                {nativeIOS
-                  ? (iosCoinPackage?.product?.priceString
-                    ? (isEnglish
-                      ? `Coin pack product: ${COIN_PACK_AMOUNT} coins / ${iosCoinPackage.product.priceString}`
-                      : `코인팩 상품: ${COIN_PACK_AMOUNT}코인 / ${iosCoinPackage.product.priceString}`)
-                    : (isEnglish
-                      ? 'Coin pack will use iOS in-app purchase once App Store Connect and RevenueCat are configured.'
-                      : 'Apple Developer Program 가입 후 App Store Connect와 RevenueCat을 연결하면 iOS 인앱결제로 코인팩을 판매할 수 있어요.'))
-                  : isEnglish
-                  ? `Coin pack product: ${COIN_PACK_AMOUNT} coins / ${SURVIVAL_COIN_PACK_PRICE.toLocaleString()} KRW`
-                  : `코인팩 상품: ${COIN_PACK_AMOUNT}코인 / ${SURVIVAL_COIN_PACK_PRICE.toLocaleString()}원`}
+                {isEnglish
+                  ? 'Paid continues and coin packs are not offered in this launch version.'
+                  : '이번 출시 버전에서는 유료 이어가기와 코인팩을 제공하지 않습니다.'}
               </p>
               <div className="mt-4 grid gap-2 sm:grid-cols-2">
                 <button
                   type="button"
-                  onClick={buyCoinPack}
-                  disabled={coinCheckoutLoading || (nativeIOS && (!revenueCatEnabled || !iosCoinPackage))}
-                  className="rounded-2xl border border-rose-300 bg-white px-4 py-3 text-left transition-colors hover:border-rose-500 disabled:opacity-60"
+                  onClick={restart}
+                  className="rounded-2xl border border-emerald-300 bg-emerald-50 px-4 py-3 text-left transition-colors hover:border-emerald-500 sm:col-span-2"
                 >
-                  <p className="flex items-center gap-2 text-[14px] font-extrabold text-foreground">
-                    {coinCheckoutLoading ? <LoaderCircle className="h-4 w-4 animate-spin" /> : null}
-                    {isEnglish ? 'Buy coin pack (10)' : '코인팩 구매 (10코인)'}
-                  </p>
-                  <p className="mt-1 text-[12px] text-muted-foreground">
-                    {nativeIOS
-                      ? coinCheckoutLoading
-                        ? (isEnglish ? 'Opening in-app purchase...' : '인앱결제 여는 중...')
-                        : iosCoinPackage?.product?.priceString || (isEnglish ? 'iOS IAP setup required' : 'iOS 인앱결제 설정 필요')
-                      : coinCheckoutLoading
-                      ? (isEnglish ? 'Creating Toss checkout...' : '토스 결제창 생성 중...')
-                      : `${SURVIVAL_COIN_PACK_PRICE.toLocaleString()}원`}
-                  </p>
-                </button>
-                <button
-                  type="button"
-                  onClick={continueWithCoins}
-                  disabled={!canContinueWithCoins}
-                  className={`rounded-2xl border px-4 py-3 text-left transition-colors ${
-                    canContinueWithCoins
-                      ? 'border-emerald-300 bg-emerald-50 hover:border-emerald-500'
-                      : 'border-border bg-muted text-muted-foreground'
-                  }`}
-                >
-                  <p className="text-[14px] font-extrabold">{isEnglish ? 'Continue run' : '이어가기'}</p>
-                  <p className="mt-1 text-[12px]">
-                    {isEnglish
-                      ? `${CONTINUE_COST_COINS} coins + at least 1 purchased pack required`
-                      : `${CONTINUE_COST_COINS}코인 + 코인팩 구매 이력 1회 이상 필요`}
+                  <p className="text-[14px] font-extrabold text-emerald-800">{isEnglish ? 'Start again for free' : '무료로 다시 시작하기'}</p>
+                  <p className="mt-1 text-[12px] text-emerald-700/80">
+                    {isEnglish ? 'No paid continues or coin packs are included in this version.' : '이 버전에는 유료 이어가기나 코인팩이 포함되지 않습니다.'}
                   </p>
                 </button>
               </div>
-              {nativeIOS && iosCoinError ? (
-                <p className="mt-2 text-[12px] text-rose-700/80">{iosCoinError}</p>
-              ) : null}
               <button type="button" onClick={giveUp} className="mt-3 text-[12px] font-semibold text-rose-700 underline">
                 {isEnglish ? 'Give up and finish run' : '포기하고 종료'}
               </button>

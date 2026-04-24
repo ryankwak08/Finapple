@@ -3,6 +3,7 @@ import { ShoppingBag, Zap, Snowflake, Gift } from 'lucide-react';
 import useSoundEffects from '@/hooks/useSoundEffects';
 import useProgress from '../lib/useProgress';
 import { useLanguage } from '@/lib/i18n';
+import { isFreePremiumAccessEnabled } from '@/lib/runtimePlatform';
 
 
 const ITEMS = [
@@ -32,6 +33,7 @@ const ITEMS = [
 
 export default function Shop() {
   const { isEnglish } = useLanguage();
+  const freePremiumAccess = isFreePremiumAccessEnabled();
   const { progress, purchaseShopItem, getInventoryCount } = useProgress();
   const { playSuccessSound } = useSoundEffects();
   const [purchasing, setPurchasing] = useState(null);
@@ -154,13 +156,13 @@ export default function Shop() {
           {isEnglish ? (
             <>
               📌 A Streak Freezer is consumed automatically when you miss a day to protect your streak.<br/>
-              📌 Premium includes 3 free Streak Freezers by default.<br/>
+              {freePremiumAccess ? '📌 Free launch access includes automatic streak protection.' : '📌 Premium includes 3 free Streak Freezers by default.'}<br/>
               📌 You earn XP whenever you pass a quiz!
             </>
           ) : (
             <>
               📌 Streak Freezer는 하루를 놓쳤을 때 자동으로 1개 소모되어 스트릭을 지켜줘요.<br/>
-              📌 프리미엄 구독 시 기본으로 3개가 지급돼요.<br/>
+              {freePremiumAccess ? '📌 무료 출시 버전에서는 자동 스트릭 보호를 함께 이용할 수 있어요.' : '📌 프리미엄 구독 시 기본으로 3개가 지급돼요.'}<br/>
               📌 퀴즈를 통과할 때마다 XP를 획득할 수 있어요!
             </>
           )}

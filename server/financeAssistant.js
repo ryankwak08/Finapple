@@ -55,6 +55,13 @@ const YOUTH_CORE_QUESTIONS = {
   ],
 };
 
+const FINANCE_CHAT_DISCLAIMER_KO = 'Finapple 챗봇 답변은 교육용 일반 정보이며 금융상품 판매, 투자자문, 대출중개, 보험모집, 세무·법률 자문이 아닙니다. 실제 신청·투자·계약 전 공식 기관과 전문가를 통해 최신 조건을 확인하세요.';
+const FINANCE_CHAT_DISCLAIMER_EN = 'Finapple chatbot answers are general educational information, not financial product sales, investment advice, loan brokerage, insurance solicitation, tax advice, or legal advice. Before applying, investing, or signing any contract, verify current terms with official institutions and qualified professionals.';
+
+const getFinanceChatDisclaimer = (locale = 'ko') => (
+  isEnglishLocale(locale) ? FINANCE_CHAT_DISCLAIMER_EN : FINANCE_CHAT_DISCLAIMER_KO
+);
+
 const DOCUMENTS = [
   {
     title: '청년 지원 정책 금융 안내',
@@ -425,6 +432,7 @@ export const buildFinanceChatResponse = ({ query, ownedDocuments: _ownedDocument
   return {
     query,
     locale: isEnglishLocale(locale) ? 'en' : 'ko',
+    disclaimer: getFinanceChatDisclaimer(locale),
     predicted_intent: predictedIntent,
     confidence,
     route_source: 'keyword',
