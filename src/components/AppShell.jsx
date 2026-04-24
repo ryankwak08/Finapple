@@ -296,7 +296,7 @@ export default function AppShell() {
                 </div>
               </aside>
 
-              <main className="min-w-0 min-h-0 md:overflow-y-auto scrollbar-hidden">
+              <main className="min-w-0 min-h-0 overflow-y-auto scrollbar-hidden">
                 <div className="mx-auto w-full max-w-5xl">
                   <AnimatePresence mode="wait">
                     <PageTransition>

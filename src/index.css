@@ -295,7 +295,7 @@ body {
   body {
     @apply bg-background text-foreground font-inter;
     font-size: 1rem;
-    overscroll-behavior-y: none;
+    overscroll-behavior-y: auto;
     -webkit-text-size-adjust: 100%;
     text-size-adjust: 100%;
     text-rendering: optimizeLegibility;

@@ -18,6 +18,7 @@
     "lint": "eslint . --quiet",
     "lint:fix": "eslint . --fix",
     "check:ops": "node scripts/check-ops.mjs",
+    "create:test-user": "node scripts/create-test-user.mjs",
     "typecheck": "tsc -p ./jsconfig.json",
     "preview": "vite preview"
   },
