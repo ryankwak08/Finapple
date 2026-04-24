@@ -186,7 +186,7 @@ export default function Premium() {
   };
 
   return (
-    <div className="min-h-[100dvh] overflow-y-auto overscroll-y-contain bg-background pb-24">
+    <div className="min-h-[100dvh] bg-background pb-24">
       <div className="px-5 pt-12 pb-8 flex items-center gap-3">
         <button onClick={handleGoBack} className="p-2 rounded-xl hover:bg-muted transition-colors">
           <ArrowLeft className="w-5 h-5 text-muted-foreground" />
@@ -373,7 +373,7 @@ export default function Premium() {
           )}
 
           <p className="text-center text-xs text-muted-foreground mt-3">
-            {nativeIOS ? '구독 변경과 취소는 App Store 구독 관리에서 진행할 수 있어요.' : '웹에서는 토스페이먼츠 결제와 계좌이체 안내를 제공하며, 기존 KCP 구독 해지는 프로필에서 계속 지원해요.'}
+            {nativeIOS ? '구독 변경과 취소는 App Store 구독 관리에서 진행할 수 있어요.' : '웹에서는 토스페이먼츠 결제와 계좌이체 안내를 제공합니다.'}
           </p>
         </div>
       </div>
