@@ -186,15 +186,15 @@ export default function Premium() {
   };
 
   return (
-    <div className="min-h-screen bg-background pb-24">
+    <div className="min-h-[100dvh] overflow-y-auto overscroll-y-contain bg-background pb-24">
       <div className="px-5 pt-12 pb-8 flex items-center gap-3">
         <button onClick={handleGoBack} className="p-2 rounded-xl hover:bg-muted transition-colors">
           <ArrowLeft className="w-5 h-5 text-muted-foreground" />
         </button>
         <h1 className="font-extrabold text-foreground text-xl">프리미엄 구독</h1>
       </div>
-      <div className="px-5 flex items-center justify-center">
-      <div className="max-w-md w-full">
+      <div className="px-5 flex items-start justify-center">
+      <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <div className="text-5xl mb-4">🎓</div>
           <h1 className="text-2xl font-bold text-foreground">{titleLabel}</h1>
