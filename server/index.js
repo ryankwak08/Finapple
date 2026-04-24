@@ -1211,6 +1211,15 @@ app.post('/api/account/delete', createRateLimiter({ key: 'account-delete', limit
       throw leaderboardDeleteError;
     }
 
+    const { error: progressStateDeleteError } = await supabaseAdmin
+      .from('user_progress_state')
+      .delete()
+      .eq('user_id', userId);
+
+    if (progressStateDeleteError) {
+      throw progressStateDeleteError;
+    }
+
     const { error: userDeleteError } = await supabaseAdmin.auth.admin.deleteUser(userId);
     if (userDeleteError) {
       throw userDeleteError;
