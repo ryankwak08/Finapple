@@ -1472,42 +1472,53 @@ app.get('/api/leaderboard', async (req, res) => {
     return res.status(500).json({ error: 'Supabase admin is not configured' });
   }
 
-  const limit = Math.min(Number(req.query.limit) || 20, 100);
+  const limit = Math.min(Math.max(Number(req.query.limit) || 20, 1), 5000);
   const seasonKey = String(req.query.seasonKey || getCurrentSeasonMeta().seasonKey);
   const LEADERBOARD_SELECT_BASE = 'user_id, user_email, display_name, avatar_url, season_key, season_label, season_start_date, season_end_date, xp, streak_count, best_streak, streak_freezers, completed_count, active_review_count, resolved_review_count, ads_disabled, score, updated_at';
   const LEADERBOARD_SELECT_WITH_TRACKS = `${LEADERBOARD_SELECT_BASE}, score_youth, score_start, score_one`;
+  const LEADERBOARD_PAGE_SIZE = 1000;
   const isMissingTrackScoreColumn = (error) => {
     const message = String(error?.message || '').toLowerCase();
     return error?.code === '42703' || message.includes('score_youth') || message.includes('score_start') || message.includes('score_one');
   };
 
   try {
-    let { data, error } = await supabaseAdmin
-      .from('leaderboard_entries')
-      .select(LEADERBOARD_SELECT_WITH_TRACKS)
-      .eq('season_key', seasonKey)
-      .order('score', { ascending: false })
-      .order('updated_at', { ascending: true })
-      .limit(limit);
+    const entries = [];
 
-    if (error && isMissingTrackScoreColumn(error)) {
-      const fallback = await supabaseAdmin
+    for (let from = 0; from < limit; from += LEADERBOARD_PAGE_SIZE) {
+      const to = Math.min(from + LEADERBOARD_PAGE_SIZE - 1, limit - 1);
+      let { data, error } = await supabaseAdmin
         .from('leaderboard_entries')
-        .select(LEADERBOARD_SELECT_BASE)
+        .select(LEADERBOARD_SELECT_WITH_TRACKS)
         .eq('season_key', seasonKey)
         .order('score', { ascending: false })
         .order('updated_at', { ascending: true })
-        .limit(limit);
+        .range(from, to);
 
-      data = fallback.data;
-      error = fallback.error;
+      if (error && isMissingTrackScoreColumn(error)) {
+        const fallback = await supabaseAdmin
+          .from('leaderboard_entries')
+          .select(LEADERBOARD_SELECT_BASE)
+          .eq('season_key', seasonKey)
+          .order('score', { ascending: false })
+          .order('updated_at', { ascending: true })
+          .range(from, to);
+
+        data = fallback.data;
+        error = fallback.error;
+      }
+
+      if (error) {
+        throw error;
+      }
+
+      entries.push(...(data || []));
+      if (!data || data.length < (to - from + 1)) {
+        break;
+      }
     }
 
-    if (error) {
-      throw error;
-    }
-
-    return res.json({ entries: data || [] });
+    return res.json({ entries });
   } catch (error) {
     console.error('leaderboard fetch error', error.message);
     return res.status(500).json({ error: error.message || 'Failed to fetch leaderboard' });

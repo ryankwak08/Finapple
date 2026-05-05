@@ -15,6 +15,8 @@ import {
 } from '@/components/ui/dialog';
 import { useLanguage } from '@/lib/i18n';
 
+const LEADERBOARD_LIMIT = 3000;
+
 const getTopRankStyles = (isEnglish) => ({
   1: {
     label: isEnglish ? '1st' : '1위',
@@ -229,7 +231,7 @@ export default function Leaderboard() {
       setError(null);
 
       try {
-        const remoteEntries = await fetchLeaderboard(100);
+        const remoteEntries = await fetchLeaderboard(LEADERBOARD_LIMIT);
         if (active) {
           setEntries(remoteEntries);
         }
@@ -254,7 +256,7 @@ export default function Leaderboard() {
                     }
                     return new Date(left.updated_at).getTime() - new Date(right.updated_at).getTime();
                   })
-                  .slice(0, 100);
+                  .slice(0, LEADERBOARD_LIMIT);
               });
             })
             .catch((syncError) => {
@@ -557,6 +559,14 @@ export default function Leaderboard() {
           </div>
         ) : (
           <div className="space-y-3">
+            <div className="flex items-center justify-between gap-3 px-1 text-[12px] text-muted-foreground">
+              <span className="font-semibold text-foreground">{isEnglish ? 'Top 20' : '상위 20명'}</span>
+              <span>
+                {isEnglish
+                  ? `Ranks calculated from ${normalizedEntries.length.toLocaleString()} learners`
+                  : `${normalizedEntries.length.toLocaleString()}명 기준 등수`}
+              </span>
+            </div>
             {visibleEntries.map((entry) => {
               const topRankStyle = TOP_RANK_STYLES[entry.rank];
 

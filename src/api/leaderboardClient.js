@@ -3,7 +3,8 @@ import { BACKEND_URL } from '@/lib/backendUrl';
 import { getCurrentSeasonMeta } from '@/lib/season';
 
 const USE_DIRECT_SUPABASE = import.meta.env.DEV;
-const REQUEST_TIMEOUT_MS = 4500;
+const REQUEST_TIMEOUT_MS = 8000;
+const LEADERBOARD_PAGE_SIZE = 1000;
 const LEADERBOARD_SELECT_BASE = 'user_id, user_email, display_name, avatar_url, season_key, season_label, season_start_date, season_end_date, xp, streak_count, best_streak, streak_freezers, completed_count, active_review_count, resolved_review_count, ads_disabled, score, updated_at';
 const LEADERBOARD_SELECT_WITH_TRACKS = `${LEADERBOARD_SELECT_BASE}, score_youth, score_start, score_one`;
 
@@ -120,38 +121,48 @@ async function syncLeaderboardEntryDirect(entry, session) {
 }
 
 async function fetchLeaderboardDirect(limit = 20, seasonKey = getCurrentSeasonMeta().seasonKey) {
-  let { data, error } = await withTimeout(
-    supabase
-      .from('leaderboard_entries')
-      .select(LEADERBOARD_SELECT_WITH_TRACKS)
-      .eq('season_key', seasonKey)
-      .order('score', { ascending: false })
-      .order('updated_at', { ascending: true })
-      .limit(limit),
-    '리더보드 조회가 지연되고 있습니다.'
-  );
+  const entries = [];
 
-  if (error && isTrackScoreColumnMissing(error)) {
-    const fallback = await withTimeout(
+  for (let from = 0; from < limit; from += LEADERBOARD_PAGE_SIZE) {
+    const to = Math.min(from + LEADERBOARD_PAGE_SIZE - 1, limit - 1);
+    let { data, error } = await withTimeout(
       supabase
         .from('leaderboard_entries')
-        .select(LEADERBOARD_SELECT_BASE)
+        .select(LEADERBOARD_SELECT_WITH_TRACKS)
         .eq('season_key', seasonKey)
         .order('score', { ascending: false })
         .order('updated_at', { ascending: true })
-        .limit(limit),
+        .range(from, to),
       '리더보드 조회가 지연되고 있습니다.'
     );
 
-    data = fallback.data;
-    error = fallback.error;
+    if (error && isTrackScoreColumnMissing(error)) {
+      const fallback = await withTimeout(
+        supabase
+          .from('leaderboard_entries')
+          .select(LEADERBOARD_SELECT_BASE)
+          .eq('season_key', seasonKey)
+          .order('score', { ascending: false })
+          .order('updated_at', { ascending: true })
+          .range(from, to),
+        '리더보드 조회가 지연되고 있습니다.'
+      );
+
+      data = fallback.data;
+      error = fallback.error;
+    }
+
+    if (error) {
+      throw error;
+    }
+
+    entries.push(...(data || []));
+    if (!data || data.length < (to - from + 1)) {
+      break;
+    }
   }
 
-  if (error) {
-    throw error;
-  }
-
-  return data || [];
+  return entries;
 }
 
 async function fetchLeaderboardProfileDirect(userId) {
