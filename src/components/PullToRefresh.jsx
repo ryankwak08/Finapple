@@ -59,7 +59,7 @@ export default function PullToRefresh({ onRefresh, children }) {
     <div
       ref={containerRef}
       className={`relative w-full max-w-full overflow-x-hidden ${enablePullToRefresh ? 'min-h-[calc(100dvh-5rem)] overflow-y-auto overscroll-y-contain' : ''}`}
-      style={enablePullToRefresh ? { touchAction: 'pan-y' } : undefined}
+      style={enablePullToRefresh ? { touchAction: 'pan-y', WebkitOverflowScrolling: 'touch' } : undefined}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}

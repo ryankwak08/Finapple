@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Search, X, ChevronRight, List } from 'lucide-react';
-import PullToRefresh from '../components/PullToRefresh';
 import { getTermsByConsonant, searchTerms, koreanLetters, getInitialConsonant, allGlossaryTerms } from '../lib/glossaryData';
 import { useLanguage } from '@/lib/i18n';
 
@@ -53,12 +52,6 @@ export default function Glossary() {
     }
     return getTermsByConsonant(selectedLetter);
   }, [mode, selectedLetter, selectedEnglishLetter, searchQuery]);
-
-  const handleRefresh = async () => {
-    await new Promise(r => setTimeout(r, 800));
-  };
-
-
 
   if (selectedTerm) {
     return (
@@ -283,7 +276,6 @@ export default function Glossary() {
   }
 
   return (
-    <PullToRefresh onRefresh={handleRefresh}>
       <div className="min-h-screen bg-background">
         {/* Header */}
         <div className="px-4 pb-4 pt-6">
@@ -454,6 +446,5 @@ export default function Glossary() {
           )}
         </div>
       </div>
-    </PullToRefresh>
   );
 }

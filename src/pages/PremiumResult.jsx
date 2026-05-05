@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
 import { confirmTossPayment, PREMIUM_MONTHLY_PRICE } from '@/api/paymentClient';
+import { supabase } from '@/lib/supabase';
 
 const contentByStatus = {
   success: {
@@ -41,6 +42,7 @@ export default function PremiumResult({ status = 'success' }) {
         const provider = params.get('provider');
 
         if (provider === 'kcp') {
+          await supabase.auth.refreshSession().catch(() => null);
           setIsDone(true);
           return;
         }
@@ -58,6 +60,7 @@ export default function PremiumResult({ status = 'success' }) {
         }
 
         await confirmTossPayment({ paymentKey, orderId, amount });
+        await supabase.auth.refreshSession().catch(() => null);
         if (!isMounted) return;
         setIsDone(true);
       } catch (error) {

@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom';
 import { lifeStudyTopicsCatalog } from '../lib/studyData';
 import TopicCard from '../components/study/TopicCard';
 import useProgress from '../lib/useProgress';
-import PullToRefresh from '../components/PullToRefresh';
 import { Globe2, Star, Flame, Snowflake } from 'lucide-react';
 import { useLanguage } from '@/lib/i18n';
 
@@ -73,12 +72,7 @@ export default function Study() {
     user?.email?.split('@')[0] ||
     (isEnglish ? 'Learner' : '학습자');
 
-  const handleRefresh = async () => {
-    await new Promise(r => setTimeout(r, 800));
-  };
-
   return (
-    <PullToRefresh onRefresh={handleRefresh}>
     <div className="w-full max-w-full overflow-x-hidden px-2.5 pb-24 pt-3 sm:px-5 sm:pb-8 sm:pt-10">
       {/* Header */}
       <div className="mb-3 sm:mb-8">
@@ -241,6 +235,5 @@ export default function Study() {
         </div>
       </section>
     </div>
-    </PullToRefresh>
   );
 }

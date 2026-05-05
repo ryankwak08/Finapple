@@ -29,7 +29,7 @@ const adminEmails = String(process.env.ADMIN_EMAILS || process.env.VITE_ADMIN_EM
   .split(',')
   .map((email) => email.trim().toLowerCase())
   .filter(Boolean);
-const paymentProvider = String(process.env.PAYMENT_PROVIDER || 'kcp').trim().toLowerCase();
+const paymentProvider = String(process.env.PAYMENT_PROVIDER || 'toss').trim().toLowerCase();
 const tossSecretKey = process.env.TOSS_SECRET_KEY;
 const kakaoAdminKey = process.env.KAKAO_ADMIN_KEY;
 const kcpSiteCd = process.env.KCP_SITE_CD;
@@ -2254,6 +2254,7 @@ app.post('/api/payments/toss/create-checkout', createRateLimiter({ key: 'toss-ch
         headers: {
           Authorization: `Basic ${Buffer.from(`${tossSecretKey}:`).toString('base64')}`,
           'Content-Type': 'application/json',
+          'Idempotency-Key': `create-${orderId}`,
         },
       }
     );
@@ -2370,12 +2371,17 @@ app.post('/api/payments/toss/confirm', createRateLimiter({ key: 'toss-confirm', 
     );
 
     const existingMetadata = authData.user.user_metadata || {};
+    const now = new Date();
+    const premiumExpiresAt = new Date(now.getTime() + (31 * 24 * 60 * 60 * 1000)).toISOString();
     const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(authData.user.id, {
       user_metadata: {
         ...existingMetadata,
         is_premium: true,
         premium_plan: 'monthly',
-        premium_updated_at: new Date().toISOString(),
+        premium_provider: 'toss',
+        premium_status: 'active',
+        premium_updated_at: now.toISOString(),
+        premium_expires_at: premiumExpiresAt,
         premium_payment_key: paymentKey,
         premium_order_id: orderId,
       },

@@ -32,7 +32,18 @@ export function getIsPremium(user) {
     return true;
   }
 
-  return Boolean(user?.user_metadata?.is_premium ?? user?.is_premium ?? false);
+  const premiumFlag = Boolean(user?.user_metadata?.is_premium ?? user?.is_premium ?? false);
+  const expiresAt = user?.user_metadata?.premium_expires_at || user?.premium_expires_at;
+
+  if (!premiumFlag) {
+    return false;
+  }
+
+  if (expiresAt && Number.isFinite(Date.parse(expiresAt))) {
+    return Date.parse(expiresAt) > Date.now();
+  }
+
+  return true;
 }
 
 export function getAdsDisabled(user) {

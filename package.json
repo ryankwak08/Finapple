@@ -19,6 +19,8 @@
     "lint:fix": "eslint . --fix",
     "check:ops": "node scripts/check-ops.mjs",
     "create:test-user": "node scripts/create-test-user.mjs",
+    "create:synthetic-users": "node scripts/create-synthetic-test-users.mjs",
+    "rename:synthetic-nicknames": "node scripts/rename-synthetic-nicknames.mjs",
     "typecheck": "tsc -p ./jsconfig.json",
     "preview": "vite preview"
   },

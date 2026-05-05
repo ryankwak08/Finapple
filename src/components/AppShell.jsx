@@ -19,6 +19,7 @@ export default function AppShell() {
   const [isUserResolved, setIsUserResolved] = useState(false);
   const [trackMenuOpen, setTrackMenuOpen] = useState(false);
   const trackMenuRef = useRef(null);
+  const mainRef = useRef(null);
   const location = useLocation();
   const navigate = useNavigate();
   const activeTab = getActiveTab(location.pathname);
@@ -30,11 +31,13 @@ export default function AppShell() {
   const availableTracks = tracks;
 
   useEffect(() => {
+    mainRef.current?.scrollTo({ top: 0, left: 0, behavior: 'auto' });
     window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
   }, [location.pathname]);
 
   useEffect(() => {
     const handleBottomNavReset = () => {
+      mainRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
       window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
@@ -296,7 +299,11 @@ export default function AppShell() {
                 </div>
               </aside>
 
-              <main className="min-w-0 min-h-0 overflow-y-auto scrollbar-hidden">
+              <main
+                ref={mainRef}
+                className="min-w-0 min-h-0 flex-1 overflow-y-auto scrollbar-hidden"
+                style={{ WebkitOverflowScrolling: 'touch', touchAction: 'pan-y' }}
+              >
                 <div className="mx-auto w-full max-w-5xl">
                   <AnimatePresence mode="wait">
                     <PageTransition>
