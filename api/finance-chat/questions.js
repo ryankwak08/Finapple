@@ -1,9 +1,10 @@
 import { getYouthCoreQuestions } from '../../server/financeAssistant.js';
+import { applyCors, cleanText } from '../_security.js';
 
 export default async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  if (!applyCors(req, res, ['GET'])) {
+    return;
+  }
 
   if (req.method === 'OPTIONS') {
     return res.status(204).end();
@@ -14,7 +15,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const locale = String(req.query?.locale || 'ko');
+    const locale = cleanText(req.query?.locale || 'ko', 8);
     return res.status(200).json({ questions: getYouthCoreQuestions(locale) });
   } catch (error) {
     console.error('finance-chat questions api error', error);

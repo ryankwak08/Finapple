@@ -50,6 +50,11 @@ export const createSurvivalCoinPackOrderId = () => {
 };
 
 export const createTossCheckoutSession = async ({ amount, orderId, orderName, customerName, customerEmail }) => {
+  const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+  if (sessionError || !sessionData?.session?.access_token) {
+    return { success: false, error: '로그인 세션을 찾지 못했습니다. 다시 로그인해주세요.' };
+  }
+
   try {
     const response = await fetch(`${BACKEND_URL}/api/payments/toss/create-checkout`, {
       method: 'POST',
@@ -60,6 +65,7 @@ export const createTossCheckoutSession = async ({ amount, orderId, orderName, cu
         orderName,
         customerName,
         customerEmail,
+        accessToken: sessionData.session.access_token,
         successUrl: buildAppUrl('/premium/success?provider=toss'),
         failUrl: buildAppUrl('/premium/fail?provider=toss'),
       }),
@@ -176,6 +182,11 @@ export const confirmTossPayment = async ({ paymentKey, orderId, amount }) => {
 };
 
 export const createTossSurvivalCoinCheckoutSession = async ({ orderId, orderName, customerName, customerEmail }) => {
+  const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+  if (sessionError || !sessionData?.session?.access_token) {
+    return { success: false, error: '로그인 세션을 찾지 못했습니다. 다시 로그인해주세요.' };
+  }
+
   try {
     const response = await fetch(`${BACKEND_URL}/api/payments/toss/create-survival-coin-checkout`, {
       method: 'POST',
@@ -186,6 +197,7 @@ export const createTossSurvivalCoinCheckoutSession = async ({ orderId, orderName
         orderName,
         customerName,
         customerEmail,
+        accessToken: sessionData.session.access_token,
         successUrl: buildAppUrl('/survival?coinCheckout=success&provider=toss'),
         failUrl: buildAppUrl('/survival?coinCheckout=fail&provider=toss'),
       }),
@@ -209,6 +221,11 @@ export const createTossSurvivalCoinCheckoutSession = async ({ orderId, orderName
 };
 
 export const confirmTossSurvivalCoinPayment = async ({ paymentKey, orderId, amount }) => {
+  const { data, error } = await supabase.auth.getSession();
+  if (error || !data?.session?.access_token) {
+    throw new Error('로그인 세션을 찾지 못했습니다. 다시 로그인해주세요.');
+  }
+
   const response = await fetch(`${BACKEND_URL}/api/payments/toss/confirm-survival-coin`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -216,6 +233,7 @@ export const confirmTossSurvivalCoinPayment = async ({ paymentKey, orderId, amou
       paymentKey,
       orderId,
       amount: Number(amount),
+      accessToken: data.session.access_token,
     }),
   });
 
