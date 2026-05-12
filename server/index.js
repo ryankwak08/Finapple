@@ -50,7 +50,23 @@ const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const openAiApiKey = process.env.OPENAI_API_KEY;
 const openAiModel = process.env.OPENAI_MODEL || 'gpt-4o-mini';
-const PREMIUM_PRICE = Number(process.env.PREMIUM_MONTHLY_PRICE || 5500);
+const PREMIUM_MONTHLY_PRICE = Number(process.env.PREMIUM_MONTHLY_PRICE || 5500);
+const PREMIUM_ANNUAL_PRICE = Number(process.env.PREMIUM_ANNUAL_PRICE || 55000);
+const PREMIUM_PRICE = PREMIUM_MONTHLY_PRICE;
+const PREMIUM_PLANS = {
+  monthly: {
+    code: 'monthly',
+    orderPrefix: 'premium_monthly_',
+    amount: PREMIUM_MONTHLY_PRICE,
+    months: 1,
+  },
+  annual: {
+    code: 'annual',
+    orderPrefix: 'premium_annual_',
+    amount: PREMIUM_ANNUAL_PRICE,
+    months: 12,
+  },
+};
 const SURVIVAL_COIN_PACK_PRICE = 2900;
 const PORT = process.env.PORT || 3000;
 const QUIZ_CACHE_TTL_MS = 1000 * 60 * 60 * 24;
@@ -438,6 +454,19 @@ const addMonths = (inputDate, months) => {
   const result = new Date(inputDate);
   result.setMonth(result.getMonth() + months);
   return result;
+};
+
+const getPremiumPlanFromOrder = (orderId) => (
+  Object.values(PREMIUM_PLANS).find((plan) => String(orderId || '').startsWith(plan.orderPrefix)) || null
+);
+
+const getPremiumPlanFromPayment = ({ orderId, amount }) => {
+  const plan = getPremiumPlanFromOrder(orderId);
+  if (!plan || Number(amount) !== plan.amount) {
+    return null;
+  }
+
+  return plan;
 };
 
 const getKcpResponseCode = (payload) => String(payload?.res_cd || payload?.resCode || payload?.code || '').trim();
@@ -1474,6 +1503,7 @@ app.get('/api/leaderboard', async (req, res) => {
 
   const limit = Math.min(Math.max(Number(req.query.limit) || 20, 1), 5000);
   const seasonKey = String(req.query.seasonKey || getCurrentSeasonMeta().seasonKey);
+  const includeAllUsers = ['1', 'true', 'yes'].includes(String(req.query.includeAllUsers || '').toLowerCase());
   const LEADERBOARD_SELECT_BASE = 'user_id, user_email, display_name, avatar_url, season_key, season_label, season_start_date, season_end_date, xp, streak_count, best_streak, streak_freezers, completed_count, active_review_count, resolved_review_count, ads_disabled, score, updated_at';
   const LEADERBOARD_SELECT_WITH_TRACKS = `${LEADERBOARD_SELECT_BASE}, score_youth, score_start, score_one`;
   const LEADERBOARD_PAGE_SIZE = 1000;
@@ -1487,19 +1517,29 @@ app.get('/api/leaderboard', async (req, res) => {
 
     for (let from = 0; from < limit; from += LEADERBOARD_PAGE_SIZE) {
       const to = Math.min(from + LEADERBOARD_PAGE_SIZE - 1, limit - 1);
-      let { data, error } = await supabaseAdmin
+      let query = supabaseAdmin
         .from('leaderboard_entries')
-        .select(LEADERBOARD_SELECT_WITH_TRACKS)
-        .eq('season_key', seasonKey)
+        .select(LEADERBOARD_SELECT_WITH_TRACKS);
+
+      if (!includeAllUsers) {
+        query = query.eq('season_key', seasonKey);
+      }
+
+      let { data, error } = await query
         .order('score', { ascending: false })
         .order('updated_at', { ascending: true })
         .range(from, to);
 
       if (error && isMissingTrackScoreColumn(error)) {
-        const fallback = await supabaseAdmin
+        let fallbackQuery = supabaseAdmin
           .from('leaderboard_entries')
-          .select(LEADERBOARD_SELECT_BASE)
-          .eq('season_key', seasonKey)
+          .select(LEADERBOARD_SELECT_BASE);
+
+        if (!includeAllUsers) {
+          fallbackQuery = fallbackQuery.eq('season_key', seasonKey);
+        }
+
+        const fallback = await fallbackQuery
           .order('score', { ascending: false })
           .order('updated_at', { ascending: true })
           .range(from, to);
@@ -2236,11 +2276,12 @@ app.post('/api/payments/toss/create-checkout', createRateLimiter({ key: 'toss-ch
 
   const { amount, orderId, orderName, customerName, customerEmail, successUrl, failUrl } = req.body;
 
-  if (amount !== PREMIUM_PRICE) {
+  const premiumPlan = getPremiumPlanFromPayment({ orderId, amount });
+  if (!premiumPlan) {
     return res.status(400).json({ error: 'Unexpected premium amount' });
   }
 
-  if (!orderId || !String(orderId).startsWith('premium_monthly_')) {
+  if (!orderId || !getPremiumPlanFromOrder(orderId)) {
     return res.status(400).json({ error: 'Invalid orderId' });
   }
 
@@ -2253,7 +2294,7 @@ app.post('/api/payments/toss/create-checkout', createRateLimiter({ key: 'toss-ch
       'https://api.tosspayments.com/v1/payments',
       {
         method: 'CARD',
-        amount,
+        amount: premiumPlan.amount,
         orderId,
         orderName,
         customerName,
@@ -2351,11 +2392,12 @@ app.post('/api/payments/toss/confirm', createRateLimiter({ key: 'toss-confirm', 
     return res.status(400).json({ error: 'paymentKey, orderId, amount, accessToken are required' });
   }
 
-  if (Number(amount) !== PREMIUM_PRICE) {
+  const premiumPlan = getPremiumPlanFromPayment({ orderId, amount });
+  if (!premiumPlan) {
     return res.status(400).json({ error: 'Unexpected premium amount' });
   }
 
-  if (!String(orderId).startsWith('premium_monthly_')) {
+  if (!getPremiumPlanFromOrder(orderId)) {
     return res.status(400).json({ error: 'Invalid orderId' });
   }
 
@@ -2370,7 +2412,7 @@ app.post('/api/payments/toss/confirm', createRateLimiter({ key: 'toss-confirm', 
       {
         paymentKey,
         orderId,
-        amount: Number(amount),
+        amount: premiumPlan.amount,
       },
       {
         headers: {
@@ -2383,12 +2425,12 @@ app.post('/api/payments/toss/confirm', createRateLimiter({ key: 'toss-confirm', 
 
     const existingMetadata = authData.user.user_metadata || {};
     const now = new Date();
-    const premiumExpiresAt = new Date(now.getTime() + (31 * 24 * 60 * 60 * 1000)).toISOString();
+    const premiumExpiresAt = addMonths(now, premiumPlan.months).toISOString();
     const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(authData.user.id, {
       user_metadata: {
         ...existingMetadata,
         is_premium: true,
-        premium_plan: 'monthly',
+        premium_plan: premiumPlan.code,
         premium_provider: 'toss',
         premium_status: 'active',
         premium_updated_at: now.toISOString(),

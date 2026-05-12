@@ -4,7 +4,8 @@ import { ArrowLeft, Check, Crown, Heart, Loader2, NotebookPen, ShieldCheck, Spar
 import {
   createPremiumOrderId,
   createTossCheckoutSession,
-  PREMIUM_MONTHLY_PRICE,
+  getPremiumPlan,
+  PREMIUM_PLANS,
 } from '@/api/paymentClient';
 import { useAuth } from '@/lib/AuthContext';
 import { getIsPremium } from '@/lib/premium';
@@ -17,8 +18,10 @@ export default function Premium() {
   const { user, isAuthenticated, navigateToLogin } = useAuth();
   const [isStartingCheckout, setIsStartingCheckout] = useState(false);
   const [checkoutError, setCheckoutError] = useState('');
+  const [selectedPlanCode, setSelectedPlanCode] = useState('monthly');
   const paidProductsEnabled = arePaidProductsEnabled();
   const isPremium = getIsPremium(user);
+  const selectedPlan = getPremiumPlan(selectedPlanCode);
 
   const benefits = useMemo(() => ([
     { icon: Heart, title: '무제한 하트', description: '하트 제한 없이 퀴즈를 이어서 풀 수 있어요.' },
@@ -45,16 +48,16 @@ export default function Premium() {
     setIsStartingCheckout(true);
     setCheckoutError('');
 
-    const orderId = createPremiumOrderId();
+    const orderId = createPremiumOrderId(selectedPlan.code);
     const displayName =
       user?.user_metadata?.nickname?.trim() ||
       user?.user_metadata?.full_name?.trim() ||
       user.email.split('@')[0];
 
     const result = await createTossCheckoutSession({
-      amount: PREMIUM_MONTHLY_PRICE,
+      amount: selectedPlan.price,
       orderId,
-      orderName: 'FinApple Premium Monthly',
+      orderName: selectedPlan.orderName,
       customerName: displayName,
       customerEmail: user.email,
     });
@@ -91,17 +94,38 @@ export default function Premium() {
             </div>
           </div>
 
-          <div className="mt-5 rounded-2xl border border-primary/20 bg-primary/5 p-4">
-            <div className="flex items-end justify-between gap-3">
-              <div>
-                <p className="text-sm font-bold text-foreground">월간 플랜</p>
-                <p className="mt-1 text-xs leading-5 text-muted-foreground">웹에서는 토스페이먼츠 카드 결제로 바로 활성화됩니다.</p>
-              </div>
-              <div className="shrink-0 text-right">
-                <p className="text-2xl font-black text-foreground">₩{formatKrw(PREMIUM_MONTHLY_PRICE)}</p>
-                <p className="text-xs font-semibold text-muted-foreground">월</p>
-              </div>
-            </div>
+          <div className="mt-5 grid gap-3">
+            {Object.values(PREMIUM_PLANS).map((plan) => {
+              const isSelected = selectedPlanCode === plan.code;
+              return (
+                <button
+                  key={plan.code}
+                  type="button"
+                  onClick={() => setSelectedPlanCode(plan.code)}
+                  className={`rounded-2xl border p-4 text-left transition-all ${
+                    isSelected
+                      ? 'border-primary/50 bg-primary/5 shadow-sm'
+                      : 'border-border bg-background hover:border-primary/30'
+                  }`}
+                >
+                  <div className="flex items-end justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-bold text-foreground">{plan.label}</p>
+                      <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                        {plan.code === 'annual' ? '월간 대비 2개월 할인된 가격이에요.' : '매월 결제되는 기본 플랜이에요.'}
+                      </p>
+                    </div>
+                    <div className="shrink-0 text-right">
+                      <p className="text-2xl font-black text-foreground">₩{formatKrw(plan.price)}</p>
+                      <p className="text-xs font-semibold text-muted-foreground">{plan.code === 'annual' ? '연' : '월'}</p>
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
+            <p className="px-1 text-xs leading-5 text-muted-foreground">
+              웹에서는 토스페이먼츠 카드 결제로 바로 활성화됩니다.
+            </p>
           </div>
 
           <div className="mt-5 grid gap-3">
@@ -159,7 +183,7 @@ export default function Premium() {
               className="mt-6 flex w-full items-center justify-center gap-2 rounded-2xl bg-primary px-4 py-3 text-sm font-bold text-primary-foreground shadow shadow-primary/20 active:scale-[0.98] disabled:opacity-70"
             >
               {isStartingCheckout ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-              {isStartingCheckout ? '결제창 여는 중' : '토스로 결제하기'}
+              {isStartingCheckout ? '결제창 여는 중' : `${selectedPlan.label} 토스로 결제하기`}
             </button>
           )}
 

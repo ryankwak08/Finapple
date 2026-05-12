@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
-import { confirmTossPayment, PREMIUM_MONTHLY_PRICE } from '@/api/paymentClient';
+import { confirmTossPayment, getPremiumPlan } from '@/api/paymentClient';
 import { supabase } from '@/lib/supabase';
 
 const contentByStatus = {
@@ -55,7 +55,10 @@ export default function PremiumResult({ status = 'success' }) {
           throw new Error('결제 확인에 필요한 정보가 누락되었습니다.');
         }
 
-        if (amount !== PREMIUM_MONTHLY_PRICE) {
+        const planCode = orderId?.startsWith('premium_annual_') ? 'annual' : 'monthly';
+        const plan = getPremiumPlan(planCode);
+
+        if (amount !== plan.price) {
           throw new Error('결제 금액이 예상 값과 다릅니다. 다시 시도해주세요.');
         }
 

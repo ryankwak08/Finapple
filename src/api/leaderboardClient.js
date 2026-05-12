@@ -120,16 +120,21 @@ async function syncLeaderboardEntryDirect(entry, session) {
   return data;
 }
 
-async function fetchLeaderboardDirect(limit = 20, seasonKey = getCurrentSeasonMeta().seasonKey) {
+async function fetchLeaderboardDirect(limit = 20, seasonKey = getCurrentSeasonMeta().seasonKey, { includeAllUsers = false } = {}) {
   const entries = [];
 
   for (let from = 0; from < limit; from += LEADERBOARD_PAGE_SIZE) {
     const to = Math.min(from + LEADERBOARD_PAGE_SIZE - 1, limit - 1);
+    let query = supabase
+      .from('leaderboard_entries')
+      .select(LEADERBOARD_SELECT_WITH_TRACKS);
+
+    if (!includeAllUsers) {
+      query = query.eq('season_key', seasonKey);
+    }
+
     let { data, error } = await withTimeout(
-      supabase
-        .from('leaderboard_entries')
-        .select(LEADERBOARD_SELECT_WITH_TRACKS)
-        .eq('season_key', seasonKey)
+      query
         .order('score', { ascending: false })
         .order('updated_at', { ascending: true })
         .range(from, to),
@@ -137,11 +142,16 @@ async function fetchLeaderboardDirect(limit = 20, seasonKey = getCurrentSeasonMe
     );
 
     if (error && isTrackScoreColumnMissing(error)) {
+      let fallbackQuery = supabase
+        .from('leaderboard_entries')
+        .select(LEADERBOARD_SELECT_BASE);
+
+      if (!includeAllUsers) {
+        fallbackQuery = fallbackQuery.eq('season_key', seasonKey);
+      }
+
       const fallback = await withTimeout(
-        supabase
-          .from('leaderboard_entries')
-          .select(LEADERBOARD_SELECT_BASE)
-          .eq('season_key', seasonKey)
+        fallbackQuery
           .order('score', { ascending: false })
           .order('updated_at', { ascending: true })
           .range(from, to),
@@ -303,13 +313,21 @@ export async function syncLeaderboardEntry(entry) {
   }
 }
 
-export async function fetchLeaderboard(limit = 20, seasonKey = getCurrentSeasonMeta().seasonKey) {
+export async function fetchLeaderboard(limit = 20, seasonKey = getCurrentSeasonMeta().seasonKey, options = {}) {
   if (USE_DIRECT_SUPABASE) {
-    return fetchLeaderboardDirect(limit, seasonKey);
+    return fetchLeaderboardDirect(limit, seasonKey, options);
   }
 
   try {
-    const response = await fetchWithTimeout(`${BACKEND_URL}/api/leaderboard?limit=${limit}&seasonKey=${encodeURIComponent(seasonKey)}`);
+    const params = new URLSearchParams({
+      limit: String(limit),
+      seasonKey,
+    });
+    if (options.includeAllUsers) {
+      params.set('includeAllUsers', '1');
+    }
+
+    const response = await fetchWithTimeout(`${BACKEND_URL}/api/leaderboard?${params.toString()}`);
     const result = await response.json();
 
     if (!response.ok) {
@@ -318,7 +336,7 @@ export async function fetchLeaderboard(limit = 20, seasonKey = getCurrentSeasonM
 
     return result.entries || [];
   } catch (requestError) {
-    return fetchLeaderboardDirect(limit, seasonKey);
+    return fetchLeaderboardDirect(limit, seasonKey, options);
   }
 }
 

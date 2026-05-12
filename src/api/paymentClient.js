@@ -3,6 +3,22 @@ import { BACKEND_URL } from '@/lib/backendUrl';
 import { buildAppUrl } from '@/lib/appBaseUrl';
 export const PREMIUM_MONTHLY_PRICE = 5500;
 export const PREMIUM_ANNUAL_PRICE = 55000;
+export const PREMIUM_PLANS = {
+  monthly: {
+    code: 'monthly',
+    orderPrefix: 'premium_monthly',
+    orderName: 'FinApple Premium Monthly',
+    label: '월간 플랜',
+    price: PREMIUM_MONTHLY_PRICE,
+  },
+  annual: {
+    code: 'annual',
+    orderPrefix: 'premium_annual',
+    orderName: 'FinApple Premium Annual',
+    label: '연간 플랜',
+    price: PREMIUM_ANNUAL_PRICE,
+  },
+};
 export const SURVIVAL_COIN_PACK_PRICE = 2900;
 export const COIN_PACK_AMOUNT = 10;
 
@@ -20,9 +36,12 @@ const parseJsonResponse = async (response) => {
   }
 };
 
-export const createPremiumOrderId = () => {
+export const getPremiumPlan = (planCode = 'monthly') => PREMIUM_PLANS[planCode] || PREMIUM_PLANS.monthly;
+
+export const createPremiumOrderId = (planCode = 'monthly') => {
+  const plan = getPremiumPlan(planCode);
   const randomPart = Math.random().toString(36).slice(2, 12);
-  return `premium_monthly_${Date.now()}_${randomPart}`;
+  return `${plan.orderPrefix}_${Date.now()}_${randomPart}`;
 };
 
 export const createSurvivalCoinPackOrderId = () => {

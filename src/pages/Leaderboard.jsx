@@ -231,7 +231,7 @@ export default function Leaderboard() {
       setError(null);
 
       try {
-        const remoteEntries = await fetchLeaderboard(LEADERBOARD_LIMIT);
+        const remoteEntries = await fetchLeaderboard(LEADERBOARD_LIMIT, currentSeasonKey, { includeAllUsers: true });
         if (active) {
           setEntries(remoteEntries);
         }
@@ -283,7 +283,7 @@ export default function Leaderboard() {
       active = false;
       window.clearTimeout(hardTimeoutId);
     };
-  }, [isEnglish, loading, myEntry, progress, user?.email]);
+  }, [currentSeasonKey, isEnglish, loading, myEntry, progress, user?.email]);
 
   const sortedEntries = useMemo(() => {
     if (!user?.id || !user?.email) {
@@ -343,14 +343,7 @@ export default function Leaderboard() {
   ), [sortedEntries, user?.email]);
 
   const visibleEntries = useMemo(() => {
-    const topEntries = normalizedEntries.slice(0, 20);
-    const meEntry = normalizedEntries.find((entry) => entry.isMe);
-
-    if (!meEntry || topEntries.some((entry) => entry.user_id === meEntry.user_id)) {
-      return topEntries;
-    }
-
-    return [...topEntries, meEntry];
+    return normalizedEntries.slice(0, 20);
   }, [normalizedEntries]);
 
   const mySyncedEntry = useMemo(
