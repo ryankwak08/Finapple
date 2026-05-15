@@ -11,13 +11,49 @@ import { useTrack } from '@/lib/trackContext';
 import { allocateTrackLeaderboardScores } from '@/lib/leaderboardTrackScores';
 
 const TODAY = () => new Date().toISOString().split('T')[0];
-const STORAGE_KEY = 'finapple_progress';
+const LEGACY_STORAGE_KEY = 'finapple_progress';
+const STORAGE_KEY_PREFIX = 'finapple_progress:';
 const PREMIUM_FREEZER_COUNT = 3;
 const PREMIUM_FREEZER_GRANT_VERSION = 1;
 const PROGRESS_UPDATED_EVENT = 'finapple:progress-updated';
 const FREEZER_HISTORY_LIMIT = 5;
 
 const trimFreezerHistory = (history = []) => history.slice(0, FREEZER_HISTORY_LIMIT);
+
+const getProgressStorageKey = (userEmail = 'guest') => {
+  const normalizedEmail = String(userEmail || 'guest').trim().toLowerCase() || 'guest';
+  return `${STORAGE_KEY_PREFIX}${normalizedEmail}`;
+};
+
+const readStoredProgress = (userEmail) => {
+  const userStorageKey = getProgressStorageKey(userEmail);
+  const stored = safeStorage.getItem(userStorageKey);
+  if (stored) {
+    return stored;
+  }
+
+  const legacyStored = safeStorage.getItem(LEGACY_STORAGE_KEY);
+  if (!legacyStored) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(legacyStored);
+    if (parsed?.user_email === userEmail) {
+      safeStorage.setItem(userStorageKey, legacyStored);
+      return legacyStored;
+    }
+  } catch {
+    return null;
+  }
+
+  return null;
+};
+
+const writeStoredProgress = (progress) => {
+  const userEmail = progress?.user_email || 'guest';
+  return safeStorage.setItem(getProgressStorageKey(userEmail), JSON.stringify(progress));
+};
 
 const clearFreezerShieldState = (progress, nextHistory = progress.streak_freezer_history || []) => ({
   ...progress,
@@ -302,12 +338,12 @@ export default function useProgress() {
   const persistProgress = useCallback((nextProgress) => {
     const { next } = syncLeaderboardSeasonProgress(nextProgress);
     setProgress(next);
-    safeStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+    writeStoredProgress(next);
     window.dispatchEvent(new CustomEvent(PROGRESS_UPDATED_EVENT, { detail: next }));
   }, []);
 
   const getLatestProgressSnapshot = useCallback(() => {
-    const stored = safeStorage.getItem(STORAGE_KEY);
+    const stored = readStoredProgress(user?.email || progress?.user_email || 'guest');
     if (!stored) {
       return progress;
     }
@@ -366,7 +402,7 @@ export default function useProgress() {
           })
         : null;
 
-      const savedProgress = JSON.parse(safeStorage.getItem(STORAGE_KEY) || 'null');
+      const savedProgress = JSON.parse(readStoredProgress(me?.email || 'guest') || 'null');
       if (savedProgress && savedProgress.user_email === me?.email) {
         let p = {
           ...getDefaultProgress(me?.email || 'guest'),
@@ -385,16 +421,16 @@ export default function useProgress() {
         }
         if (premiumUser) {
           p = { ...p, hearts: 5, hearts_last_reset: TODAY() };
-          safeStorage.setItem(STORAGE_KEY, JSON.stringify(p));
+          writeStoredProgress(p);
         } else if (shouldResetHearts(p.hearts_last_reset)) {
           p = { ...p, hearts: 5, hearts_last_reset: TODAY() };
-          safeStorage.setItem(STORAGE_KEY, JSON.stringify(p));
+          writeStoredProgress(p);
         }
         const { next, changed } = syncDailyProgress(p, premiumUser, adsDisabled);
         const seasonSync = syncLeaderboardSeasonProgress(next);
         setProgress(seasonSync.next);
         if (changed || seasonSync.changed) {
-          safeStorage.setItem(STORAGE_KEY, JSON.stringify(seasonSync.next));
+          writeStoredProgress(seasonSync.next);
         }
       } else {
         const remoteSeed = remoteState
@@ -412,7 +448,7 @@ export default function useProgress() {
           premium_freezer_grant_version: premiumUser ? PREMIUM_FREEZER_GRANT_VERSION : 0,
         }).next;
         setProgress(newProgress);
-        safeStorage.setItem(STORAGE_KEY, JSON.stringify(newProgress));
+        writeStoredProgress(newProgress);
       }
     } catch (e) {
       console.error('Failed to load progress', e);
@@ -433,7 +469,8 @@ export default function useProgress() {
     };
 
     const handleStorage = (event) => {
-      if (event.key !== STORAGE_KEY || !event.newValue) {
+      const currentProgressKey = getProgressStorageKey(user?.email || progress?.user_email || 'guest');
+      if (event.key !== currentProgressKey || !event.newValue) {
         return;
       }
 
@@ -452,7 +489,7 @@ export default function useProgress() {
       window.removeEventListener(PROGRESS_UPDATED_EVENT, handleProgressUpdated);
       window.removeEventListener('storage', handleStorage);
     };
-  }, []);
+  }, [progress?.user_email, user?.email]);
 
   const loseHeart = useCallback(async () => {
     if (getIsPremium(user)) return progress?.hearts ?? 5;

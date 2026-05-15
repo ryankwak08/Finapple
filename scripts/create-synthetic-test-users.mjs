@@ -14,6 +14,19 @@ const DEFAULT_DOMAIN = 'synthetic.test.finapple.app';
 const DEFAULT_PREFIX = 'synthetic';
 const DEFAULT_OUTPUT_FILE_PATH = path.resolve(__dirname, '../tmp/synthetic-test-users.json');
 
+const sampleSchools = [
+  { school_name: '용인한국외국어대학교부설고등학교', school_code: '7530167', education_office_code: 'J10', education_office_name: '경기도교육청', school_type: '고등학교', school_region: '경기도' },
+  { school_name: '대전과학고등학교', school_code: '7430310', education_office_code: 'G10', education_office_name: '대전광역시교육청', school_type: '고등학교', school_region: '대전광역시' },
+  { school_name: '서울과학고등학교', school_code: '7010058', education_office_code: 'B10', education_office_name: '서울특별시교육청', school_type: '고등학교', school_region: '서울특별시' },
+  { school_name: '민족사관고등학교', school_code: '7800085', education_office_code: 'K10', education_office_name: '강원특별자치도교육청', school_type: '고등학교', school_region: '강원특별자치도' },
+  { school_name: '하나고등학교', school_code: '7011169', education_office_code: 'B10', education_office_name: '서울특별시교육청', school_type: '고등학교', school_region: '서울특별시' },
+  { school_name: '인천과학예술영재학교', school_code: '7310633', education_office_code: 'E10', education_office_name: '인천광역시교육청', school_type: '고등학교', school_region: '인천광역시' },
+  { school_name: '경기과학고등학교', school_code: '7530541', education_office_code: 'J10', education_office_name: '경기도교육청', school_type: '고등학교', school_region: '경기도' },
+  { school_name: '세종과학예술영재학교', school_code: '9300138', education_office_code: 'I10', education_office_name: '세종특별자치시교육청', school_type: '고등학교', school_region: '세종특별자치시' },
+  { school_name: '부산과학고등학교', school_code: '7150658', education_office_code: 'C10', education_office_name: '부산광역시교육청', school_type: '고등학교', school_region: '부산광역시' },
+  { school_name: '한국과학영재학교', school_code: '7150115', education_office_code: 'C10', education_office_name: '부산광역시교육청', school_type: '고등학교', school_region: '부산광역시' },
+];
+
 const koreanNames = [
   '민준', '서준', '도윤', '예준', '시우', '하준', '주원', '지호', '지후', '준우',
   '도현', '건우', '현우', '우진', '선우', '서진', '연우', '민재', '유준', '은우',
@@ -88,6 +101,7 @@ const parseArgs = () => {
     premiumEvery: 0,
     premiumCount: 0,
     nameStyle: 'synthetic',
+    schoolStyle: 'none',
     output: DEFAULT_OUTPUT_FILE_PATH,
     runId: new Intl.DateTimeFormat('en-CA', {
       timeZone: 'Asia/Seoul',
@@ -108,6 +122,7 @@ const parseArgs = () => {
     if (key === '--premium-every') options.premiumEvery = Number(value);
     if (key === '--premium-count') options.premiumCount = Number(value);
     if (key === '--name-style') options.nameStyle = value;
+    if (key === '--school-style') options.schoolStyle = value;
     if (key === '--output') options.output = path.resolve(__dirname, '..', value);
     if (key === '--run-id') options.runId = value;
   }
@@ -127,8 +142,12 @@ const parseArgs = () => {
     throw new Error('--premium-count must be an integer from 0 to --count.');
   }
 
-  if (!['synthetic', 'mixed-names'].includes(options.nameStyle)) {
-    throw new Error('--name-style must be synthetic or mixed-names.');
+  if (!['synthetic', 'mixed-names', 'handle-like'].includes(options.nameStyle)) {
+    throw new Error('--name-style must be synthetic, mixed-names, or handle-like.');
+  }
+
+  if (!['none', 'competition-sample'].includes(options.schoolStyle)) {
+    throw new Error('--school-style must be none or competition-sample.');
   }
 
   return options;
@@ -165,6 +184,39 @@ const buildMixedTestNickname = (number, padded) => {
   return `${name}_${padded}`;
 };
 
+const handleRoots = [
+  'milo', 'luna', 'nova', 'kira', 'nori', 'riko', 'yuna', 'sora', 'juno', 'lino',
+  'niko', 'runa', 'mira', 'zuno', 'koko', 'mino', 'yuri', 'nara', 'ravi', 'lumi',
+  'navi', 'kano', 'sumi', 'rino', 'tori', 'vivi', 'zari', 'luca', 'momo', 'ruru',
+  'hani', 'jini', 'dani', 'sion', 'yelo', 'roha', 'arin', 'jane', 'elix', 'noah',
+  'eden', 'liam', 'yuki', 'kian', 'roan', 'mavi', 'zena', 'lani', 'rhea', 'arlo',
+  'sian', 'nela', 'rion', 'kody', 'yaro', 'zevi', 'tino', 'lira', 'mika', 'noxx',
+];
+
+const handleSuffixes = [
+  'ka', 'ri', 'xo', 'na', 'vi', 'lu', 'zi', 'mo', 'ya', 'to',
+  'ki', 'ra', 'ne', 'so', 'mi', 'jo', 'yu', 'la', 'de', 'ko',
+  'sa', 'ni', 'ha', 'ro', 'li', 've', 'pa', 'no', 'ji', 'ta',
+  'eo', 'ia', 'un', 'ow', 'ax', 'by', 'cy', 'dv', 'ex', 'fy',
+];
+
+const buildHandleLikeNickname = (number, runId) => {
+  const seed = (Number(String(runId).replace(/\D/g, '').slice(-6)) || 260515) + (number * 7919);
+  const root = handleRoots[seed % handleRoots.length];
+  const yearSuffix = number % 3 === 0 ? '06' : number % 2 === 0 ? '07' : '08';
+  const suffix = handleSuffixes[Math.floor(seed / handleRoots.length) % handleSuffixes.length];
+  const cycle = Math.floor((number - 1) / (handleRoots.length * handleSuffixes.length));
+  return `${root}${yearSuffix}${suffix}${cycle > 0 ? cycle : ''}`;
+};
+
+const getSyntheticSchool = (index, schoolStyle) => {
+  if (schoolStyle !== 'competition-sample') {
+    return null;
+  }
+
+  return sampleSchools[(index - 1) % sampleSchools.length];
+};
+
 const buildSyntheticUsers = ({
   count,
   domain,
@@ -174,6 +226,7 @@ const buildSyntheticUsers = ({
   premiumCount,
   runId,
   nameStyle,
+  schoolStyle,
 }) => {
   const padWidth = Math.max(3, String(count).length);
   const premiumIndexes = premiumCount > 0
@@ -186,6 +239,8 @@ const buildSyntheticUsers = ({
     const email = `${prefix}+${runId}-${padded}@${domain}`;
     const nickname = nameStyle === 'mixed-names'
       ? buildMixedTestNickname(number, padded)
+      : nameStyle === 'handle-like'
+      ? buildHandleLikeNickname(number, runId)
       : `${prefix}_${runId}_${padded}`;
     const isPremium = premiumCount > 0
       ? premiumIndexes.has(number)
@@ -197,6 +252,7 @@ const buildSyntheticUsers = ({
       nickname,
       isPremium,
       syntheticIndex: number,
+      school: getSyntheticSchool(number, schoolStyle),
     };
   });
 };
@@ -208,7 +264,7 @@ const getTodaySeoulDate = () => new Intl.DateTimeFormat('en-CA', {
   day: '2-digit',
 }).format(new Date());
 
-const buildLeaderboardPayload = ({ userId, email, nickname, index, isPremium }) => {
+const buildLeaderboardPayload = ({ userId, email, nickname, index, isPremium, school }) => {
   const season = getCurrentSeasonMeta();
   const xp = createSeededTensXp(index);
   const streakCount = 1 + (index % 21);
@@ -222,6 +278,12 @@ const buildLeaderboardPayload = ({ userId, email, nickname, index, isPremium }) 
     user_email: email,
     display_name: nickname,
     avatar_url: '',
+    school_name: school?.school_name || '',
+    school_code: school?.school_code || '',
+    education_office_code: school?.education_office_code || '',
+    education_office_name: school?.education_office_name || '',
+    school_type: school?.school_type || '',
+    school_region: school?.school_region || '',
     season_key: season.seasonKey,
     season_label: season.label,
     season_start_date: season.startDate,
@@ -252,6 +314,12 @@ const createAuthUser = async (supabaseAdmin, syntheticUser) => {
       is_premium: syntheticUser.isPremium,
       premium_provider: syntheticUser.isPremium ? 'synthetic-test' : '',
       synthetic_test_user: true,
+      school_name: syntheticUser.school?.school_name || '',
+      school_code: syntheticUser.school?.school_code || '',
+      education_office_code: syntheticUser.school?.education_office_code || '',
+      education_office_name: syntheticUser.school?.education_office_name || '',
+      school_type: syntheticUser.school?.school_type || '',
+      school_region: syntheticUser.school?.school_region || '',
       agreements: {
         termsAgreedAt: new Date().toISOString(),
         privacyAgreedAt: new Date().toISOString(),
@@ -384,7 +452,8 @@ const usage = () => {
   console.log('  --password=SyntheticTest1234!');
   console.log('  --premium-every=10       Mark every nth account as premium.');
   console.log('  --premium-count=160      Mark exactly this many accounts as premium.');
-  console.log('  --name-style=mixed-names Use mixed Korean/English test nicknames.');
+  console.log('  --name-style=handle-like Use short Instagram-like test nicknames.');
+  console.log('  --school-style=competition-sample Assign test users across sample schools.');
   console.log('  --output=tmp/users.json  Write result JSON to this path.');
   console.log('  --no-leaderboard         Create accounts without leaderboard entries.');
   console.log('  --dry-run                Print the generated users without writing to Supabase.');
@@ -433,6 +502,12 @@ const main = async () => {
         email: syntheticUser.email,
         nickname: syntheticUser.nickname,
         avatar_url: '',
+        school_name: syntheticUser.school?.school_name || '',
+        school_code: syntheticUser.school?.school_code || '',
+        education_office_code: syntheticUser.school?.education_office_code || '',
+        education_office_name: syntheticUser.school?.education_office_name || '',
+        school_type: syntheticUser.school?.school_type || '',
+        school_region: syntheticUser.school?.school_region || '',
         updated_at: now,
       };
 
@@ -469,6 +544,7 @@ const main = async () => {
           nickname: syntheticUser.nickname,
           index: syntheticUser.syntheticIndex,
           isPremium: syntheticUser.isPremium,
+          school: syntheticUser.school,
         });
 
         await upsertLeaderboardPayload(
@@ -493,6 +569,7 @@ const main = async () => {
         nickname: syntheticUser.nickname,
         userId: authUser.id,
         premium: syntheticUser.isPremium,
+        school: syntheticUser.school?.school_name || '',
       });
 
       console.log(`created ${created.length}/${syntheticUsers.length}: ${syntheticUser.email}`);

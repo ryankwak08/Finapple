@@ -1654,13 +1654,70 @@ app.post('/api/schools/me', createRateLimiter({ key: 'school-update', limit: 20,
       throw profileError;
     }
 
-    await supabaseAdmin
+    const { data: existingLeaderboardEntry, error: existingLeaderboardError } = await supabaseAdmin
       .from('leaderboard_entries')
-      .update({
+      .select('user_id')
+      .eq('user_id', user.id)
+      .maybeSingle();
+
+    if (existingLeaderboardError) {
+      throw existingLeaderboardError;
+    }
+
+    if (existingLeaderboardEntry) {
+      const { error: leaderboardUpdateError } = await supabaseAdmin
+        .from('leaderboard_entries')
+        .update({
+          ...school,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('user_id', user.id);
+
+      if (leaderboardUpdateError) {
+        throw leaderboardUpdateError;
+      }
+    } else {
+      const season = getCurrentSeasonMeta();
+      const leaderboardSchoolPayload = {
+        user_id: user.id,
+        user_email: user.email,
+        display_name: profilePayload.nickname,
+        avatar_url: profilePayload.avatar_url,
         ...school,
+        season_key: season.seasonKey,
+        season_label: season.label,
+        season_start_date: season.startDate,
+        season_end_date: season.endDate,
+        xp: 0,
+        streak_count: 1,
+        best_streak: 1,
+        streak_freezers: 0,
+        completed_count: 0,
+        active_review_count: 0,
+        resolved_review_count: 0,
+        ads_disabled: Boolean(nextMetadata.is_premium),
+        score: 120,
+        score_youth: 120,
+        score_start: 0,
+        score_one: 0,
         updated_at: new Date().toISOString(),
-      })
-      .eq('user_id', user.id);
+      };
+
+      const { error: leaderboardInsertError } = await supabaseAdmin
+        .from('leaderboard_entries')
+        .insert(leaderboardSchoolPayload);
+
+      if (leaderboardInsertError) {
+        const { score_youth, score_start, score_one, ...legacyPayload } = leaderboardSchoolPayload;
+        const { error: fallbackLeaderboardError } = await supabaseAdmin
+          .from('leaderboard_entries')
+          .insert(legacyPayload);
+
+        if (fallbackLeaderboardError) {
+          throw fallbackLeaderboardError;
+        }
+      }
+    }
 
     return res.json({
       school,
@@ -1677,7 +1734,7 @@ app.get('/api/leaderboard', async (req, res) => {
     return res.status(500).json({ error: 'Supabase admin is not configured' });
   }
 
-  const limit = Math.min(Math.max(Number(req.query.limit) || 20, 1), 500);
+  const limit = Math.min(Math.max(Number(req.query.limit) || 20, 1), 5000);
   const seasonKey = cleanText(req.query.seasonKey || getCurrentSeasonMeta().seasonKey, 80);
   const includeAllUsers = ['1', 'true', 'yes'].includes(String(req.query.includeAllUsers || '').toLowerCase());
   const LEADERBOARD_SELECT_BASE = 'user_id, user_email, display_name, avatar_url, school_name, school_code, education_office_code, education_office_name, school_type, school_region, season_key, season_label, season_start_date, season_end_date, xp, streak_count, best_streak, streak_freezers, completed_count, active_review_count, resolved_review_count, ads_disabled, score, updated_at';

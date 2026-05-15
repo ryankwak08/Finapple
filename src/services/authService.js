@@ -10,6 +10,9 @@ import { Browser } from '@capacitor/browser';
 
 const getAuthRedirectUrl = () => buildAppUrl('/login');
 const NATIVE_AUTH_CALLBACK_HOST = 'login-callback';
+const getProgressStorageKey = (userEmail = 'guest') => (
+  `finapple_progress:${String(userEmail || 'guest').trim().toLowerCase() || 'guest'}`
+);
 
 const getNativeAuthRedirectUrl = async () => {
   const { id } = await CapacitorApp.getInfo();
@@ -385,6 +388,7 @@ export const deleteAccount = async () => {
   if (error || !data?.session?.access_token) {
     throw new Error('로그인 세션을 찾지 못했습니다.');
   }
+  const userEmail = data.session.user?.email || 'guest';
 
   const response = await fetch(`${BACKEND_URL}/api/account/delete`, {
     method: 'POST',
@@ -400,6 +404,7 @@ export const deleteAccount = async () => {
   }
 
   await supabase.auth.signOut();
+  safeStorage.removeItem(getProgressStorageKey(userEmail));
   safeStorage.removeItem('finapple_progress');
   safeStorage.removeItem('totalUsageSeconds');
 };

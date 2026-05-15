@@ -17,7 +17,7 @@ import {
 } from '@/components/ui/dialog';
 import { useLanguage } from '@/lib/i18n';
 
-const LEADERBOARD_LIMIT = 3000;
+const LEADERBOARD_LIMIT = 5000;
 
 const getTopRankStyles = (isEnglish) => ({
   1: {
