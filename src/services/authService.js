@@ -270,7 +270,18 @@ export const cancelPremiumSubscription = async (user) => {
   return { platform: 'web', ...result };
 };
 
-export const signUpWithEmail = async (email, password, nickname, agreements = {}) => {
+export const signUpWithEmail = async (email, password, nickname, agreements = {}, school = null) => {
+  const schoolMetadata = school?.schoolName && school?.schoolCode && school?.educationOfficeCode
+    ? {
+        school_name: school.schoolName,
+        school_code: school.schoolCode,
+        education_office_code: school.educationOfficeCode,
+        education_office_name: school.educationOfficeName || '',
+        school_type: school.schoolType || '',
+        school_region: school.regionName || '',
+      }
+    : {};
+
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
@@ -279,6 +290,7 @@ export const signUpWithEmail = async (email, password, nickname, agreements = {}
       data: {
         nickname: nickname?.trim() || email.split('@')[0],
         agreements,
+        ...schoolMetadata,
       },
     },
   });

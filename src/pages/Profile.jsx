@@ -1,11 +1,13 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/lib/AuthContext';
-import { ArrowLeft, Camera, Star, Clock, Crown, Check, Edit2, Loader2, Trash2, NotebookPen, ChartNoAxesColumn } from 'lucide-react';
+import { ArrowLeft, Camera, Star, Clock, Crown, Check, Edit2, Loader2, Trash2, NotebookPen, ChartNoAxesColumn, GraduationCap } from 'lucide-react';
 import { cancelPremiumSubscription, deleteAccount, getCurrentUser, updateUserProfile, uploadProfilePicture } from '@/services/authService';
 import { findAdminManagedUser, updateAdminManagedUser } from '@/api/adminClient';
 import { syncLeaderboardEntry } from '@/api/leaderboardClient';
+import { getSchoolDisplayName, updateMySchool } from '@/api/schoolClient';
 import { isNicknameAvailable, syncUserProfileRecord } from '@/services/profileService';
+import SchoolSelector from '@/components/SchoolSelector';
 import { NICKNAME_MAX_LENGTH, validateNickname } from '@/lib/profileRules';
 import { buildLeaderboardPayload } from '@/lib/leaderboard';
 import { allocateTrackLeaderboardScores } from '@/lib/leaderboardTrackScores';
@@ -52,6 +54,10 @@ export default function Profile() {
   const [managedUser, setManagedUser] = useState(null);
   const [managedHearts, setManagedHearts] = useState('5');
   const [managedPremium, setManagedPremium] = useState(false);
+  const [editingSchool, setEditingSchool] = useState(false);
+  const [selectedSchool, setSelectedSchool] = useState(null);
+  const [schoolSaving, setSchoolSaving] = useState(false);
+  const [schoolError, setSchoolError] = useState('');
   const fileInputRef = useRef(null);
   const { enabled: soundEnabled, setEnabled: setSoundEnabled, playSuccessSound } = useSoundEffects();
   const progressSummary = getProgressSummary();
@@ -69,6 +75,16 @@ export default function Profile() {
   const freePremiumAccess = isFreePremiumAccessEnabled();
   const premiumProvider = String(user?.user_metadata?.premium_provider || user?.premium_provider || '').toLowerCase();
   const canCancelPremiumOnWeb = premiumProvider === 'kcp';
+  const schoolProfile = {
+    schoolName: user?.user_metadata?.school_name || user?.school_name || '',
+    schoolCode: user?.user_metadata?.school_code || user?.school_code || '',
+    educationOfficeCode: user?.user_metadata?.education_office_code || user?.education_office_code || '',
+    educationOfficeName: user?.user_metadata?.education_office_name || user?.education_office_name || '',
+    schoolType: user?.user_metadata?.school_type || user?.school_type || '',
+    regionName: user?.user_metadata?.school_region || user?.school_region || '',
+  };
+  const hasSchool = Boolean(schoolProfile.schoolCode && schoolProfile.schoolName);
+  const schoolDisplayName = getSchoolDisplayName(schoolProfile);
 
   const syncLeaderboardProfile = async (nextUser, nextPremium = isPremium) => {
     if (!progress || !nextUser?.email) {
@@ -189,6 +205,34 @@ export default function Profile() {
       setPhotoError(uploadError.message || '프로필 사진을 저장하지 못했습니다.');
     } finally {
       setUploadingPhoto(false);
+    }
+  };
+
+  const handleSaveSchool = async () => {
+    if (!selectedSchool?.schoolCode) {
+      setSchoolError('검색 결과에서 학교를 선택해주세요.');
+      return;
+    }
+
+    setSchoolSaving(true);
+    setSchoolError('');
+
+    try {
+      const { user: updatedUser } = await updateMySchool(selectedSchool);
+      if (updatedUser) {
+        setUser(updatedUser);
+        await syncLeaderboardProfile(updatedUser);
+      } else {
+        const refreshedUser = await getCurrentUser();
+        setUser(refreshedUser);
+        await syncLeaderboardProfile(refreshedUser);
+      }
+      setEditingSchool(false);
+      setSelectedSchool(null);
+    } catch (error) {
+      setSchoolError(error.message || '학교 정보를 저장하지 못했습니다.');
+    } finally {
+      setSchoolSaving(false);
     }
   };
 
@@ -387,6 +431,55 @@ export default function Profile() {
             </div>
           </div>
           {photoError ? <p className="mt-3 text-[12px] text-destructive">{photoError}</p> : null}
+        </div>
+
+        <div className="animate-slide-up rounded-2xl border border-border bg-card p-4" style={{ animationDelay: '60ms', animationFillMode: 'backwards' }}>
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex min-w-0 items-start gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10">
+                <GraduationCap className="h-5 w-5 text-primary" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-[14px] font-bold text-foreground">학교 정보</p>
+                {hasSchool ? (
+                  <>
+                    <p className="mt-1 truncate text-[15px] font-extrabold text-foreground">{schoolDisplayName}</p>
+                    <p className="mt-1 text-[12px] text-muted-foreground">
+                      {schoolProfile.educationOfficeName || '학교 리더보드에 반영됩니다.'}
+                    </p>
+                  </>
+                ) : (
+                  <p className="mt-1 text-[12px] text-muted-foreground">학교별 리더보드에 사용할 학교가 아직 등록되지 않았어요.</p>
+                )}
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setEditingSchool((prev) => !prev);
+                setSelectedSchool(hasSchool ? schoolProfile : null);
+                setSchoolError('');
+              }}
+              className="shrink-0 rounded-xl border border-border px-3 py-2 text-[12px] font-bold text-foreground transition hover:bg-muted"
+            >
+              {editingSchool ? '닫기' : hasSchool ? '변경' : '등록'}
+            </button>
+          </div>
+
+          {editingSchool ? (
+            <div className="mt-4 space-y-3">
+              <SchoolSelector value={selectedSchool} onChange={setSelectedSchool} compact />
+              {schoolError ? <p className="text-[12px] text-destructive">{schoolError}</p> : null}
+              <button
+                type="button"
+                onClick={handleSaveSchool}
+                disabled={schoolSaving || !selectedSchool?.schoolCode}
+                className="w-full rounded-xl bg-primary px-4 py-3 text-[13px] font-bold text-white disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {schoolSaving ? '저장 중...' : '학교 저장'}
+              </button>
+            </div>
+          ) : null}
         </div>
 
         {/* Stats */}

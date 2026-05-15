@@ -8,6 +8,7 @@ import { AnimatePresence } from 'framer-motion';
 import BottomNav, { getActiveTab, getAppTabs } from './BottomNav';
 import PageTransition from './PageTransition';
 import PremiumBadge from './PremiumBadge';
+import SchoolOnboardingPrompt from './SchoolOnboardingPrompt';
 import { safeStorage } from '@/lib/safeStorage';
 import { useLanguage } from '@/lib/i18n';
 import { TRACKS, useTrack } from '@/lib/trackContext';
@@ -317,6 +318,14 @@ export default function AppShell() {
         )}
       </div>
       {!isSurvivalRoute ? <BottomNav /> : null}
+      <SchoolOnboardingPrompt
+        user={user}
+        onSaved={(nextUser) => {
+          if (nextUser) {
+            setUser(nextUser);
+          }
+        }}
+      />
     </div>
   );
 }

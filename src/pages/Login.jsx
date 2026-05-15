@@ -8,6 +8,7 @@ import { NICKNAME_MAX_LENGTH, normalizeNickname, validateNickname, validatePassw
 import { useAuth } from '@/lib/AuthContext';
 import { isNativeIOSApp } from '@/lib/runtimePlatform';
 import { POLICY_CONTENT } from '@/lib/legalContent';
+import SchoolSelector from '@/components/SchoolSelector';
 
 const OTP_LENGTH = 6;
 const inputClassName = 'h-10 w-full rounded-lg border border-[#E0E0E0] bg-white px-4 text-base font-normal text-black outline-none transition placeholder:text-[#828282] focus:border-black/30';
@@ -177,6 +178,7 @@ export default function Login() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isSocialLoading, setIsSocialLoading] = useState('');
   const [policyModalType, setPolicyModalType] = useState(null);
+  const [selectedSchool, setSelectedSchool] = useState(null);
   const [agreements, setAgreements] = useState({
     terms: false,
     privacy: false,
@@ -480,12 +482,18 @@ export default function Login() {
           throw new Error('이미 사용 중인 닉네임이에요. 다른 닉네임을 입력해주세요.');
         }
 
-        await signUpWithEmail(email, password, nickname, {
-          termsAgreedAt: new Date().toISOString(),
-          privacyAgreedAt: new Date().toISOString(),
-          ageConfirmedAt: new Date().toISOString(),
-          marketingOptIn: agreements.marketing,
-        });
+        await signUpWithEmail(
+          email,
+          password,
+          nickname,
+          {
+            termsAgreedAt: new Date().toISOString(),
+            privacyAgreedAt: new Date().toISOString(),
+            ageConfirmedAt: new Date().toISOString(),
+            marketingOptIn: agreements.marketing,
+          },
+          selectedSchool
+        );
         setVerificationEmail(email);
         setMessage(`${email}로 인증 코드 메일을 보냈어요. 받은편지함에 없다면 스팸함도 확인해주세요.`);
         setMode('verify');
@@ -500,6 +508,7 @@ export default function Login() {
           age: false,
           marketing: false,
         });
+        setSelectedSchool(null);
       } else {
         await signInWithEmail(email, password);
         await checkAppState();
@@ -826,6 +835,16 @@ export default function Login() {
                     </div>
                   )}
                 />
+              ) : null}
+
+              {isSignUp ? (
+                <div className="space-y-2">
+                  <div>
+                    <p className="text-sm font-semibold text-black">학교 선택</p>
+                    <p className="mt-1 text-xs text-[#828282]">학교별 리더보드에 사용할 학교를 NEIS 목록에서 선택해주세요. 아직 학교가 없다면 비워둘 수 있어요.</p>
+                  </div>
+                  <SchoolSelector value={selectedSchool} onChange={setSelectedSchool} compact />
+                </div>
               ) : null}
 
               {isSignUp ? (

@@ -52,6 +52,7 @@ const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const openAiApiKey = process.env.OPENAI_API_KEY;
 const openAiModel = process.env.OPENAI_MODEL || 'gpt-4o-mini';
+const neisApiKey = process.env.NEIS_API_KEY || process.env.VITE_NEIS_API_KEY || '';
 const PREMIUM_MONTHLY_PRICE = Number(process.env.PREMIUM_MONTHLY_PRICE || 5500);
 const PREMIUM_ANNUAL_PRICE = Number(process.env.PREMIUM_ANNUAL_PRICE || 55000);
 const PREMIUM_PRICE = PREMIUM_MONTHLY_PRICE;
@@ -226,6 +227,25 @@ const isAllowedOrigin = (origin) => {
 const cleanText = (value, maxLength = 300) => String(value || '').trim().slice(0, maxLength);
 
 const isPlainObject = (value) => Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+
+const normalizeSchoolPayload = (school) => ({
+  school_name: cleanText(school?.schoolName || school?.school_name || school?.SCHUL_NM, 120),
+  school_code: cleanText(school?.schoolCode || school?.school_code || school?.SD_SCHUL_CODE, 40),
+  education_office_code: cleanText(school?.educationOfficeCode || school?.education_office_code || school?.ATPT_OFCDC_SC_CODE, 40),
+  education_office_name: cleanText(school?.educationOfficeName || school?.education_office_name || school?.ATPT_OFCDC_SC_NM, 120),
+  school_type: cleanText(school?.schoolType || school?.school_type || school?.SCHUL_KND_SC_NM, 60),
+  school_region: cleanText(school?.regionName || school?.school_region || school?.LCTN_SC_NM, 80),
+});
+
+const normalizeNeisSchool = (row) => ({
+  schoolName: cleanText(row?.SCHUL_NM, 120),
+  schoolCode: cleanText(row?.SD_SCHUL_CODE, 40),
+  educationOfficeCode: cleanText(row?.ATPT_OFCDC_SC_CODE, 40),
+  educationOfficeName: cleanText(row?.ATPT_OFCDC_SC_NM, 120),
+  schoolType: cleanText(row?.SCHUL_KND_SC_NM, 60),
+  regionName: cleanText(row?.LCTN_SC_NM, 80),
+  address: cleanText(row?.ORG_RDNMA || row?.ORG_RDNDA, 200),
+});
 
 const isLikelyUuid = (value) => (
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(value || ''))
@@ -1548,6 +1568,110 @@ app.post('/api/admin/user', createRateLimiter({ key: 'admin-user-update', limit:
   }
 });
 
+app.get('/api/schools/search', createRateLimiter({ key: 'school-search', limit: 80, windowMs: 60_000 }), async (req, res) => {
+  const query = cleanText(req.query?.query, 80);
+  if (query.length < 2) {
+    return res.json({ schools: [] });
+  }
+
+  try {
+    const { data } = await axios.get('https://open.neis.go.kr/hub/schoolInfo', {
+      timeout: 7000,
+      params: {
+        Type: 'json',
+        pIndex: 1,
+        pSize: 12,
+        SCHUL_NM: query,
+        ...(neisApiKey ? { KEY: neisApiKey } : {}),
+      },
+    });
+
+    const rows = data?.schoolInfo?.find((item) => Array.isArray(item?.row))?.row || [];
+    const schools = rows
+      .map(normalizeNeisSchool)
+      .filter((school) => school.schoolName && school.schoolCode && school.educationOfficeCode);
+
+    return res.json({ schools });
+  } catch (error) {
+    const statusCode = error?.response?.status;
+    const resultCode = String(error?.response?.data?.RESULT?.CODE || '');
+    if (statusCode === 404 || resultCode === 'INFO-200') {
+      return res.json({ schools: [] });
+    }
+
+    console.error('school search error', error.message);
+    return res.status(502).json({ error: '학교 검색 서비스를 잠시 이용할 수 없습니다.' });
+  }
+});
+
+app.post('/api/schools/me', createRateLimiter({ key: 'school-update', limit: 20, windowMs: 60_000 }), async (req, res) => {
+  if (!supabaseAdmin) {
+    return res.status(500).json({ error: 'Supabase admin is not configured' });
+  }
+
+  const accessToken = getRequestAccessToken(req);
+  if (!accessToken) {
+    return res.status(401).json({ error: '로그인 세션이 필요합니다.' });
+  }
+
+  const school = normalizeSchoolPayload(req.body?.school);
+  if (!school.school_name || !school.school_code || !school.education_office_code) {
+    return res.status(400).json({ error: '검색 결과에서 학교를 선택해주세요.' });
+  }
+
+  try {
+    const { data: authData, error: authError } = await supabaseAdmin.auth.getUser(accessToken);
+    if (authError || !authData?.user) {
+      return res.status(401).json({ error: 'Invalid Supabase session' });
+    }
+
+    const user = authData.user;
+    const nextMetadata = {
+      ...(user.user_metadata || {}),
+      ...school,
+    };
+
+    const { data: updatedUserData, error: updateError } = await supabaseAdmin.auth.admin.updateUserById(user.id, {
+      user_metadata: nextMetadata,
+    });
+    if (updateError) {
+      throw updateError;
+    }
+
+    const profilePayload = {
+      user_id: user.id,
+      email: user.email,
+      nickname: cleanText(user.user_metadata?.nickname || user.user_metadata?.full_name || user.email?.split('@')[0] || '학습자', 40),
+      avatar_url: cleanText(user.user_metadata?.profile_picture, 500),
+      ...school,
+      updated_at: new Date().toISOString(),
+    };
+
+    const { error: profileError } = await supabaseAdmin
+      .from('user_profiles')
+      .upsert(profilePayload, { onConflict: 'user_id' });
+    if (profileError) {
+      throw profileError;
+    }
+
+    await supabaseAdmin
+      .from('leaderboard_entries')
+      .update({
+        ...school,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('user_id', user.id);
+
+    return res.json({
+      school,
+      user: updatedUserData?.user || null,
+    });
+  } catch (error) {
+    console.error('school update error', error.message);
+    return res.status(500).json({ error: error.message || '학교 정보를 저장하지 못했습니다.' });
+  }
+});
+
 app.get('/api/leaderboard', async (req, res) => {
   if (!supabaseAdmin) {
     return res.status(500).json({ error: 'Supabase admin is not configured' });
@@ -1556,7 +1680,7 @@ app.get('/api/leaderboard', async (req, res) => {
   const limit = Math.min(Math.max(Number(req.query.limit) || 20, 1), 500);
   const seasonKey = cleanText(req.query.seasonKey || getCurrentSeasonMeta().seasonKey, 80);
   const includeAllUsers = ['1', 'true', 'yes'].includes(String(req.query.includeAllUsers || '').toLowerCase());
-  const LEADERBOARD_SELECT_BASE = 'user_id, user_email, display_name, avatar_url, season_key, season_label, season_start_date, season_end_date, xp, streak_count, best_streak, streak_freezers, completed_count, active_review_count, resolved_review_count, ads_disabled, score, updated_at';
+  const LEADERBOARD_SELECT_BASE = 'user_id, user_email, display_name, avatar_url, school_name, school_code, education_office_code, education_office_name, school_type, school_region, season_key, season_label, season_start_date, season_end_date, xp, streak_count, best_streak, streak_freezers, completed_count, active_review_count, resolved_review_count, ads_disabled, score, updated_at';
   const LEADERBOARD_SELECT_WITH_TRACKS = `${LEADERBOARD_SELECT_BASE}, score_youth, score_start, score_one`;
   const LEADERBOARD_PAGE_SIZE = 1000;
   const isMissingTrackScoreColumn = (error) => {
@@ -1628,7 +1752,7 @@ app.get('/api/leaderboard/profile', async (req, res) => {
   }
 
   try {
-    const LEADERBOARD_SELECT_BASE = 'user_id, user_email, display_name, avatar_url, season_key, season_label, season_start_date, season_end_date, xp, streak_count, best_streak, streak_freezers, completed_count, active_review_count, resolved_review_count, ads_disabled, score, updated_at';
+    const LEADERBOARD_SELECT_BASE = 'user_id, user_email, display_name, avatar_url, school_name, school_code, education_office_code, education_office_name, school_type, school_region, season_key, season_label, season_start_date, season_end_date, xp, streak_count, best_streak, streak_freezers, completed_count, active_review_count, resolved_review_count, ads_disabled, score, updated_at';
     const LEADERBOARD_SELECT_WITH_TRACKS = `${LEADERBOARD_SELECT_BASE}, score_youth, score_start, score_one`;
     const isMissingTrackScoreColumn = (error) => {
       const message = String(error?.message || '').toLowerCase();
@@ -1699,7 +1823,7 @@ app.post('/api/leaderboard/sync', createRateLimiter({ key: 'leaderboard-sync', l
       return res.status(401).json({ error: 'Invalid Supabase session' });
     }
 
-    const LEADERBOARD_SELECT_BASE = 'user_id, user_email, display_name, avatar_url, season_key, season_label, season_start_date, season_end_date, xp, streak_count, best_streak, streak_freezers, completed_count, active_review_count, resolved_review_count, ads_disabled, score, updated_at';
+    const LEADERBOARD_SELECT_BASE = 'user_id, user_email, display_name, avatar_url, school_name, school_code, education_office_code, education_office_name, school_type, school_region, season_key, season_label, season_start_date, season_end_date, xp, streak_count, best_streak, streak_freezers, completed_count, active_review_count, resolved_review_count, ads_disabled, score, updated_at';
     const LEADERBOARD_SELECT_WITH_TRACKS = `${LEADERBOARD_SELECT_BASE}, score_youth, score_start, score_one`;
     const isMissingTrackScoreColumn = (error) => {
       const message = String(error?.message || '').toLowerCase();
@@ -1715,6 +1839,12 @@ app.post('/api/leaderboard/sync', createRateLimiter({ key: 'leaderboard-sync', l
       user_email: authData.user.email,
       display_name: cleanText(entry.displayName || authData.user.email || '학습자', 60),
       avatar_url: cleanText(entry.avatarUrl, 500),
+      school_name: cleanText(entry.schoolName || authData.user.user_metadata?.school_name, 120),
+      school_code: cleanText(entry.schoolCode || authData.user.user_metadata?.school_code, 40),
+      education_office_code: cleanText(entry.educationOfficeCode || authData.user.user_metadata?.education_office_code, 40),
+      education_office_name: cleanText(entry.educationOfficeName || authData.user.user_metadata?.education_office_name, 120),
+      school_type: cleanText(entry.schoolType || authData.user.user_metadata?.school_type, 60),
+      school_region: cleanText(entry.schoolRegion || authData.user.user_metadata?.school_region, 80),
       season_key: cleanText(entry.seasonKey || getCurrentSeasonMeta().seasonKey, 80),
       season_label: cleanText(entry.seasonLabel || getCurrentSeasonMeta().label, 80),
       season_start_date: validateDateString(entry.seasonStartDate) || getCurrentSeasonMeta().startDate,

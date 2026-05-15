@@ -3,6 +3,12 @@ create table if not exists public.leaderboard_entries (
   user_email text not null,
   display_name text not null,
   avatar_url text not null default '',
+  school_name text not null default '',
+  school_code text not null default '',
+  education_office_code text not null default '',
+  education_office_name text not null default '',
+  school_type text not null default '',
+  school_region text not null default '',
   season_key text not null default '',
   season_label text not null default '',
   season_start_date date,
@@ -25,6 +31,24 @@ create table if not exists public.leaderboard_entries (
 
 alter table public.leaderboard_entries
   add column if not exists season_key text not null default '';
+
+alter table public.leaderboard_entries
+  add column if not exists school_name text not null default '';
+
+alter table public.leaderboard_entries
+  add column if not exists school_code text not null default '';
+
+alter table public.leaderboard_entries
+  add column if not exists education_office_code text not null default '';
+
+alter table public.leaderboard_entries
+  add column if not exists education_office_name text not null default '';
+
+alter table public.leaderboard_entries
+  add column if not exists school_type text not null default '';
+
+alter table public.leaderboard_entries
+  add column if not exists school_region text not null default '';
 
 alter table public.leaderboard_entries
   add column if not exists season_label text not null default '';
@@ -50,11 +74,20 @@ create index if not exists leaderboard_entries_score_idx
 create index if not exists leaderboard_entries_season_score_idx
   on public.leaderboard_entries (season_key, score desc, updated_at asc);
 
+create index if not exists leaderboard_entries_school_score_idx
+  on public.leaderboard_entries (education_office_code, school_code, score desc);
+
 create table if not exists public.leaderboard_entry_history (
   user_id uuid not null,
   user_email text not null,
   display_name text not null,
   avatar_url text not null default '',
+  school_name text not null default '',
+  school_code text not null default '',
+  education_office_code text not null default '',
+  education_office_name text not null default '',
+  school_type text not null default '',
+  school_region text not null default '',
   season_key text not null,
   season_label text not null default '',
   season_start_date date,
@@ -78,6 +111,24 @@ create table if not exists public.leaderboard_entry_history (
 
 alter table public.leaderboard_entry_history
   add column if not exists score_youth integer not null default 0;
+
+alter table public.leaderboard_entry_history
+  add column if not exists school_name text not null default '';
+
+alter table public.leaderboard_entry_history
+  add column if not exists school_code text not null default '';
+
+alter table public.leaderboard_entry_history
+  add column if not exists education_office_code text not null default '';
+
+alter table public.leaderboard_entry_history
+  add column if not exists education_office_name text not null default '';
+
+alter table public.leaderboard_entry_history
+  add column if not exists school_type text not null default '';
+
+alter table public.leaderboard_entry_history
+  add column if not exists school_region text not null default '';
 
 alter table public.leaderboard_entry_history
   add column if not exists score_start integer not null default 0;

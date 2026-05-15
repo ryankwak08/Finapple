@@ -45,6 +45,12 @@ export function buildLeaderboardPayload({ user, progress, streakStatus }) {
   return {
     displayName,
     avatarUrl: user?.user_metadata?.profile_picture || user?.profile_picture || '',
+    schoolName: user?.user_metadata?.school_name || user?.school_name || '',
+    schoolCode: user?.user_metadata?.school_code || user?.school_code || '',
+    educationOfficeCode: user?.user_metadata?.education_office_code || user?.education_office_code || '',
+    educationOfficeName: user?.user_metadata?.education_office_name || user?.education_office_name || '',
+    schoolType: user?.user_metadata?.school_type || user?.school_type || '',
+    schoolRegion: user?.user_metadata?.school_region || user?.school_region || '',
     seasonKey: season.seasonKey,
     seasonLabel: season.label,
     seasonStartDate: season.startDate,

@@ -5,7 +5,7 @@ import { getCurrentSeasonMeta } from '@/lib/season';
 const USE_DIRECT_SUPABASE = import.meta.env.DEV;
 const REQUEST_TIMEOUT_MS = 8000;
 const LEADERBOARD_PAGE_SIZE = 1000;
-const LEADERBOARD_SELECT_BASE = 'user_id, user_email, display_name, avatar_url, season_key, season_label, season_start_date, season_end_date, xp, streak_count, best_streak, streak_freezers, completed_count, active_review_count, resolved_review_count, ads_disabled, score, updated_at';
+const LEADERBOARD_SELECT_BASE = 'user_id, user_email, display_name, avatar_url, school_name, school_code, education_office_code, education_office_name, school_type, school_region, season_key, season_label, season_start_date, season_end_date, xp, streak_count, best_streak, streak_freezers, completed_count, active_review_count, resolved_review_count, ads_disabled, score, updated_at';
 const LEADERBOARD_SELECT_WITH_TRACKS = `${LEADERBOARD_SELECT_BASE}, score_youth, score_start, score_one`;
 
 async function fetchWithTimeout(url, options = {}) {
@@ -63,6 +63,12 @@ async function syncLeaderboardEntryDirect(entry, session) {
     user_email: user.email,
     display_name: entry.displayName,
     avatar_url: entry.avatarUrl || '',
+    school_name: entry.schoolName || '',
+    school_code: entry.schoolCode || '',
+    education_office_code: entry.educationOfficeCode || '',
+    education_office_name: entry.educationOfficeName || '',
+    school_type: entry.schoolType || '',
+    school_region: entry.schoolRegion || '',
     season_key: entry.seasonKey,
     season_label: entry.seasonLabel,
     season_start_date: entry.seasonStartDate,

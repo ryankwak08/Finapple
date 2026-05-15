@@ -37,11 +37,24 @@ export async function syncUserProfileRecord(user, overrideNickname) {
     return null;
   }
 
+  const schoolName = user?.user_metadata?.school_name || user?.school_name || '';
+  const schoolCode = user?.user_metadata?.school_code || user?.school_code || '';
+  const educationOfficeCode = user?.user_metadata?.education_office_code || user?.education_office_code || '';
+  const educationOfficeName = user?.user_metadata?.education_office_name || user?.education_office_name || '';
+  const schoolType = user?.user_metadata?.school_type || user?.school_type || '';
+  const schoolRegion = user?.user_metadata?.school_region || user?.school_region || '';
+
   const payload = {
     user_id: user.id,
     email: user.email,
     nickname,
     avatar_url: user?.user_metadata?.profile_picture || user?.profile_picture || '',
+    school_name: schoolName,
+    school_code: schoolCode,
+    education_office_code: educationOfficeCode,
+    education_office_name: educationOfficeName,
+    school_type: schoolType,
+    school_region: schoolRegion,
     updated_at: new Date().toISOString(),
   };
 
