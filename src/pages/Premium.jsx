@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Check, Crown, Heart, Loader2, NotebookPen, ShieldCheck, Sparkles } from 'lucide-react';
+import { ArrowLeft, Ban, Check, Crown, Heart, Loader2, MessageCircle, NotebookPen, Palette, Sparkles } from 'lucide-react';
 import {
   createPremiumOrderId,
   createTossCheckoutSession,
@@ -10,6 +10,7 @@ import {
 import { useAuth } from '@/lib/AuthContext';
 import { getIsPremium } from '@/lib/premium';
 import { arePaidProductsEnabled, isNativeAndroidApp, isNativeIOSApp } from '@/lib/runtimePlatform';
+import { PREMIUM_FEATURES } from '@/lib/premiumFeatures';
 
 const formatKrw = (value) => new Intl.NumberFormat('ko-KR').format(value);
 
@@ -23,12 +24,20 @@ export default function Premium() {
   const isPremium = getIsPremium(user);
   const selectedPlan = getPremiumPlan(selectedPlanCode);
 
-  const benefits = useMemo(() => ([
-    { icon: Heart, title: '무제한 하트', description: '하트 제한 없이 퀴즈를 이어서 풀 수 있어요.' },
-    { icon: NotebookPen, title: '오답노트', description: '틀린 문제를 저장하고 다시 복습할 수 있어요.' },
-    { icon: ShieldCheck, title: '스트릭 보호', description: 'Streak Freezer 3개와 자동 보호를 사용할 수 있어요.' },
-    { icon: Sparkles, title: '전체 퀴즈 해금', description: '무료 한도 이후의 퀴즈와 해설까지 열립니다.' },
-  ]), []);
+  const benefits = useMemo(() => {
+    const icons = {
+      'ad-free': Ban,
+      'unlimited-chat': MessageCircle,
+      'unlimited-quiz': Heart,
+      'review-explanations': NotebookPen,
+      'character-customization': Palette,
+    };
+
+    return PREMIUM_FEATURES.map((feature) => ({
+      ...feature,
+      icon: icons[feature.id] || Sparkles,
+    }));
+  }, []);
 
   const handleGoBack = () => {
     if (window.history.length > 1) {
@@ -147,10 +156,10 @@ export default function Premium() {
 
           <div className="mt-5 rounded-2xl bg-muted/60 p-4">
             {[
-              '유닛당 무료 퀴즈 제한 해제',
-              '퀴즈 해설과 오답 복습',
-              '하트 제한 없이 학습',
-              '광고 제거 및 스트릭 보호',
+              '광고 없는 학습 환경',
+              '금융 챗봇 무제한 질문',
+              '매일 하트 제한 없이 퀴즈 반복 풀이',
+              '오답노트 상세 해설과 캐릭터 커스터마이징',
             ].map((item) => (
               <div key={item} className="flex items-center gap-2 py-1">
                 <Check className="h-4 w-4 shrink-0 text-primary" />

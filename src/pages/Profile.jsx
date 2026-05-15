@@ -19,6 +19,7 @@ import { Switch } from '@/components/ui/switch';
 import useProgress from '../lib/useProgress';
 import { safeStorage } from '@/lib/safeStorage';
 import { arePaidProductsEnabled, isFreePremiumAccessEnabled, isNativeAndroidApp, isNativeIOSApp, isNativeStoreApp } from '@/lib/runtimePlatform';
+import { PREMIUM_FEATURES } from '@/lib/premiumFeatures';
 
 const getUsageStorageKey = (email) => `totalUsageSeconds:${email || 'guest'}`;
 
@@ -327,7 +328,7 @@ export default function Profile() {
       name: '프리미엄',
       price: '₩5,500 / ₩55,000',
       period: '월 / 연',
-      features: ['모든 학습 콘텐츠', '무제한 하트', 'Streak Freezer 매월 3개 지급', '퀴즈 해설, 진도 확인, 오답노트', '연속 학습 관리', '광고 없음'],
+      features: PREMIUM_FEATURES.map((feature) => feature.title),
       current: isPremium,
       color: 'border-primary bg-primary/5',
       badge: '인기',

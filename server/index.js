@@ -78,7 +78,9 @@ const aiQuizInflight = new Map();
 const translationCache = new Map();
 const translationInflight = new Map();
 const rateLimitStore = new Map();
+const financeChatDailyUsageStore = new Map();
 const MAX_AI_QUIZ_ATTEMPTS = 3;
+const FREE_DAILY_CHAT_LIMIT = Number(process.env.FREE_DAILY_CHAT_LIMIT || 5);
 const serverEnvChecklist = [
   { key: 'SUPABASE_URL', configured: Boolean(supabaseUrl), level: 'required' },
   { key: 'SUPABASE_SERVICE_ROLE_KEY', configured: Boolean(supabaseServiceRoleKey), level: 'required' },
@@ -302,6 +304,50 @@ const getTodaySeoulDate = () => new Intl.DateTimeFormat('en-CA', {
   month: '2-digit',
   day: '2-digit',
 }).format(new Date());
+
+const getClientIp = (req) => {
+  const forwarded = String(req.headers['x-forwarded-for'] || '').split(',')[0].trim();
+  return forwarded || req.socket?.remoteAddress || 'unknown';
+};
+
+const getOptionalAuthUser = async (req) => {
+  const accessToken = getRequestAccessToken(req);
+  if (!accessToken || !supabaseAdmin) {
+    return null;
+  }
+
+  const { data, error } = await supabaseAdmin.auth.getUser(accessToken);
+  if (error) {
+    return null;
+  }
+
+  return data?.user || null;
+};
+
+const checkFinanceChatDailyUsage = ({ req, user }) => {
+  if (Boolean(user?.user_metadata?.is_premium)) {
+    return { allowed: true, premium: true, remaining: null };
+  }
+
+  const today = getTodaySeoulDate();
+  const identity = user?.email
+    ? `user:${String(user.email).toLowerCase()}`
+    : `ip:${getClientIp(req)}`;
+  const key = `finance-chat:${today}:${identity}`;
+  const current = financeChatDailyUsageStore.get(key) || 0;
+
+  if (current >= FREE_DAILY_CHAT_LIMIT) {
+    return { allowed: false, premium: false, remaining: 0 };
+  }
+
+  const next = current + 1;
+  financeChatDailyUsageStore.set(key, next);
+  return {
+    allowed: true,
+    premium: false,
+    remaining: Math.max(0, FREE_DAILY_CHAT_LIMIT - next),
+  };
+};
 
 const resolveUserHeartsState = async (authUser) => {
   const today = getTodaySeoulDate();
@@ -1223,6 +1269,18 @@ app.post('/api/finance-chat', createRateLimiter({ key: 'finance-chat', limit: 60
   }
 
   try {
+    const authUser = await getOptionalAuthUser(req);
+    const usage = checkFinanceChatDailyUsage({ req, user: authUser });
+    if (!usage.allowed) {
+      return res.status(402).json({
+        error: locale.startsWith('en')
+          ? 'You used all free chatbot questions for today. Premium unlocks unlimited questions.'
+          : '오늘 무료 챗봇 질문을 모두 사용했어요. 프리미엄에서는 제한 없이 질문할 수 있어요.',
+        code: 'FREE_CHAT_LIMIT_REACHED',
+        remaining: 0,
+      });
+    }
+
     const response = buildFinanceChatResponse({ query, ownedDocuments, locale });
     const assistantMessage = await generateFinanceNarrative({
       query,
@@ -1234,6 +1292,11 @@ app.post('/api/finance-chat', createRateLimiter({ key: 'finance-chat', limit: 60
     return res.json({
       ...response,
       assistant_message: assistantMessage,
+      chat_usage: {
+        premium: usage.premium,
+        remaining: usage.remaining,
+        dailyLimit: usage.premium ? null : FREE_DAILY_CHAT_LIMIT,
+      },
     });
   } catch (error) {
     console.error('Finance chat failed:', error);

@@ -4,6 +4,7 @@ import { BookOpen, ChevronDown, Gamepad2 } from 'lucide-react';
 import { getCurrentUser } from '@/services/authService';
 import { getIsPremium } from '@/lib/premium';
 import { isFreePremiumAccessEnabled } from '@/lib/runtimePlatform';
+import { syncAdsenseForUser } from '@/lib/adsense';
 import { AnimatePresence } from 'framer-motion';
 import BottomNav, { getActiveTab, getAppTabs } from './BottomNav';
 import PageTransition from './PageTransition';
@@ -110,6 +111,16 @@ export default function AppShell() {
       window.removeEventListener('profilePictureUpdated', handleProfileUpdate);
     };
   }, []);
+
+  useEffect(() => {
+    if (!isUserResolved) {
+      return;
+    }
+
+    syncAdsenseForUser({
+      enabled: !getIsPremium(user) && !freePremiumAccess,
+    });
+  }, [freePremiumAccess, isUserResolved, user]);
 
   return (
     <div

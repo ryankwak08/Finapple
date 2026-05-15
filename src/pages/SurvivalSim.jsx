@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { AlertTriangle, Coins, Heart, Shield, Wallet } from 'lucide-react';
+import { AlertTriangle, Coins, Crown, Heart, Palette, Shield, Wallet } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useLanguage } from '@/lib/i18n';
 import useProgress from '@/lib/useProgress';
@@ -18,6 +18,8 @@ const LOAN_MAX_ACTIVE_PAYMENTS = 2;
 const FAIL_STRESS_THRESHOLD = 90;
 const DEFAULT_START_CASH = 240000;
 const AGE_BY_TURN = [18, 20, 23, 27, 34, 43, 54, 64, 71];
+const DEFAULT_CHARACTER_EMOJI = '🧑‍💼';
+const PREMIUM_CHARACTERS = ['🧑‍💼', '🧑‍🎓', '🧑‍💻', '🧑‍🍳', '🧑‍🔧', '🧑‍🎨'];
 
 const BEST_KEY = 'finapple:survival:best:v6';
 const GAME_KEY = 'finapple:survival:state:v6';
@@ -332,6 +334,7 @@ function baseGame() {
     lessons: [],
     nextTurnAt: null,
     employment: null,
+    characterEmoji: DEFAULT_CHARACTER_EMOJI,
     educationPath: 'school',
     employmentUnlockTurn: EMPLOYMENT_TURN,
     waitingWork: {
@@ -389,6 +392,7 @@ function loadGameState() {
     ...baseGame(),
     ...parsed,
     employment: savedEmployment,
+    characterEmoji: PREMIUM_CHARACTERS.includes(parsed.characterEmoji) ? parsed.characterEmoji : DEFAULT_CHARACTER_EMOJI,
     educationPath: parsed.educationPath || 'school',
     employmentUnlockTurn: Number.isInteger(parsed.employmentUnlockTurn) ? parsed.employmentUnlockTurn : EMPLOYMENT_TURN,
     waitingWork: {
@@ -457,7 +461,7 @@ export default function SurvivalSim() {
   const navigate = useNavigate();
   const location = useLocation();
   const { isEnglish } = useLanguage();
-  const { awardXp, getProgressSummary } = useProgress();
+  const { awardXp, getProgressSummary, isPremium } = useProgress();
   const [best, setBest] = useState(loadBestRecord);
   const [game, setGame] = useState(() => {
     const loaded = loadGameState();
@@ -481,6 +485,7 @@ export default function SurvivalSim() {
   const progress = Math.round((game.turn / TOTAL_TURNS) * 100);
   const progressSummary = getProgressSummary?.() || { completedCount: 0 };
   const availableEmploymentPlans = game.educationPath === 'early-work' ? EARLY_WORK_EMPLOYMENT_PLANS : EMPLOYMENT_PLANS;
+  const selectedCharacterEmoji = isPremium ? (game.characterEmoji || DEFAULT_CHARACTER_EMOJI) : DEFAULT_CHARACTER_EMOJI;
 
   const quizBuff = useMemo(() => {
     const completed = Number(progressSummary.completedCount || 0);
@@ -715,6 +720,17 @@ export default function SurvivalSim() {
         ].slice(0, 6),
       };
     });
+  };
+
+  const chooseCharacter = (emoji) => {
+    if (!isPremium || !PREMIUM_CHARACTERS.includes(emoji)) {
+      return;
+    }
+
+    setGame((prev) => ({
+      ...prev,
+      characterEmoji: emoji,
+    }));
   };
 
   const requestNotificationPermission = async () => {
@@ -1119,6 +1135,53 @@ export default function SurvivalSim() {
             <Hud icon={Coins} label={isEnglish ? 'Coins' : '코인'} value={`${game.coinBalance}`} tone="text-violet-700" />
           </div>
 
+          <div className="mt-3 rounded-2xl border border-border bg-card/80 p-3">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <Palette className="h-4 w-4 text-primary" />
+                <div>
+                  <p className="text-[12px] font-bold text-foreground">{isEnglish ? 'Character' : '캐릭터 커스터마이징'}</p>
+                  <p className="text-[11px] text-muted-foreground">
+                    {isPremium
+                      ? (isEnglish ? 'Choose your simulation character.' : '시뮬레이션 속 캐릭터를 선택하세요.')
+                      : (isEnglish ? 'Premium unlocks character customization.' : '프리미엄에서 캐릭터 꾸미기를 사용할 수 있어요.')}
+                  </p>
+                </div>
+              </div>
+              {!isPremium ? (
+                <button
+                  type="button"
+                  onClick={() => navigate('/premium')}
+                  className="inline-flex items-center gap-1 rounded-full bg-primary px-3 py-1.5 text-[12px] font-bold text-primary-foreground"
+                >
+                  <Crown className="h-3.5 w-3.5" />
+                  {isEnglish ? 'Go Premium' : '프리미엄'}
+                </button>
+              ) : null}
+            </div>
+            <div className="mt-3 grid grid-cols-6 gap-2">
+              {PREMIUM_CHARACTERS.map((emoji) => {
+                const selected = selectedCharacterEmoji === emoji;
+                return (
+                  <button
+                    key={emoji}
+                    type="button"
+                    onClick={() => chooseCharacter(emoji)}
+                    disabled={!isPremium}
+                    className={`flex aspect-square items-center justify-center rounded-xl border text-2xl transition ${
+                      selected
+                        ? 'border-primary bg-primary/10 ring-2 ring-primary/20'
+                        : 'border-border bg-white/80'
+                    } ${!isPremium ? 'opacity-45' : 'hover:border-primary/40'}`}
+                    aria-label={isEnglish ? `Choose character ${emoji}` : `${emoji} 캐릭터 선택`}
+                  >
+                    {emoji}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
 	          <div className="mt-3 rounded-2xl border border-border bg-card/80 p-3">
             <p className="text-[12px] font-semibold text-foreground">
               {isEnglish
@@ -1250,7 +1313,7 @@ export default function SurvivalSim() {
               event={currentEvent}
               isEnglish={isEnglish}
               onChoose={applyChoice}
-              workerEmoji={game.employment?.emoji || '🧑‍💼'}
+              workerEmoji={game.employment?.emoji || selectedCharacterEmoji}
               choicesLocked={game.turn === game.employmentUnlockTurn && !game.employment}
             />
           ) : null}
@@ -1268,7 +1331,7 @@ export default function SurvivalSim() {
 	              isEnglish={isEnglish}
 	              countdown={countdown}
 	              totalSeconds={Math.floor(TURN_WAIT_MS / 1000)}
-	              workerEmoji={game.employment?.emoji || '🧑‍💼'}
+	              workerEmoji={game.employment?.emoji || selectedCharacterEmoji}
 	              clickCount={game.waitingWork.clicks}
 	              earned={game.waitingWork.earned}
 	            />

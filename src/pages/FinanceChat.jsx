@@ -3,15 +3,35 @@ import { Link } from 'react-router-dom';
 import { fetchFinanceChat, fetchYouthCoreQuestions } from '@/api/financeChatClient';
 import { useLanguage } from '@/lib/i18n';
 import { getFinanceChatDisclaimer } from '@/lib/legalContent';
+import { useAuth } from '@/lib/AuthContext';
+import { getIsPremium } from '@/lib/premium';
+import { safeStorage } from '@/lib/safeStorage';
+import { FREE_DAILY_CHAT_LIMIT } from '@/lib/premiumFeatures';
+
+const todayKey = () => new Intl.DateTimeFormat('en-CA', {
+  timeZone: 'Asia/Seoul',
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+}).format(new Date());
+const getChatUsageKey = (email) => `finapple:finance-chat-usage:${String(email || 'guest').toLowerCase()}:${todayKey()}`;
 
 export default function FinanceChat() {
   const { locale, isEnglish } = useLanguage();
+  const { user } = useAuth();
+  const isPremium = getIsPremium(user);
   const disclaimer = getFinanceChatDisclaimer(isEnglish);
   const [query, setQuery] = useState('');
   const [result, setResult] = useState(null);
   const [coreQuestions, setCoreQuestions] = useState({});
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [dailyUsage, setDailyUsage] = useState(0);
+
+  useEffect(() => {
+    const usage = Number(safeStorage.getItem(getChatUsageKey(user?.email)) || 0);
+    setDailyUsage(Number.isFinite(usage) ? usage : 0);
+  }, [user?.email]);
 
   useEffect(() => {
     let active = true;
@@ -35,11 +55,23 @@ export default function FinanceChat() {
     const trimmedQuery = query.trim();
     if (!trimmedQuery) return;
 
+    if (!isPremium && dailyUsage >= FREE_DAILY_CHAT_LIMIT) {
+      setError(isEnglish
+        ? 'You used all free chatbot questions for today. Premium unlocks unlimited questions.'
+        : '오늘 무료 챗봇 질문을 모두 사용했어요. 프리미엄에서는 제한 없이 질문할 수 있어요.');
+      return;
+    }
+
       setIsLoading(true);
       setError('');
     try {
       const data = await fetchFinanceChat({ query: trimmedQuery }, locale);
       setResult(data);
+      if (!isPremium) {
+        const nextUsage = dailyUsage + 1;
+        safeStorage.setItem(getChatUsageKey(user?.email), String(nextUsage));
+        setDailyUsage(nextUsage);
+      }
     } catch (requestError) {
       setError(requestError?.message || '요청 처리 중 오류가 발생했습니다.');
     } finally {
@@ -60,6 +92,18 @@ export default function FinanceChat() {
         <p className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold leading-5 text-amber-900">
           {disclaimer}
         </p>
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <span className="rounded-full border border-border bg-card px-3 py-1 text-xs font-bold text-foreground">
+            {isPremium
+              ? (isEnglish ? 'Premium · unlimited chatbot' : '프리미엄 · 챗봇 무제한')
+              : (isEnglish ? `Free ${Math.max(0, FREE_DAILY_CHAT_LIMIT - dailyUsage)}/${FREE_DAILY_CHAT_LIMIT} left today` : `오늘 무료 ${Math.max(0, FREE_DAILY_CHAT_LIMIT - dailyUsage)}/${FREE_DAILY_CHAT_LIMIT}회 남음`)}
+          </span>
+          {!isPremium ? (
+            <Link to="/premium" className="text-xs font-semibold text-primary underline-offset-2 hover:underline">
+              {isEnglish ? 'Go Premium' : '무제한으로 사용하기'}
+            </Link>
+          ) : null}
+        </div>
         <Link to="/" className="mt-3 inline-block text-xs font-semibold text-primary underline-offset-2 hover:underline">
           {isEnglish ? 'Back to Study Home' : '학습 홈으로 돌아가기'}
         </Link>
@@ -76,7 +120,7 @@ export default function FinanceChat() {
 
         <button
           type="submit"
-          disabled={isLoading}
+          disabled={isLoading || (!isPremium && dailyUsage >= FREE_DAILY_CHAT_LIMIT)}
           className="mt-4 rounded-2xl bg-primary px-4 py-2 text-sm font-bold text-primary-foreground disabled:opacity-60"
         >
           {isLoading ? (isEnglish ? 'Loading...' : '조회 중...') : (isEnglish ? 'Ask Chatbot' : '챗봇에게 물어보기')}

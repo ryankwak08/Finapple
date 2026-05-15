@@ -9,6 +9,13 @@ const envFilePath = path.join(projectRoot, 'server/.env');
 const defaultSourceFilePath = path.join(projectRoot, 'tmp/synthetic-test-users-2000.json');
 const defaultOutputFilePath = path.join(projectRoot, 'tmp/synthetic-test-users-2000-updated.json');
 
+const syntheticSeasonProfile = {
+  xpSteps: 65,
+  streakModulo: 13,
+  completedModulo: 23,
+  resolvedReviewModulo: 12,
+};
+
 const parseDotenv = async (filePath) => {
   try {
     const raw = await readFile(filePath, 'utf-8');
@@ -59,8 +66,8 @@ const getSyntheticIndex = (user, fallbackIndex) => {
   return match ? Number(match[1]) : fallbackIndex + 1;
 };
 
-const createSeededTensXp = (index, seed = 20260505) => {
-  const value = (((index + seed) * 1103515245 + 12345) >>> 0) % 101;
+const createSeededTensXp = (index, seed = 20260505, maxSteps = syntheticSeasonProfile.xpSteps) => {
+  const value = (((index + seed) * 1103515245 + 12345) >>> 0) % (maxSteps + 1);
   return value * 10;
 };
 
@@ -70,18 +77,21 @@ const buildScore = ({ xp, streakCount = 1, completedCount = 0, resolvedReviewCou
   xp + (Number(streakCount || 1) * 120) + (Number(completedCount || 0) * 35) + (Number(resolvedReviewCount || 0) * 20)
 );
 
-const getLeaderboardEntry = async (supabaseAdmin, user) => {
-  const { data, error } = await supabaseAdmin
-    .from('leaderboard_entries')
-    .select('streak_count, completed_count, resolved_review_count')
-    .eq('user_id', user.userId)
-    .maybeSingle();
+const buildSyntheticSeasonStats = (index) => {
+  const xp = createSeededTensXp(index);
+  const streakCount = 1 + (index % syntheticSeasonProfile.streakModulo);
+  const completedCount = 1 + (index % syntheticSeasonProfile.completedModulo);
+  const resolvedReviewCount = index % syntheticSeasonProfile.resolvedReviewModulo;
+  const score = buildScore({ xp, streakCount, completedCount, resolvedReviewCount });
 
-  if (error) {
-    throw error;
-  }
-
-  return data || {};
+  return {
+    xp,
+    streakCount,
+    bestStreak: streakCount + (index % 9),
+    completedCount,
+    resolvedReviewCount,
+    score,
+  };
 };
 
 const updateAuthNickname = async (supabaseAdmin, user, nickname) => {
@@ -137,21 +147,18 @@ const isTrackScoreColumnMissing = (error) => {
   );
 };
 
-const updateLeaderboard = async (supabaseAdmin, user, nickname, xp) => {
-  const entry = await getLeaderboardEntry(supabaseAdmin, user);
-  const score = buildScore({
-    xp,
-    streakCount: entry.streak_count,
-    completedCount: entry.completed_count,
-    resolvedReviewCount: entry.resolved_review_count,
-  });
+const updateLeaderboard = async (supabaseAdmin, user, nickname, stats) => {
   const payload = {
     display_name: nickname,
-    xp,
-    score,
-    score_youth: score,
-    score_start: Math.floor(score * 0.82),
-    score_one: Math.floor(score * 0.62),
+    xp: stats.xp,
+    streak_count: stats.streakCount,
+    best_streak: stats.bestStreak,
+    completed_count: stats.completedCount,
+    resolved_review_count: stats.resolvedReviewCount,
+    score: stats.score,
+    score_youth: stats.score,
+    score_start: Math.floor(stats.score * 0.82),
+    score_one: Math.floor(stats.score * 0.62),
     updated_at: new Date().toISOString(),
   };
 
@@ -172,7 +179,7 @@ const updateLeaderboard = async (supabaseAdmin, user, nickname, xp) => {
     throw result.error;
   }
 
-  return score;
+  return stats.score;
 };
 
 const main = async () => {
@@ -182,16 +189,17 @@ const main = async () => {
     ? new Set((JSON.parse(await readFile(options.onlyFailedFrom, 'utf-8')).failed || []).map((user) => user.email))
     : null;
   const users = (source.created || [])
-    .filter((user) => user.email?.startsWith('synthetic+'))
+    .filter((user) => user.email?.endsWith('@synthetic.test.finapple.app'))
     .filter((user) => !failedEmails || failedEmails.has(user.email))
     .sort((a, b) => a.email.localeCompare(b.email));
 
   const plan = users.map((user, index) => {
     const syntheticIndex = getSyntheticIndex(user, index);
+    const stats = buildSyntheticSeasonStats(syntheticIndex);
     return {
       ...user,
       nickname: removeTestMarker(user.nickname),
-      xp: createSeededTensXp(syntheticIndex),
+      ...stats,
     };
   });
 
@@ -222,7 +230,7 @@ const main = async () => {
   for (const user of plan) {
     try {
       await updateProfileNickname(supabaseAdmin, user, user.nickname);
-      const score = await updateLeaderboard(supabaseAdmin, user, user.nickname, user.xp);
+      const score = await updateLeaderboard(supabaseAdmin, user, user.nickname, user);
       await updateAuthNickname(supabaseAdmin, user, user.nickname);
 
       updated.push({

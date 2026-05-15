@@ -15,17 +15,26 @@ const DEFAULT_PREFIX = 'synthetic';
 const DEFAULT_OUTPUT_FILE_PATH = path.resolve(__dirname, '../tmp/synthetic-test-users.json');
 
 const sampleSchools = [
-  { school_name: '용인한국외국어대학교부설고등학교', school_code: '7530167', education_office_code: 'J10', education_office_name: '경기도교육청', school_type: '고등학교', school_region: '경기도' },
-  { school_name: '대전과학고등학교', school_code: '7430310', education_office_code: 'G10', education_office_name: '대전광역시교육청', school_type: '고등학교', school_region: '대전광역시' },
-  { school_name: '서울과학고등학교', school_code: '7010058', education_office_code: 'B10', education_office_name: '서울특별시교육청', school_type: '고등학교', school_region: '서울특별시' },
-  { school_name: '민족사관고등학교', school_code: '7800085', education_office_code: 'K10', education_office_name: '강원특별자치도교육청', school_type: '고등학교', school_region: '강원특별자치도' },
-  { school_name: '하나고등학교', school_code: '7011169', education_office_code: 'B10', education_office_name: '서울특별시교육청', school_type: '고등학교', school_region: '서울특별시' },
-  { school_name: '인천과학예술영재학교', school_code: '7310633', education_office_code: 'E10', education_office_name: '인천광역시교육청', school_type: '고등학교', school_region: '인천광역시' },
-  { school_name: '경기과학고등학교', school_code: '7530541', education_office_code: 'J10', education_office_name: '경기도교육청', school_type: '고등학교', school_region: '경기도' },
-  { school_name: '세종과학예술영재학교', school_code: '9300138', education_office_code: 'I10', education_office_name: '세종특별자치시교육청', school_type: '고등학교', school_region: '세종특별자치시' },
-  { school_name: '부산과학고등학교', school_code: '7150658', education_office_code: 'C10', education_office_name: '부산광역시교육청', school_type: '고등학교', school_region: '부산광역시' },
-  { school_name: '한국과학영재학교', school_code: '7150115', education_office_code: 'C10', education_office_name: '부산광역시교육청', school_type: '고등학교', school_region: '부산광역시' },
+  { school_name: '청덕고등학교', school_code: '7530884', education_office_code: 'J10', education_office_name: '경기도교육청', school_type: '고등학교', school_region: '경기도' },
+  { school_name: '태원고등학교', school_code: '7530210', education_office_code: 'J10', education_office_name: '경기도교육청', school_type: '고등학교', school_region: '경기도' },
+  { school_name: '서현고등학교', school_code: '7530081', education_office_code: 'J10', education_office_name: '경기도교육청', school_type: '고등학교', school_region: '경기도' },
+  { school_name: '계원예술고등학교', school_code: '7530144', education_office_code: 'J10', education_office_name: '경기도교육청', school_type: '고등학교', school_region: '경기도' },
+  { school_name: '야탑고등학교', school_code: '7530548', education_office_code: 'J10', education_office_name: '경기도교육청', school_type: '고등학교', school_region: '경기도' },
+  { school_name: '한양대학교사범대학부속고등학교', school_code: '7010793', education_office_code: 'B10', education_office_name: '서울특별시교육청', school_type: '고등학교', school_region: '서울특별시' },
+  { school_name: '하나고등학교', school_code: '7010918', education_office_code: 'B10', education_office_name: '서울특별시교육청', school_type: '고등학교', school_region: '서울특별시' },
+  { school_name: '용산고등학교', school_code: '7010103', education_office_code: 'B10', education_office_name: '서울특별시교육청', school_type: '고등학교', school_region: '서울특별시' },
+  { school_name: '서울미술고등학교', school_code: '7010185', education_office_code: 'B10', education_office_name: '서울특별시교육청', school_type: '고등학교', school_region: '서울특별시' },
+  { school_name: '대원외국어고등학교', school_code: '7010143', education_office_code: 'B10', education_office_name: '서울특별시교육청', school_type: '고등학교', school_region: '서울특별시' },
 ];
+
+const sampleSchoolWeights = [310, 275, 245, 225, 205, 185, 165, 145, 130, 115];
+
+const syntheticSeasonProfile = {
+  xpSteps: 65,
+  streakModulo: 13,
+  completedModulo: 23,
+  resolvedReviewModulo: 12,
+};
 
 const koreanNames = [
   '민준', '서준', '도윤', '예준', '시우', '하준', '주원', '지호', '지후', '준우',
@@ -166,8 +175,8 @@ const createSeededIndexSet = (count, size, seed = 20260505) => {
   return new Set(values.slice(0, size));
 };
 
-const createSeededTensXp = (index, seed = 20260505) => {
-  const value = (((index + seed) * 1103515245 + 12345) >>> 0) % 101;
+const createSeededTensXp = (index, seed = 20260505, maxSteps = syntheticSeasonProfile.xpSteps) => {
+  const value = (((index + seed) * 1103515245 + 12345) >>> 0) % (maxSteps + 1);
   return value * 10;
 };
 
@@ -209,12 +218,23 @@ const buildHandleLikeNickname = (number, runId) => {
   return `${root}${yearSuffix}${suffix}${cycle > 0 ? cycle : ''}`;
 };
 
-const getSyntheticSchool = (index, schoolStyle) => {
+const getSyntheticSchool = (index, schoolStyle, count = 0) => {
   if (schoolStyle !== 'competition-sample') {
     return null;
   }
 
-  return sampleSchools[(index - 1) % sampleSchools.length];
+  const totalWeight = sampleSchoolWeights.reduce((sum, weight) => sum + weight, 0);
+  const target = ((index - 1) / Math.max(1, count)) * totalWeight;
+  let cursor = 0;
+
+  for (let i = 0; i < sampleSchools.length; i += 1) {
+    cursor += sampleSchoolWeights[i] || 1;
+    if (target < cursor) {
+      return sampleSchools[i];
+    }
+  }
+
+  return sampleSchools[sampleSchools.length - 1];
 };
 
 const buildSyntheticUsers = ({
@@ -252,7 +272,7 @@ const buildSyntheticUsers = ({
       nickname,
       isPremium,
       syntheticIndex: number,
-      school: getSyntheticSchool(number, schoolStyle),
+      school: getSyntheticSchool(number, schoolStyle, count),
     };
   });
 };
@@ -267,10 +287,10 @@ const getTodaySeoulDate = () => new Intl.DateTimeFormat('en-CA', {
 const buildLeaderboardPayload = ({ userId, email, nickname, index, isPremium, school }) => {
   const season = getCurrentSeasonMeta();
   const xp = createSeededTensXp(index);
-  const streakCount = 1 + (index % 21);
+  const streakCount = 1 + (index % syntheticSeasonProfile.streakModulo);
   const bestStreak = streakCount + (index % 9);
-  const completedCount = 2 + (index % 38);
-  const resolvedReviewCount = index % 18;
+  const completedCount = 1 + (index % syntheticSeasonProfile.completedModulo);
+  const resolvedReviewCount = index % syntheticSeasonProfile.resolvedReviewModulo;
   const score = xp + (streakCount * 120) + (completedCount * 35) + (resolvedReviewCount * 20);
 
   return {
