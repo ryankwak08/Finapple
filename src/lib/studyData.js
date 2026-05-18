@@ -993,6 +993,51 @@ export const lifeStudyTopics = [
     ],
     pdfUrl: '/textbooks/year-end-tax-2026.pdf',
   },
+  {
+    id: 'college-job-seekers-attention',
+    icon: '🎒',
+    category: '금융 상식',
+    title: '대학생·취업준비생 주목!',
+    subtitle: '대학생 · 취업준비생을 위한 지원 정보',
+    summary: '대학생과 취업준비생이 놓치기 쉬운 지원 제도와 준비 체크포인트를 Finapple Original 자료로 정리했습니다.',
+    goals: [
+      '대학생과 취업준비생에게 필요한 지원 정보를 한눈에 확인한다',
+      '학업, 취업 준비, 생활비 부담을 나누어 필요한 도움을 찾는다',
+      '원문 자료를 보며 지금 신청하거나 확인해야 할 항목을 정리한다',
+    ],
+    concepts: [
+      { term: '지원 제도 탐색', definition: '내 상황에 맞는 장학, 금융, 취업 준비 지원을 구분해 찾아보는 과정입니다.' },
+      { term: '취업 준비 비용', definition: '자격증, 교육, 면접, 교통, 생활비처럼 취업 준비 과정에서 발생하는 직접·간접 비용입니다.' },
+      { term: '신청 체크리스트', definition: '대상 요건, 신청 기간, 제출 서류, 공식 신청 경로를 순서대로 확인하는 목록입니다.' },
+    ],
+    learningPoints: [
+      {
+        emoji: '🎓',
+        title: '대학생과 취업준비생은 지원 목적부터 나눠보기',
+        content: '등록금, 생활비, 취업 역량, 실무 경험처럼 필요한 도움의 목적이 다르면 찾아야 할 제도도 달라집니다. 먼저 지금 가장 부담되는 항목을 하나로 좁히면 자료를 훨씬 빠르게 읽을 수 있습니다.',
+      },
+      {
+        emoji: '🧾',
+        title: '신청 전에는 자격요건과 제출서류를 먼저 확인하기',
+        content: '대부분의 지원 제도는 나이, 재학 여부, 소득 기준, 미취업 여부, 신청 기간이 함께 걸립니다. 관심 있는 제도가 보이면 공식 페이지에서 대상 요건과 제출서류를 먼저 확인하는 습관이 중요합니다.',
+      },
+      {
+        emoji: '📌',
+        title: '원문 자료를 저장해두고 체크리스트처럼 쓰기',
+        content: '이 자료는 빠르게 넘겨보는 카드형 안내에 가깝습니다. 원문 PDF를 열어 필요한 항목을 표시해두고, 신청 가능 여부와 다음 행동을 따로 적어두면 실제 준비로 이어지기 쉽습니다.',
+      },
+    ],
+    coverImage: '/cardnews/college-job-seekers-attention/1.png',
+    cardNews: [
+      { src: '/cardnews/college-job-seekers-attention/1.png', alt: '대학생 취업준비생 주목 카드뉴스 1번 슬라이드', label: '표지' },
+      { src: '/cardnews/college-job-seekers-attention/2.png', alt: '대학생 취업준비생 주목 카드뉴스 2번 슬라이드', label: '정책 1' },
+      { src: '/cardnews/college-job-seekers-attention/3.png', alt: '대학생 취업준비생 주목 카드뉴스 3번 슬라이드', label: '정책 2' },
+      { src: '/cardnews/college-job-seekers-attention/4.png', alt: '대학생 취업준비생 주목 카드뉴스 4번 슬라이드', label: '정책 3' },
+      { src: '/cardnews/college-job-seekers-attention/5.png', alt: '대학생 취업준비생 주목 카드뉴스 5번 슬라이드', label: '정책 4' },
+      { src: '/cardnews/college-job-seekers-attention/6.png', alt: '대학생 취업준비생 주목 카드뉴스 6번 슬라이드', label: '정리' },
+    ],
+    pdfUrl: '',
+  },
 
   {
     id: 'kiep-global-issues-comic-2026',
@@ -1126,6 +1171,11 @@ const lifeTopicDisplayMetaById = {
     badge: 'Finapple Original',
     readTime: '3분',
     updatedAt: '2026-04',
+  },
+  'college-job-seekers-attention': {
+    badge: 'Finapple Original',
+    readTime: '3분',
+    updatedAt: '2026-05',
   },
 };
 

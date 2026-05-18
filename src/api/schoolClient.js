@@ -12,6 +12,12 @@ async function fetchWithTimeout(url, options = {}) {
       ...options,
       signal: controller.signal,
     });
+  } catch (error) {
+    if (error?.name === 'AbortError') {
+      throw new Error('학교 검색 응답이 지연되고 있습니다. 잠시 후 다시 시도해주세요.');
+    }
+
+    throw new Error('학교 검색 서버에 연결하지 못했습니다. 네트워크 상태를 확인한 뒤 다시 시도해주세요.');
   } finally {
     window.clearTimeout(timeoutId);
   }

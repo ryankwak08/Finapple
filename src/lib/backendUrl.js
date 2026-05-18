@@ -20,10 +20,21 @@ const getBrowserOrigin = () => {
     return '';
   }
 
-  return window.location.origin.replace(/\/$/, '');
+  const origin = window.location.origin.replace(/\/$/, '');
+  return /^https?:\/\//i.test(origin) ? origin : '';
 };
 
+const PRODUCTION_BACKEND_URL = 'https://finapple-api.onrender.com';
+
 export const BACKEND_URL = (() => {
+  const configuredUrl = normalizeUrl(import.meta.env.VITE_BACKEND_URL);
+  const browserOrigin = getBrowserOrigin();
+  const hasNonHttpBrowserOrigin = typeof window !== 'undefined' && window.location?.origin && !browserOrigin;
+
+  if (hasNonHttpBrowserOrigin) {
+    return configuredUrl || PRODUCTION_BACKEND_URL;
+  }
+
   if (import.meta.env.DEV) {
     const localDevUrl = normalizeUrl(import.meta.env.VITE_LOCAL_BACKEND_URL);
     if (localDevUrl) {
@@ -35,19 +46,17 @@ export const BACKEND_URL = (() => {
       .trim() === 'true';
 
     if (useRemoteBackendInDev) {
-      const configuredDevUrl = normalizeUrl(import.meta.env.VITE_BACKEND_URL);
-      if (configuredDevUrl) {
-        return configuredDevUrl;
+      if (configuredUrl) {
+        return configuredUrl;
       }
     }
 
     return 'http://localhost:3000';
   }
 
-  const configuredUrl = normalizeUrl(import.meta.env.VITE_BACKEND_URL);
   if (configuredUrl) {
     return configuredUrl;
   }
 
-  return getBrowserOrigin();
+  return browserOrigin || PRODUCTION_BACKEND_URL;
 })();

@@ -51,7 +51,7 @@ export default function Study() {
       const sourceText = `${topic.sourceLabel || ''} ${topic.sourceUrl || ''}`.toLowerCase();
       return sourceText.includes('kiep') || sourceText.includes('대외경제정책연구원');
     });
-    const originalIssues = issues.filter((topic) => (topic.badge || '').toLowerCase() === 'finapple original');
+    const originalIssues = lifeStudyTopicsCatalog.filter((topic) => (topic.badge || '').toLowerCase() === 'finapple original');
 
     const featuredKiepIssue = kiepIssues.find((topic) => topic.featured) || kiepIssues[0] || null;
     const compactKiepIssues = kiepIssues.filter((topic) => topic.id !== featuredKiepIssue?.id);
