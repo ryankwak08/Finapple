@@ -12,6 +12,7 @@ import PremiumBadge from './PremiumBadge';
 import SchoolOnboardingPrompt from './SchoolOnboardingPrompt';
 import { safeStorage } from '@/lib/safeStorage';
 import { useLanguage } from '@/lib/i18n';
+import { BUSINESS_INFO_ITEMS } from '@/lib/legalContent';
 import { TRACKS, useTrack } from '@/lib/trackContext';
 
 const getUsageStorageKey = (email) => `totalUsageSeconds:${email || 'guest'}`;
@@ -322,6 +323,26 @@ export default function AppShell() {
                       <Outlet />
                     </PageTransition>
                   </AnimatePresence>
+
+                  <footer className="mt-8 border-t border-border/70 px-3 py-6 text-[11px] leading-5 text-muted-foreground md:px-0">
+                    <div className="grid gap-1 sm:grid-cols-2 lg:grid-cols-3">
+                      {BUSINESS_INFO_ITEMS.map(({ label, value }) => (
+                        <p key={label} className="min-w-0 break-words">
+                          <span className="font-semibold text-foreground/80">{label}</span>
+                          <span className="mx-1 text-border">|</span>
+                          {value}
+                        </p>
+                      ))}
+                    </div>
+                    <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1">
+                      <Link to="/terms" className="font-semibold text-foreground/80 hover:text-foreground">
+                        이용약관
+                      </Link>
+                      <Link to="/privacy" className="font-semibold text-foreground/80 hover:text-foreground">
+                        개인정보 처리방침
+                      </Link>
+                    </div>
+                  </footer>
                 </div>
               </main>
             </div>

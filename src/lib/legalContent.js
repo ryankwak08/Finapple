@@ -1,6 +1,22 @@
 export const SERVICE_EFFECTIVE_DATE = '2026년 4월 24일';
 
-export const CUSTOMER_SUPPORT_EMAIL = 'ryankwak08@gmail.com';
+export const BUSINESS_INFO = {
+  companyName: '파이내플 (Finapple)',
+  businessRegistrationNumber: '473-61-00738',
+  representativeName: '김윤하',
+  businessAddress: '경기도 광명시 시청로 50, 110동 1401호(철산동, 철산역 롯데캐슬&SK VIEW 클래스티지(아))',
+  contactEmail: 'finapplexyz@gmail.com',
+};
+
+export const CUSTOMER_SUPPORT_EMAIL = BUSINESS_INFO.contactEmail;
+
+export const BUSINESS_INFO_ITEMS = [
+  { label: '상호', value: BUSINESS_INFO.companyName },
+  { label: '사업자등록번호', value: BUSINESS_INFO.businessRegistrationNumber },
+  { label: '대표자', value: BUSINESS_INFO.representativeName },
+  { label: '사업장 주소', value: BUSINESS_INFO.businessAddress },
+  { label: '연락처', value: BUSINESS_INFO.contactEmail },
+];
 
 export const TERMS_SECTIONS = [
   {
@@ -55,6 +71,10 @@ export const TERMS_SECTIONS = [
       `서비스 관련 문의는 ${CUSTOMER_SUPPORT_EMAIL}로 접수할 수 있습니다.`,
       '본 약관에 명시되지 않은 사항은 관계 법령 및 일반 상관례에 따릅니다.',
     ],
+  },
+  {
+    title: '제8조 사업자 정보',
+    paragraphs: BUSINESS_INFO_ITEMS.map(({ label, value }) => `${label}: ${value}`),
   },
 ];
 
@@ -129,6 +149,10 @@ export const PRIVACY_SECTIONS = [
       `개인정보 보호 관련 문의 및 고충 처리는 ${CUSTOMER_SUPPORT_EMAIL}로 접수할 수 있습니다.`,
       '본 처리방침이 변경되는 경우 서비스 내 공지 또는 별도 고지를 통해 안내합니다.',
     ],
+  },
+  {
+    title: '9. 사업자 정보',
+    paragraphs: BUSINESS_INFO_ITEMS.map(({ label, value }) => `${label}: ${value}`),
   },
 ];
 
