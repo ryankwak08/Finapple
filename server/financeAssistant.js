@@ -195,7 +195,17 @@ const DOCUMENTS = [
 
 const normalize = (value = '') => String(value).toLowerCase().trim();
 const isEnglishLocale = (locale = 'ko') => String(locale || 'ko').toLowerCase().startsWith('en');
-const getKeywordsByLocale = (locale = 'ko') => (isEnglishLocale(locale) ? INTENT_KEYWORDS_EN : INTENT_KEYWORDS_KO);
+const mergeIntentKeywords = (...tables) => {
+  const merged = {};
+  tables.forEach((table) => {
+    Object.entries(table).forEach(([intent, keywords]) => {
+      merged[intent] = [...(merged[intent] || []), ...keywords];
+    });
+  });
+  return merged;
+};
+const ALL_INTENT_KEYWORDS = mergeIntentKeywords(INTENT_KEYWORDS_KO, INTENT_KEYWORDS_EN);
+const getKeywordsByLocale = () => ALL_INTENT_KEYWORDS;
 
 const localizeDoc = (doc, locale = 'ko') => {
   if (!isEnglishLocale(locale)) {
