@@ -1,4 +1,4 @@
-import { createContext, useEffect, useState, useContext } from 'react';
+import { createContext, useCallback, useEffect, useRef, useState, useContext } from 'react';
 import { supabase } from '@/lib/supabase';
 import { syncUserProfileRecord } from '@/services/profileService';
 
@@ -14,6 +14,17 @@ const syncProfileSafely = (user) => {
   });
 };
 
+const getProfileSyncKey = (user) => JSON.stringify({
+  id: user?.id || '',
+  email: user?.email || '',
+  nickname: user?.user_metadata?.nickname || '',
+  fullName: user?.user_metadata?.full_name || '',
+  avatar: user?.user_metadata?.profile_picture || '',
+  schoolName: user?.user_metadata?.school_name || '',
+  schoolCode: user?.user_metadata?.school_code || '',
+  educationOfficeCode: user?.user_metadata?.education_office_code || '',
+});
+
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(emptyUser);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -21,13 +32,18 @@ export const AuthProvider = ({ children }) => {
   const [isLoadingPublicSettings, setIsLoadingPublicSettings] = useState(false);
   const [authError, setAuthError] = useState(null);
   const [appPublicSettings, setAppPublicSettings] = useState(null);
+  const lastProfileSyncKeyRef = useRef('');
 
-  const applyAuthenticatedUser = (nextUser) => {
+  const applyAuthenticatedUser = useCallback((nextUser) => {
     if (getIsVerifiedEmailUser(nextUser)) {
       setUser(nextUser);
       setIsAuthenticated(true);
       setAuthError(null);
-      syncProfileSafely(nextUser);
+      const profileSyncKey = getProfileSyncKey(nextUser);
+      if (profileSyncKey !== lastProfileSyncKeyRef.current) {
+        lastProfileSyncKeyRef.current = profileSyncKey;
+        syncProfileSafely(nextUser);
+      }
       return;
     }
 
@@ -38,22 +54,26 @@ export const AuthProvider = ({ children }) => {
       message: '이메일 인증을 완료한 뒤 로그인해주세요.',
       email: nextUser?.email,
     });
-  };
+  }, []);
 
-  const applySignedOutState = () => {
+  const applySignedOutState = useCallback(() => {
     setUser(emptyUser);
     setIsAuthenticated(false);
     setAuthError(getAuthRequiredError());
-  };
+  }, []);
 
-  const refreshUser = async () => {
-    setIsLoadingAuth(true);
+  const refreshUser = useCallback(async ({ showLoading = true } = {}) => {
+    if (showLoading) {
+      setIsLoadingAuth(true);
+    }
     try {
-      const { data, error } = await supabase.auth.getSession();
-      if (error) throw error;
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError) throw sessionError;
 
-      if (data?.session?.user) {
-        applyAuthenticatedUser(data.session.user);
+      if (sessionData?.session?.user) {
+        const { data: userData, error: userError } = await supabase.auth.getUser();
+        if (userError) throw userError;
+        applyAuthenticatedUser(userData?.user || sessionData.session.user);
       } else {
         applySignedOutState();
       }
@@ -61,9 +81,11 @@ export const AuthProvider = ({ children }) => {
       console.error('Auth check failed:', error);
       applySignedOutState();
     } finally {
-      setIsLoadingAuth(false);
+      if (showLoading) {
+        setIsLoadingAuth(false);
+      }
     }
-  };
+  }, [applyAuthenticatedUser, applySignedOutState]);
 
   useEffect(() => {
     refreshUser();
@@ -76,22 +98,36 @@ export const AuthProvider = ({ children }) => {
           event === 'USER_UPDATED') &&
         session?.user
       ) {
-        applyAuthenticatedUser(session.user);
-        setIsLoadingAuth(false);
+        void refreshUser({ showLoading: false });
       } else if (event === 'SIGNED_OUT') {
         applySignedOutState();
         setIsLoadingAuth(false);
       }
     });
 
+    const handleFocus = () => {
+      void refreshUser({ showLoading: false });
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        void refreshUser({ showLoading: false });
+      }
+    };
+
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
     return () => {
       listener?.subscription?.unsubscribe && listener.subscription.unsubscribe();
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, []);
+  }, [applySignedOutState, refreshUser]);
 
-  const checkAppState = async () => {
-    await refreshUser();
-  };
+  const checkAppState = useCallback(async () => {
+    await refreshUser({ showLoading: false });
+  }, [refreshUser]);
 
   const logout = async (shouldRedirect = true) => {
     try {

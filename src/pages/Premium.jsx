@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Ban, Check, Crown, Heart, Loader2, MessageCircle, NotebookPen, Palette, Sparkles } from 'lucide-react';
 import {
@@ -16,13 +16,17 @@ const formatKrw = (value) => new Intl.NumberFormat('ko-KR').format(value);
 
 export default function Premium() {
   const navigate = useNavigate();
-  const { user, isAuthenticated, navigateToLogin } = useAuth();
+  const { user, isAuthenticated, navigateToLogin, checkAppState } = useAuth();
   const [isStartingCheckout, setIsStartingCheckout] = useState(false);
   const [checkoutError, setCheckoutError] = useState('');
   const [selectedPlanCode, setSelectedPlanCode] = useState('monthly');
   const paidProductsEnabled = arePaidProductsEnabled();
   const isPremium = getIsPremium(user);
   const selectedPlan = getPremiumPlan(selectedPlanCode);
+
+  useEffect(() => {
+    void checkAppState();
+  }, [checkAppState]);
 
   const benefits = useMemo(() => {
     const icons = {

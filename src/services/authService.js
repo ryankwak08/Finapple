@@ -152,11 +152,17 @@ const signInWithNativeOAuthProvider = async (provider) => {
 };
 
 export const getCurrentUser = async () => {
-  const { data, error } = await supabase.auth.getSession();
+  const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+  if (sessionError) throw sessionError;
+
+  if (!sessionData?.session?.user) {
+    return null;
+  }
+
+  const { data, error } = await supabase.auth.getUser();
   if (error) throw error;
 
-  const currentUser = data?.session?.user;
-
+  const currentUser = data?.user || sessionData.session.user;
   if (!currentUser) {
     return null;
   }

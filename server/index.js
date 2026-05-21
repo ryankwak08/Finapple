@@ -1609,12 +1609,16 @@ app.post('/api/admin/user', createRateLimiter({ key: 'admin-user-update', limit:
       }
 
       const currentMetadata = targetUserData?.user?.user_metadata || {};
+      const nowIso = new Date().toISOString();
       const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(profile.user_id, {
         user_metadata: {
           ...currentMetadata,
           is_premium: isPremium,
-          premium_updated_at: new Date().toISOString(),
+          premium_provider: isPremium ? 'manual-admin' : currentMetadata.premium_provider,
+          premium_status: isPremium ? 'active' : 'manual_disabled',
+          premium_updated_at: nowIso,
           premium_updated_by_admin: authData.user.email || authData.user.id,
+          ...(!isPremium ? { premium_expires_at: null } : {}),
         },
       });
 
