@@ -239,6 +239,7 @@ const isAllowedOrigin = (origin) => {
     const { hostname } = new URL(origin);
     return hostname === 'localhost'
       || hostname === '127.0.0.1'
+      || (hostname.startsWith('finapple') && hostname.endsWith('.vercel.app'))
       || (allowVercelPreviewOrigins && hostname.endsWith('.vercel.app'));
   } catch {
     return false;
