@@ -58,5 +58,5 @@ export const BACKEND_URL = (() => {
     return configuredUrl;
   }
 
-  return browserOrigin || PRODUCTION_BACKEND_URL;
+  return PRODUCTION_BACKEND_URL;
 })();

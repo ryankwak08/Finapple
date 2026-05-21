@@ -33,4 +33,17 @@ describe('BACKEND_URL', () => {
 
     expect(BACKEND_URL).toBe('https://finapple-api.onrender.com');
   });
+
+  it('uses the production backend instead of the site origin in production', async () => {
+    vi.stubEnv('DEV', false);
+    vi.stubGlobal('window', {
+      location: {
+        origin: 'https://finapple.xyz',
+      },
+    });
+
+    const { BACKEND_URL } = await import('../backendUrl.js');
+
+    expect(BACKEND_URL).toBe('https://finapple-api.onrender.com');
+  });
 });
