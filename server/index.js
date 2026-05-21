@@ -235,6 +235,10 @@ const isAllowedOrigin = (origin) => {
     return true;
   }
 
+  if (String(origin).startsWith('vscode-webview://')) {
+    return true;
+  }
+
   try {
     const { hostname } = new URL(origin);
     return hostname === 'localhost'
@@ -287,6 +291,20 @@ const getRequestAccessToken = (req) => {
   return String(req.body?.accessToken || '').trim();
 };
 
+const withTimeout = async (promise, timeoutMs, timeoutValue = null) => {
+  let timeoutId;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise((resolve) => {
+        timeoutId = setTimeout(() => resolve(timeoutValue), timeoutMs);
+      }),
+    ]);
+  } finally {
+    clearTimeout(timeoutId);
+  }
+};
+
 const isAdminAuthUser = (user) => {
   if (!user) {
     return false;
@@ -298,6 +316,26 @@ const isAdminAuthUser = (user) => {
   }
 
   return Boolean(user.email && adminEmails.includes(String(user.email).toLowerCase()));
+};
+
+const getIsPremiumAuthUser = (user) => {
+  if (isAdminAuthUser(user)) {
+    return true;
+  }
+
+  const metadata = user?.user_metadata || {};
+  const premiumFlag = Boolean(metadata.is_premium ?? user?.is_premium ?? false);
+  const expiresAt = metadata.premium_expires_at || user?.premium_expires_at;
+
+  if (!premiumFlag) {
+    return false;
+  }
+
+  if (expiresAt && Number.isFinite(Date.parse(expiresAt))) {
+    return Date.parse(expiresAt) > Date.now();
+  }
+
+  return true;
 };
 
 const validateHearts = (value) => {
@@ -336,7 +374,13 @@ const getOptionalAuthUser = async (req) => {
     return null;
   }
 
-  const { data, error } = await supabaseAdmin.auth.getUser(accessToken);
+  const authResult = await withTimeout(supabaseAdmin.auth.getUser(accessToken), 3500, { timedOut: true });
+  if (authResult?.timedOut) {
+    console.warn('Optional Supabase auth lookup timed out; continuing as anonymous for finance chat.');
+    return null;
+  }
+
+  const { data, error } = authResult || {};
   if (error) {
     return null;
   }
@@ -345,7 +389,7 @@ const getOptionalAuthUser = async (req) => {
 };
 
 const checkFinanceChatDailyUsage = ({ req, user }) => {
-  if (Boolean(user?.user_metadata?.is_premium)) {
+  if (getIsPremiumAuthUser(user)) {
     return { allowed: true, premium: true, remaining: null };
   }
 
@@ -372,8 +416,8 @@ const checkFinanceChatDailyUsage = ({ req, user }) => {
 const resolveUserHeartsState = async (authUser) => {
   const today = getTodaySeoulDate();
   const userEmail = authUser?.email || '';
-  const premium = Boolean(authUser?.user_metadata?.is_premium);
-  const { data, error } = await supabaseAdmin
+  const premium = getIsPremiumAuthUser(authUser);
+  let { data, error } = await supabaseAdmin
     .from('user_progress_state')
     .select('hearts, hearts_last_reset, updated_at')
     .eq('user_id', authUser.id)
@@ -381,6 +425,34 @@ const resolveUserHeartsState = async (authUser) => {
 
   if (error && error.code !== 'PGRST116' && error.code !== '42P01') {
     throw error;
+  }
+
+  if (!data && userEmail && error?.code !== '42P01') {
+    const { data: emailState, error: emailStateError } = await supabaseAdmin
+      .from('user_progress_state')
+      .select('user_id, hearts, hearts_last_reset, updated_at')
+      .eq('user_email', userEmail)
+      .maybeSingle();
+
+    if (emailStateError && emailStateError.code !== 'PGRST116') {
+      throw emailStateError;
+    }
+
+    if (emailState) {
+      const { error: reassignError } = await supabaseAdmin
+        .from('user_progress_state')
+        .update({
+          user_id: authUser.id,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('user_email', userEmail);
+
+      if (reassignError) {
+        throw reassignError;
+      }
+
+      data = emailState;
+    }
   }
 
   let hearts = data?.hearts ?? 5;
@@ -448,7 +520,7 @@ const buildManagedUserResponse = async (profile) => {
     hearts: state?.hearts ?? 5,
     heartsLastReset: state?.hearts_last_reset || null,
     stateUpdatedAt: state?.updated_at || null,
-    isPremium: Boolean(authUser?.user_metadata?.is_premium),
+    isPremium: getIsPremiumAuthUser(authUser),
     premiumUpdatedAt: authUser?.user_metadata?.premium_updated_at || null,
   };
 };
@@ -1580,7 +1652,7 @@ app.post('/api/user-state/consume-heart', createRateLimiter({ key: 'user-state-c
     }
 
     const currentState = await resolveUserHeartsState(authData.user);
-    if (Boolean(authData.user.user_metadata?.is_premium)) {
+    if (getIsPremiumAuthUser(authData.user)) {
       return res.json({ success: true, state: currentState });
     }
 

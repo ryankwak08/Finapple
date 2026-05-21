@@ -7,6 +7,12 @@ describe('BACKEND_URL', () => {
     vi.resetModules();
   });
 
+  it('uses the Vite same-origin proxy by default in development', async () => {
+    const { BACKEND_URL } = await import('../backendUrl.js');
+
+    expect(BACKEND_URL).toBe('');
+  });
+
   it('uses configured local backend url in development', async () => {
     vi.stubEnv('VITE_LOCAL_BACKEND_URL', 'http://127.0.0.1:3000');
 

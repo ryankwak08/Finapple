@@ -51,7 +51,7 @@ export const BACKEND_URL = (() => {
       }
     }
 
-    return 'http://localhost:3000';
+    return '';
   }
 
   if (configuredUrl) {

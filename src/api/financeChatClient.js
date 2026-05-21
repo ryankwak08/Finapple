@@ -1,11 +1,11 @@
 import { BACKEND_URL, PRODUCTION_BACKEND_URL } from '@/lib/backendUrl';
 import { supabase } from '@/lib/supabase';
 
-const FINANCE_CHAT_TIMEOUT_MS = 12000;
+const FINANCE_CHAT_TIMEOUT_MS = 25000;
 
 const getBackendCandidates = () => {
   const urls = [BACKEND_URL];
-  if (BACKEND_URL !== PRODUCTION_BACKEND_URL) {
+  if (!import.meta.env.DEV && BACKEND_URL !== PRODUCTION_BACKEND_URL) {
     urls.push(PRODUCTION_BACKEND_URL);
   }
   return urls;
@@ -14,8 +14,10 @@ const getBackendCandidates = () => {
 async function fetchJsonWithFallback(path, options = {}) {
   const candidates = getBackendCandidates();
   let lastError = null;
+  let lastBaseUrl = '';
 
   for (const baseUrl of candidates) {
+    lastBaseUrl = baseUrl;
     const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
     const timeoutId = controller
       ? globalThis.setTimeout(() => controller.abort(), FINANCE_CHAT_TIMEOUT_MS)
@@ -30,6 +32,7 @@ async function fetchJsonWithFallback(path, options = {}) {
       return { response, data };
     } catch (error) {
       lastError = error;
+      console.warn(`Finance chat request failed for ${baseUrl}${path}`, error);
     } finally {
       if (timeoutId) {
         globalThis.clearTimeout(timeoutId);
@@ -41,7 +44,10 @@ async function fetchJsonWithFallback(path, options = {}) {
     throw new Error('CHATBOT_TIMEOUT');
   }
 
-  throw new Error('CHATBOT_CONNECTION_FAILED');
+  const error = new Error('CHATBOT_CONNECTION_FAILED');
+  error.cause = lastError;
+  error.backendUrl = lastBaseUrl;
+  throw error;
 }
 
 export async function fetchFinanceChat(payload, locale = 'ko') {
@@ -51,9 +57,12 @@ export async function fetchFinanceChat(payload, locale = 'ko') {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
     },
-    body: JSON.stringify({ ...payload, locale }),
+    body: JSON.stringify({
+      ...payload,
+      locale,
+      ...(accessToken ? { accessToken } : {}),
+    }),
   });
 
   if (!response.ok) {
