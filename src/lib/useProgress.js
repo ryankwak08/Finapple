@@ -146,15 +146,18 @@ const getDateFromIso = (value) => {
   return String(value).split('T')[0];
 };
 
-const hasUsedAutoFreezerToday = (progress, today) => {
+export const hasUsedAutoFreezerToday = (progress, today) => {
   const history = progress.streak_freezer_history || [];
   return history.some((entry) => (
     entry?.status === 'used_auto' &&
-    getDateFromIso(entry?.consumedAt) === today
+    (
+      getDateFromIso(entry?.activatedAt) === today ||
+      (!entry?.activatedAt && getDateFromIso(entry?.consumedAt) === today)
+    )
   ));
 };
 
-const consumeAutoFreezers = (progress, today) => {
+export const consumeAutoFreezers = (progress, today) => {
   const lastActiveDate = progress.last_active_date;
   if (!lastActiveDate) {
     return { next: progress, consumedDays: 0 };
@@ -198,6 +201,48 @@ const consumeAutoFreezers = (progress, today) => {
   };
 };
 
+const getAutoFreezerUsageDate = (entry) => (
+  getDateFromIso(entry?.activatedAt) || getDateFromIso(entry?.consumedAt)
+);
+
+export const repairDuplicateAutoFreezerUsage = (progress) => {
+  const history = progress.streak_freezer_history || [];
+  const usedDates = new Set();
+  let refundedCount = 0;
+
+  const repairedHistory = history.filter((entry) => {
+    if (entry?.status !== 'used_auto') {
+      return true;
+    }
+
+    const usageDate = getAutoFreezerUsageDate(entry);
+    if (!usageDate) {
+      return true;
+    }
+
+    if (usedDates.has(usageDate)) {
+      refundedCount += 1;
+      return false;
+    }
+
+    usedDates.add(usageDate);
+    return true;
+  });
+
+  if (refundedCount === 0) {
+    return { next: progress, refundedCount: 0 };
+  }
+
+  return {
+    refundedCount,
+    next: {
+      ...progress,
+      streak_freezers: (progress.streak_freezers || 0) + refundedCount,
+      streak_freezer_history: repairedHistory,
+    },
+  };
+};
+
 const syncDailyProgress = (progress, premiumUser, adsDisabled) => {
   const today = TODAY();
   const next = {
@@ -214,6 +259,11 @@ const syncDailyProgress = (progress, premiumUser, adsDisabled) => {
   };
 
   let changed = false;
+  const freezerRepair = repairDuplicateAutoFreezerUsage(next);
+  Object.assign(next, freezerRepair.next);
+  if (freezerRepair.refundedCount > 0) {
+    changed = true;
+  }
 
   if (!progress.last_active_date) {
     next.last_active_date = today;

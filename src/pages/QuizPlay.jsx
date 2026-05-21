@@ -17,6 +17,9 @@ import { getLocalizedQuizMeta, getQuizUnitsCatalog } from '@/lib/quizCatalog';
 import { useLanguage } from '@/lib/i18n';
 import { TRACKS, useTrack } from '@/lib/trackContext';
 
+const AI_QUIZ_WAIT_MS = 30000;
+const FALLBACK_TRANSLATION_WAIT_MS = 3000;
+
 const getFixedCourseByTrack = (activeTrack) => {
   if (activeTrack === TRACKS.YOUTH) return 'teen';
   if (activeTrack === TRACKS.START) return 'youth';
@@ -31,6 +34,7 @@ export default function QuizPlay() {
   const { quizId } = useParams();
   const searchParams = new URLSearchParams(window.location.search);
   const skipLesson = searchParams.get('skipLesson') === '1';
+  const forceRefreshQuiz = searchParams.get('refresh') === '1';
   const {
     progress,
     isPremium,
@@ -69,6 +73,8 @@ export default function QuizPlay() {
   const [localizedLessonChunk, setLocalizedLessonChunk] = useState(null);
   const [lessonTranslationFailed, setLessonTranslationFailed] = useState(false);
   const [showLessonTranslationError, setShowLessonTranslationError] = useState(false);
+  const [quizLoadError, setQuizLoadError] = useState('');
+  const [quizRetryKey, setQuizRetryKey] = useState(0);
   const autoNextTimerRef = useRef(null);
   const { playCorrectSound, playWrongSound, playSuccessSound } = useSoundEffects();
 
@@ -82,7 +88,6 @@ export default function QuizPlay() {
   );
   const reviewCount = getReviewNotesForQuiz(quizId).length;
   const sourcePdfUrl = lessonChunk?.topic?.pdfUrl || '';
-  const isReplay = isQuizCompleted(quizId);
   const localizedQuizMeta = getLocalizedQuizMeta(quizId, quizData || {});
   const quizDisplayTitle = isEnglish ? localizedQuizMeta.title || quizData?.title : quizData?.title;
   const cachedLessonChunk = useMemo(
@@ -109,6 +114,8 @@ export default function QuizPlay() {
     setLocalizedLessonChunk(null);
     setLessonTranslationFailed(false);
     setShowLessonTranslationError(false);
+    setQuizLoadError('');
+    setQuizRetryKey(0);
   }, [quizId, skipLesson]);
 
   useEffect(() => {
@@ -192,23 +199,36 @@ export default function QuizPlay() {
     const loadQuestions = async (options = {}) => {
       const { forceRefresh = false } = options;
       setLoading(true);
+      setQuizLoadError('');
+
+      const loadFallbackQuestions = async () => {
+        const fallbackQuestions = quizData?.questions || [];
+        if (!isEnglish || fallbackQuestions.length === 0) {
+          return fallbackQuestions;
+        }
+
+        const cachedTranslation = readCachedTranslatedContent('quizQuestions', { questions: fallbackQuestions }, 'en');
+        if (cachedTranslation) {
+          return cachedTranslation;
+        }
+
+        try {
+          return await Promise.race([
+            translateQuizQuestionsContent(fallbackQuestions, 'en'),
+            new Promise((_, reject) => {
+              window.setTimeout(() => reject(new Error('Fallback quiz translation timed out')), FALLBACK_TRANSLATION_WAIT_MS);
+            }),
+          ]);
+        } catch (translationError) {
+          console.error('Fallback quiz translation failed, using original questions:', translationError);
+          return fallbackQuestions;
+        }
+      };
 
       try {
         if (shouldPreferLocalQuestions) {
-          const localQuestions = quizData?.questions || [];
-          if (isEnglish && localQuestions.length > 0) {
-            try {
-              const translatedQuestions = await translateQuizQuestionsContent(localQuestions, 'en');
-              if (active) {
-                setQuestions(translatedQuestions);
-              }
-            } catch (translationError) {
-              console.error('Local quiz translation failed, using original questions:', translationError);
-              if (active) {
-                setQuestions(localQuestions);
-              }
-            }
-          } else if (active) {
+          const localQuestions = await loadFallbackQuestions();
+          if (active) {
             setQuestions(localQuestions);
           }
 
@@ -222,35 +242,21 @@ export default function QuizPlay() {
           return;
         }
 
-        const generatedQuiz = await generateAiQuiz(quizId, { forceRefresh, locale: isEnglish ? 'en' : 'ko' });
+        const generatedQuiz = await generateAiQuiz(quizId, {
+          forceRefresh,
+          locale: isEnglish ? 'en' : 'ko',
+          timeoutMs: AI_QUIZ_WAIT_MS,
+        });
         if (active) {
           setQuestions(generatedQuiz.questions);
           setQuizSource(generatedQuiz);
         }
       } catch (error) {
-        console.error('AI quiz generation failed, using local fallback:', error);
+        console.error('AI quiz generation failed:', error);
         if (active) {
-          const fallbackQuestions = quizData?.questions || [];
-          if (isEnglish && fallbackQuestions.length > 0) {
-            try {
-              const translatedQuestions = await translateQuizQuestionsContent(fallbackQuestions, 'en');
-              if (active) {
-                setQuestions(translatedQuestions);
-              }
-            } catch (translationError) {
-              console.error('Fallback quiz translation failed, using original questions:', translationError);
-              if (active) {
-                setQuestions(fallbackQuestions);
-              }
-            }
-          } else {
-            setQuestions(fallbackQuestions);
-          }
-          setQuizSource({
-            source: 'fallback',
-            model: null,
-            fromCache: false,
-          });
+          setQuestions(null);
+          setQuizSource(null);
+          setQuizLoadError(error?.message || 'AI quiz generation failed');
         }
       } finally {
         if (active) {
@@ -259,12 +265,12 @@ export default function QuizPlay() {
       }
     };
 
-    loadQuestions({ forceRefresh: isReplay });
+    loadQuestions({ forceRefresh: forceRefreshQuiz || quizRetryKey > 0 });
 
     return () => {
       active = false;
     };
-  }, [hasRequestedQuiz, isEnglish, isReplay, lessonChunk, quizData, quizId, shouldPreferLocalQuestions]);
+  }, [forceRefreshQuiz, hasRequestedQuiz, isEnglish, lessonChunk, quizData, quizId, quizRetryKey, shouldPreferLocalQuestions]);
 
   useEffect(() => {
     return () => {
@@ -625,6 +631,40 @@ export default function QuizPlay() {
   }
 
   if (loading || !questions?.length) {
+    if (!loading && quizLoadError) {
+      return (
+        <div className="flex min-h-screen flex-col items-center justify-center gap-4 px-6 text-center">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <div>
+            <h1 className="text-xl font-extrabold text-foreground">
+              {isEnglish ? 'This is taking longer than usual' : '문항 생성이 조금 지연되고 있어요'}
+            </h1>
+            <p className="mt-2 max-w-sm text-sm leading-6 text-muted-foreground">
+              {isEnglish
+                ? 'We will not switch to built-in fallback questions. Please try generating the AI quiz again.'
+                : '기본 문항으로 대체하지 않고 AI 문항만 사용하도록 했어요. 다시 생성해 주세요.'}
+            </p>
+            <p className="mt-2 text-xs font-semibold text-muted-foreground">{quizLoadError}</p>
+          </div>
+          <div className="flex flex-wrap justify-center gap-2">
+            <button
+              type="button"
+              onClick={() => setQuizRetryKey((value) => value + 1)}
+              className="rounded-2xl bg-primary px-5 py-3 text-sm font-bold text-primary-foreground"
+            >
+              {isEnglish ? 'Try again' : '다시 생성하기'}
+            </button>
+            <Link
+              to={backUrl}
+              className="rounded-2xl border border-border bg-card px-5 py-3 text-sm font-bold text-foreground"
+            >
+              {isEnglish ? 'Go back' : '돌아가기'}
+            </Link>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="flex flex-col items-center justify-center min-h-screen gap-3">
         <Loader2 className="w-8 h-8 text-primary animate-spin" />
@@ -707,6 +747,14 @@ export default function QuizPlay() {
           <HeartDisplay hearts={progress.hearts} unlimited={isPremium} />
         </div>
       </div>
+
+      {quizSource?.source === 'openai' ? (
+        <div className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-[12px] font-semibold leading-5 text-amber-900">
+          {isEnglish
+            ? 'AI-generated questions may occasionally contain awkward wording or answer errors. Please use the explanation and source lesson together when reviewing.'
+            : '파이내플은 다양한 학습 문항 생성을 위해 AI를 활용하고 있습니다. AI 생성 문항은 표현이나 정답에 오류가 있을 수 있어요. 복습할 때는 해설과 원문 학습 내용을 함께 확인해 주세요.'}
+        </div>
+      ) : null}
 
       <QuestionCard
         question={currentQuestion}

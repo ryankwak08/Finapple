@@ -52,6 +52,10 @@ const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const openAiApiKey = process.env.OPENAI_API_KEY;
 const openAiModel = process.env.OPENAI_MODEL || 'gpt-4o-mini';
+const openAiQuizModel = process.env.OPENAI_QUIZ_MODEL || 'gpt-4o-mini';
+const openAiTranslationModel = process.env.OPENAI_TRANSLATION_MODEL || 'gpt-4o-mini';
+const openAiQuizReviewModel = process.env.OPENAI_QUIZ_REVIEW_MODEL || 'gpt-4o-mini';
+const enableAiQuizReview = String(process.env.ENABLE_AI_QUIZ_REVIEW || 'false').trim().toLowerCase() === 'true';
 const neisApiKey = process.env.NEIS_API_KEY || process.env.VITE_NEIS_API_KEY || '';
 const PREMIUM_MONTHLY_PRICE = Number(process.env.PREMIUM_MONTHLY_PRICE || 5500);
 const PREMIUM_ANNUAL_PRICE = Number(process.env.PREMIUM_ANNUAL_PRICE || 55000);
@@ -79,7 +83,7 @@ const translationCache = new Map();
 const translationInflight = new Map();
 const rateLimitStore = new Map();
 const financeChatDailyUsageStore = new Map();
-const MAX_AI_QUIZ_ATTEMPTS = 3;
+const MAX_AI_QUIZ_ATTEMPTS = Math.max(1, Math.min(3, Number(process.env.MAX_AI_QUIZ_ATTEMPTS || 1) || 1));
 const FREE_DAILY_CHAT_LIMIT = Number(process.env.FREE_DAILY_CHAT_LIMIT || 5);
 const serverEnvChecklist = [
   { key: 'SUPABASE_URL', configured: Boolean(supabaseUrl), level: 'required' },
@@ -121,6 +125,20 @@ const quizResponseSchema = {
           explanation: { type: 'string' },
         },
       },
+    },
+  },
+};
+
+const quizReviewSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['passed', 'issues'],
+  properties: {
+    passed: { type: 'boolean' },
+    issues: {
+      type: 'array',
+      maxItems: 20,
+      items: { type: 'string' },
     },
   },
 };
@@ -611,6 +629,11 @@ app.get('/api/health', (req, res) => {
     origins: Array.from(allowedOrigins).filter(Boolean),
     services: {
       openaiConfigured: Boolean(openAiApiKey),
+      openaiModel: openAiModel,
+      openaiQuizModel: openAiQuizModel,
+      openaiTranslationModel: openAiTranslationModel,
+      openaiQuizReviewModel: openAiQuizReviewModel,
+      enableAiQuizReview,
       supabaseConfigured: Boolean(supabaseAdmin),
       tossConfigured: Boolean(tossSecretKey),
       kcpConfigured: Boolean(kcpSiteCd && kcpCertInfo && kcpStateSigningSecret),
@@ -726,6 +749,12 @@ const buildQuizPrompts = ({ quiz, unit, topic }, locale = 'ko') => {
       ? 'The explanation should make clear why the correct answer is right and why the others are not.'
       : '해설에는 왜 정답이고 왜 다른 선택지가 아닌지 드러나는 근거가 들어가야 한다.',
     isEnglish
+      ? 'Before returning, internally verify that the answer index points to the option that is factually correct in English, and that the explanation never contradicts it.'
+      : '반환 전 정답 인덱스가 실제 정답 보기를 가리키는지, 해설이 그 정답과 모순되지 않는지 내부 검수한다.',
+    isEnglish
+      ? 'Avoid ambiguous English such as double negatives, vague pronouns, overly broad absolutes, and options that can be true under different assumptions.'
+      : '이중부정, 모호한 대명사, 과도한 단정 표현, 조건에 따라 정답이 될 수 있는 보기는 피한다.',
+    isEnglish
       ? 'Do not make the answer obvious from the question wording or option length alone.'
       : '정답이 질문 문장에 노출되거나 보기 길이 차이만으로 티 나지 않게 작성한다.',
     isEnglish
@@ -833,7 +862,7 @@ const translateWithSchema = async ({ cacheKey, schemaName, schema, systemPrompt,
         Authorization: `Bearer ${openAiApiKey}`,
       },
       body: JSON.stringify({
-        model: openAiModel,
+        model: openAiTranslationModel,
         input: [
           {
             role: 'system',
@@ -915,13 +944,38 @@ const translateQuizQuestions = async (questions, locale = 'ko') => {
   }
 
   const payload = { questions };
-  return translateWithSchema({
+  const translated = await translateWithSchema({
     cacheKey: getTranslationCacheKey('quiz-questions', 'en', payload),
     schemaName: 'translated_quiz_questions',
     schema: quizResponseSchema,
-    systemPrompt: 'Translate the provided Korean quiz questions into natural English. Keep the same number of questions, the same answer indexes, and the same structure. Return only JSON matching the schema.',
+    systemPrompt: [
+      'Translate the provided Korean quiz questions into natural English.',
+      'Keep the same number of questions, the same answer indexes, and the same structure.',
+      'Preserve the meaning of every correct option exactly; do not make a distractor more correct than the original answer.',
+      'Keep explanations aligned with the answer index and avoid ambiguity, double negatives, and overly broad absolute wording.',
+      'Return only JSON matching the schema.',
+    ].join(' '),
     userPrompt: JSON.stringify(payload, null, 2),
   });
+
+  const normalizedQuestions = normalizeQuestions(translated.questions);
+  const qualityCheck = validateQuestionSetQuality(normalizedQuestions, { locale: 'en' });
+  if (!qualityCheck.passed) {
+    throw new Error(`Translated quiz quality validation failed: ${qualityCheck.issues.join('; ')}`);
+  }
+
+  if (enableAiQuizReview) {
+    const review = await reviewQuizQuestionSet({
+      questions: normalizedQuestions,
+      locale: 'en',
+      quizId: 'translated-local-quiz',
+    });
+    if (!review.passed) {
+      throw new Error(`Translated quiz review failed: ${review.issues.join('; ')}`);
+    }
+  }
+
+  return { questions: normalizedQuestions };
 };
 
 const maskEmailAddress = (email) => {
@@ -983,7 +1037,7 @@ const hasDuplicateOptions = (options) => {
   return new Set(normalized).size !== normalized.length;
 };
 
-const getQuestionQualityIssues = (question, index) => {
+const getQuestionQualityIssues = (question, index, { locale = 'ko' } = {}) => {
   const issues = [];
   const questionText = question.question.trim();
   const explanationText = question.explanation.trim();
@@ -1005,21 +1059,23 @@ const getQuestionQualityIssues = (question, index) => {
     issues.push(`question ${index + 1}: duplicate or near-duplicate options`);
   }
 
-  if (options.some((option) => ['모두 정답', '모두 맞다', '모두 틀리다', '정답 없음', '해당 없음'].includes(option))) {
+  const catchAllOptions = [
+    '모두 정답',
+    '모두 맞다',
+    '모두 틀리다',
+    '정답 없음',
+    '해당 없음',
+    'all of the above',
+    'none of the above',
+  ];
+  if (options.some((option) => catchAllOptions.includes(option.toLowerCase().trim()))) {
     issues.push(`question ${index + 1}: contains low-quality catch-all option`);
-  }
-
-  const optionLengths = options.map((option) => option.length);
-  const minOptionLength = Math.min(...optionLengths);
-  const maxOptionLength = Math.max(...optionLengths);
-  if (maxOptionLength - minOptionLength > 40) {
-    issues.push(`question ${index + 1}: option lengths are unbalanced`);
   }
 
   return issues;
 };
 
-const validateQuestionSetQuality = (questions) => {
+const validateQuestionSetQuality = (questions, { locale = 'ko' } = {}) => {
   const issues = [];
   const seenPrompts = new Set();
 
@@ -1032,12 +1088,75 @@ const validateQuestionSetQuality = (questions) => {
       seenPrompts.add(normalizedPrompt);
     }
 
-    issues.push(...getQuestionQualityIssues(question, index));
+    issues.push(...getQuestionQualityIssues(question, index, { locale }));
   });
 
   return {
     passed: issues.length === 0,
     issues,
+  };
+};
+
+const reviewQuizQuestionSet = async ({ questions, locale = 'ko', quizId = '' }) => {
+  const normalizedLocale = normalizeLocale(locale);
+  if (normalizedLocale !== 'en') {
+    return { passed: true, issues: [] };
+  }
+
+  const response = await fetch('https://api.openai.com/v1/responses', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${openAiApiKey}`,
+    },
+    body: JSON.stringify({
+      model: openAiQuizReviewModel,
+      input: [
+        {
+          role: 'system',
+          content: [{
+            type: 'input_text',
+            text: [
+              'You are a strict English financial-literacy quiz reviewer.',
+              'Check whether each answer index points to the single best option, whether the explanation supports that option, and whether the English wording is clear and unambiguous.',
+              'Reject questions with multiple plausible answers, answer/explanation contradictions, mistranslated finance terms, double negatives, or distractors that are more correct than the marked answer.',
+              'Return JSON only. Keep issues short and actionable.',
+            ].join(' '),
+          }],
+        },
+        {
+          role: 'user',
+          content: [{
+            type: 'input_text',
+            text: JSON.stringify({ quizId, locale: normalizedLocale, questions }, null, 2),
+          }],
+        },
+      ],
+      text: {
+        format: {
+          type: 'json_schema',
+          name: 'quiz_quality_review',
+          strict: true,
+          schema: quizReviewSchema,
+        },
+      },
+    }),
+  });
+
+  const payload = await response.json();
+  if (!response.ok) {
+    throw new Error(payload?.error?.message || 'OpenAI quiz review request failed');
+  }
+
+  const outputText = extractResponseText(payload);
+  if (!outputText) {
+    throw new Error('OpenAI returned an empty quiz review response');
+  }
+
+  const parsed = JSON.parse(outputText);
+  return {
+    passed: Boolean(parsed.passed),
+    issues: Array.isArray(parsed.issues) ? parsed.issues.map((issue) => cleanText(issue, 220)).filter(Boolean) : [],
   };
 };
 
@@ -1122,7 +1241,7 @@ const generateAiQuizQuestions = async (quizId, options = {}) => {
         : `${userPrompt}\n\nPrevious attempt quality issues:\n${qualityFailures.map((item) => `- ${item}`).join('\n')}\nPlease regenerate a better set that fixes every issue above.`;
 
       console.info(
-        `[AI quiz] OpenAI request started quizId=${quizId} attempt=${attempt}/${MAX_AI_QUIZ_ATTEMPTS} model=${openAiModel} key=${maskApiKey(openAiApiKey)}`
+        `[AI quiz] OpenAI request started quizId=${quizId} attempt=${attempt}/${MAX_AI_QUIZ_ATTEMPTS} model=${openAiQuizModel} key=${maskApiKey(openAiApiKey)}`
       );
 
       const startedAt = Date.now();
@@ -1133,7 +1252,7 @@ const generateAiQuizQuestions = async (quizId, options = {}) => {
           Authorization: `Bearer ${openAiApiKey}`,
         },
         body: JSON.stringify({
-          model: openAiModel,
+          model: openAiQuizModel,
           input: [
             {
               role: 'system',
@@ -1180,9 +1299,23 @@ const generateAiQuizQuestions = async (quizId, options = {}) => {
 
       const parsed = JSON.parse(outputText);
       const normalizedQuestions = normalizeQuestions(parsed.questions);
-      const qualityCheck = validateQuestionSetQuality(normalizedQuestions);
+      const qualityCheck = validateQuestionSetQuality(normalizedQuestions, { locale: normalizedLocale });
 
       if (qualityCheck.passed) {
+        if (enableAiQuizReview) {
+          const modelReview = await reviewQuizQuestionSet({
+            questions: normalizedQuestions,
+            locale: normalizedLocale,
+            quizId,
+          });
+
+          if (!modelReview.passed) {
+            qualityFailures.push(`attempt ${attempt}: ${modelReview.issues.join('; ')}`);
+            console.warn(`AI quiz model review retry for ${quizId} (attempt ${attempt})`, modelReview.issues);
+            continue;
+          }
+        }
+
         questions = normalizedQuestions;
         console.info(
           `[AI quiz] Quiz generation accepted quizId=${quizId} questionCount=${normalizedQuestions.length} attempt=${attempt}/${MAX_AI_QUIZ_ATTEMPTS}`
@@ -2050,7 +2183,7 @@ app.post('/api/quizzes/generate', createRateLimiter({ key: 'quiz-generate', limi
     return res.json({
       success: true,
       source: 'openai',
-      model: openAiModel,
+      model: openAiQuizModel,
       locale: normalizedLocale,
       questions,
     });

@@ -2,14 +2,18 @@ export const oneQuizUnits = [
   {
     id: 'one-unit1',
     title: 'Chapter 1. 은행 이용하기',
+    titleEn: 'Chapter 1. Using Banking Services',
     subtitle: 'How to Use Banking Services',
+    subtitleEn: 'How to Use Banking Services',
     icon: '💵',
     studyTopicId: 'one-banking-services-core',
     quizzes: [
       {
         id: 'one-unit1-quiz1',
         title: '퀴즈 1',
+        titleEn: 'Quiz 1',
         subtitle: '돈과 금융거래',
+        subtitleEn: 'Money and Financial Transactions',
         studyTopicId: 'one-banking-services-core',
         xpReward: 50,
         questions: [
@@ -48,7 +52,9 @@ export const oneQuizUnits = [
       {
         id: 'one-unit1-quiz2',
         title: '퀴즈 2',
+        titleEn: 'Quiz 2',
         subtitle: '은행 이용하기',
+        subtitleEn: 'Using Banking Services',
         studyTopicId: 'one-banking-services-core',
         xpReward: 50,
         questions: [
@@ -87,7 +93,9 @@ export const oneQuizUnits = [
       {
         id: 'one-unit1-quiz3',
         title: '퀴즈 3',
+        titleEn: 'Quiz 3',
         subtitle: '공과금 내기',
+        subtitleEn: 'Paying Utility Bills',
         studyTopicId: 'one-banking-services-core',
         xpReward: 50,
         questions: [
@@ -128,14 +136,18 @@ export const oneQuizUnits = [
   {
     id: 'one-unit4',
     title: 'Chapter 2. 저축상품 이용하기',
+    titleEn: 'Chapter 2. Using Savings Products',
     subtitle: 'How to Save Money',
+    subtitleEn: 'How to Save Money',
     icon: '💰',
     studyTopicId: 'one-savings-principles-and-products',
     quizzes: [
       {
         id: 'one-unit4-quiz1',
         title: '퀴즈 1',
+        titleEn: 'Quiz 1',
         subtitle: '정기예금·적금 이해',
+        subtitleEn: 'Understanding Fixed Deposits and Installment Savings',
         xpReward: 60,
         questions: [
           {
@@ -173,7 +185,9 @@ export const oneQuizUnits = [
       {
         id: 'one-unit4-quiz2',
         title: '퀴즈 2',
+        titleEn: 'Quiz 2',
         subtitle: '주택청약과 예금자보호',
+        subtitleEn: 'Housing Subscription Savings and Deposit Protection',
         xpReward: 60,
         questions: [
           {
@@ -213,14 +227,18 @@ export const oneQuizUnits = [
   {
     id: 'one-unit6',
     title: 'Chapter 3. 카드 사용하기',
+    titleEn: 'Chapter 3. Using Payment Cards',
     subtitle: 'How to Use Payment Cards',
+    subtitleEn: 'How to Use Payment Cards',
     icon: '💳',
     studyTopicId: 'one-cards-payment-core',
     quizzes: [
       {
         id: 'one-unit6-quiz1',
         title: '퀴즈 1',
+        titleEn: 'Quiz 1',
         subtitle: '신용카드와 체크카드',
+        subtitleEn: 'Credit Cards and Debit Cards',
         xpReward: 60,
         questions: [
           {
@@ -258,7 +276,9 @@ export const oneQuizUnits = [
       {
         id: 'one-unit6-quiz2',
         title: '퀴즈 2',
+        titleEn: 'Quiz 2',
         subtitle: '알아두면 편리한 카드 생활',
+        subtitleEn: 'Smart and Convenient Card Usage',
         studyTopicId: 'one-cards-payment-core',
         xpReward: 60,
         questions: [
@@ -299,14 +319,18 @@ export const oneQuizUnits = [
   {
     id: 'one-unit8',
     title: 'Chapter 4. 보험 이용하기',
+    titleEn: 'Chapter 4. Using Insurance Services',
     subtitle: 'How to Use Insurance Services',
+    subtitleEn: 'How to Use Insurance Services',
     icon: '🛡️',
     studyTopicId: 'one-insurance-social-core',
     quizzes: [
       {
         id: 'one-unit8-quiz1',
         title: '퀴즈 1',
+        titleEn: 'Quiz 1',
         subtitle: '보험에 대해 알아보기',
+        subtitleEn: 'Understanding Insurance',
         studyTopicId: 'one-insurance-social-core',
         xpReward: 70,
         questions: [
@@ -345,7 +369,9 @@ export const oneQuizUnits = [
       {
         id: 'one-unit8-quiz2',
         title: '퀴즈 2',
+        titleEn: 'Quiz 2',
         subtitle: '사회보험',
+        subtitleEn: 'Social Insurance',
         studyTopicId: 'one-insurance-social-core',
         xpReward: 70,
         questions: [
@@ -384,7 +410,9 @@ export const oneQuizUnits = [
       {
         id: 'one-unit8-quiz3',
         title: '퀴즈 3',
+        titleEn: 'Quiz 3',
         subtitle: '외국인근로자 전용 보험',
+        subtitleEn: 'Insurance for Foreign Workers',
         studyTopicId: 'one-insurance-social-core',
         xpReward: 70,
         questions: [
@@ -423,7 +451,9 @@ export const oneQuizUnits = [
       {
         id: 'one-unit8-quiz4',
         title: '퀴즈 4',
+        titleEn: 'Quiz 4',
         subtitle: '민영보험',
+        subtitleEn: 'Private Insurance',
         studyTopicId: 'one-insurance-social-core',
         xpReward: 70,
         questions: [
@@ -464,14 +494,18 @@ export const oneQuizUnits = [
   {
     id: 'one-unit10',
     title: 'Chapter 5. 환전과 해외송금하기',
+    titleEn: 'Chapter 5. Currency Exchange and International Transfers',
     subtitle: 'How to Exchange and Send Money Abroad',
+    subtitleEn: 'How to Exchange and Send Money Abroad',
     icon: '💱',
     studyTopicId: 'one-remittance-core',
     quizzes: [
       {
         id: 'one-unit10-quiz1',
         title: '퀴즈 1',
+        titleEn: 'Quiz 1',
         subtitle: '환전하기',
+        subtitleEn: 'Currency Exchange',
         studyTopicId: 'one-remittance-core',
         xpReward: 80,
         questions: [
@@ -510,7 +544,9 @@ export const oneQuizUnits = [
       {
         id: 'one-unit10-quiz2',
         title: '퀴즈 2',
+        titleEn: 'Quiz 2',
         subtitle: '해외송금',
+        subtitleEn: 'International Money Transfers',
         studyTopicId: 'one-remittance-core',
         xpReward: 80,
         questions: [
@@ -551,14 +587,18 @@ export const oneQuizUnits = [
   {
     id: 'one-unit11',
     title: 'Chapter 6. 금융사기 예방',
+    titleEn: 'Chapter 6. Preventing Financial Fraud',
     subtitle: 'How to Prevent Financial Fraud',
+    subtitleEn: 'How to Prevent Financial Fraud',
     icon: '🚨',
     studyTopicId: 'one-fraud-core',
     quizzes: [
       {
         id: 'one-unit11-quiz1',
         title: '퀴즈 1',
+        titleEn: 'Quiz 1',
         subtitle: '보이스피싱 대응',
+        subtitleEn: 'Responding to Voice Phishing',
         studyTopicId: 'one-fraud-core',
         xpReward: 90,
         questions: [
@@ -597,7 +637,9 @@ export const oneQuizUnits = [
       {
         id: 'one-unit11-quiz2',
         title: '퀴즈 2',
+        titleEn: 'Quiz 2',
         subtitle: '메신저 피싱 대응',
+        subtitleEn: 'Responding to Messenger Phishing',
         studyTopicId: 'one-fraud-core',
         xpReward: 90,
         questions: [
@@ -636,7 +678,9 @@ export const oneQuizUnits = [
       {
         id: 'one-unit11-quiz3',
         title: '퀴즈 3',
+        titleEn: 'Quiz 3',
         subtitle: '파밍 대응',
+        subtitleEn: 'Responding to Pharming',
         studyTopicId: 'one-fraud-core',
         xpReward: 90,
         questions: [
@@ -675,7 +719,9 @@ export const oneQuizUnits = [
       {
         id: 'one-unit11-quiz4',
         title: '퀴즈 4',
+        titleEn: 'Quiz 4',
         subtitle: '스미싱 대응',
+        subtitleEn: 'Responding to Smishing',
         studyTopicId: 'one-fraud-core',
         xpReward: 90,
         questions: [
@@ -714,7 +760,9 @@ export const oneQuizUnits = [
       {
         id: 'one-unit11-quiz5',
         title: '퀴즈 5',
+        titleEn: 'Quiz 5',
         subtitle: '대출빙자 금융사기 대응',
+        subtitleEn: 'Responding to Loan Scam Fraud',
         studyTopicId: 'one-fraud-core',
         xpReward: 90,
         questions: [
@@ -753,7 +801,9 @@ export const oneQuizUnits = [
       {
         id: 'one-unit11-quiz6',
         title: '퀴즈 6',
+        titleEn: 'Quiz 6',
         subtitle: 'Chapter 6 리뷰',
+        subtitleEn: 'Chapter 6 Review',
         studyTopicId: 'one-fraud-core',
         xpReward: 100,
         questions: [

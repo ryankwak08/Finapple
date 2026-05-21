@@ -24,7 +24,7 @@ const getBrowserOrigin = () => {
   return /^https?:\/\//i.test(origin) ? origin : '';
 };
 
-const PRODUCTION_BACKEND_URL = 'https://finapple-api.onrender.com';
+export const PRODUCTION_BACKEND_URL = 'https://finapple-api.onrender.com';
 
 export const BACKEND_URL = (() => {
   const configuredUrl = normalizeUrl(import.meta.env.VITE_BACKEND_URL);

@@ -202,12 +202,16 @@ export const quizCatalogByCourse = {
     id: unit.id,
     icon: unit.icon,
     title: unit.title,
+    titleEn: unit.titleEn,
     subtitle: unit.subtitle,
+    subtitleEn: unit.subtitleEn,
     studyTopicId: unit.studyTopicId,
     quizzes: unit.quizzes.map((quiz) => ({
       id: quiz.id,
       title: quiz.title,
+      titleEn: quiz.titleEn,
       subtitle: quiz.subtitle,
+      subtitleEn: quiz.subtitleEn,
       studyTopicId: quiz.studyTopicId || unit.studyTopicId,
       xpReward: quiz.xpReward,
     })),
@@ -297,21 +301,25 @@ export function getLocalizedQuizUnit(unit, isEnglish = false) {
     return unit;
   }
 
-  const localized = unitEnglishMeta[unit.id];
-  if (!localized) {
+  const localized = unitEnglishMeta[unit.id] || {};
+  const title = unit.titleEn || localized.titleEn;
+  const subtitle = unit.subtitleEn || localized.subtitleEn;
+  if (!title && !subtitle) {
     return unit;
   }
 
   return {
     ...unit,
-    title: localized.titleEn,
-    subtitle: localized.subtitleEn,
+    title: title || unit.title,
+    subtitle: subtitle || unit.subtitle,
   };
 }
 
 export function getLocalizedQuizMeta(quizId, fallback = {}) {
-  const localized = quizEnglishMeta[quizId];
-  if (!localized) {
+  const localized = quizEnglishMeta[quizId] || {};
+  const title = fallback.titleEn || localized.titleEn;
+  const subtitle = fallback.subtitleEn || localized.subtitleEn;
+  if (!title && !subtitle) {
     return {
       title: fallback.title,
       subtitle: fallback.subtitle,
@@ -319,8 +327,8 @@ export function getLocalizedQuizMeta(quizId, fallback = {}) {
   }
 
   return {
-    title: localized.titleEn,
-    subtitle: localized.subtitleEn,
+    title: title || fallback.title,
+    subtitle: subtitle || fallback.subtitle,
   };
 }
 

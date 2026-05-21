@@ -164,7 +164,7 @@ export default function QuizRoadmap({ isPremium, isQuizCompleted, getQuizScore, 
                     onClick={() => navigate(`/study/${unit.studyTopicId}?course=${course}`)}
                     className="mt-1 inline-flex items-center rounded-lg border border-border bg-background px-2.5 py-1 text-[10px] font-semibold text-foreground hover:bg-muted"
                   >
-                    이번 단원의 학습 자료
+                    {isEnglish ? 'Study This Unit' : '이번 단원의 학습 자료'}
                   </button>
                 ) : null}
                 <p className="text-[10px] text-primary mt-0.5">{isEnglish ? 'Read the lesson and jump straight into the quiz.' : '학습 조각을 읽고 바로 퀴즈로 넘어가요'}</p>

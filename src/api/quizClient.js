@@ -1,6 +1,7 @@
 import { BACKEND_URL } from '@/lib/backendUrl';
 
 const QUIZ_CACHE_TTL_MS = 1000 * 60 * 60 * 24;
+const AI_QUIZ_TIMEOUT_MS = 30000;
 const memoryCache = new Map();
 const inflightRequests = new Map();
 
@@ -18,8 +19,8 @@ function readCachedQuiz(quizId, locale = 'ko') {
     if (!raw) return null;
 
     const parsed = JSON.parse(raw);
-    if (!parsed?.questions || parsed.expiresAt <= Date.now()) {
-      window.localStorage.removeItem(getCacheKey(quizId));
+    if (!parsed?.questions || parsed.expiresAt <= Date.now() || parsed.source === 'fallback') {
+      window.localStorage.removeItem(cacheKey);
       return null;
     }
 
@@ -65,13 +66,28 @@ export function clearAiQuizCache(quizId, locale = 'ko') {
 }
 
 async function fetchAiQuiz(quizId, options = {}) {
-  const { forceRefresh = false, locale = 'ko' } = options;
+  const { forceRefresh = false, locale = 'ko', timeoutMs = AI_QUIZ_TIMEOUT_MS } = options;
+  const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+  const timeoutId = controller
+    ? globalThis.setTimeout(() => controller.abort(), timeoutMs)
+    : null;
+
   const response = await fetch(`${BACKEND_URL}/api/quizzes/generate`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
     },
+    signal: controller?.signal,
     body: JSON.stringify({ quizId, forceRefresh, locale }),
+  }).catch((error) => {
+    if (error?.name === 'AbortError') {
+      throw new Error('AI quiz generation timed out');
+    }
+    throw error;
+  }).finally(() => {
+    if (timeoutId) {
+      globalThis.clearTimeout(timeoutId);
+    }
   });
 
   const result = await response.json();
@@ -118,7 +134,7 @@ export function prefetchAiQuiz(quizId, options = {}) {
 }
 
 export async function generateAiQuiz(quizId, options = {}) {
-  const { forceRefresh = false, locale = 'ko' } = options;
+  const { forceRefresh = false, locale = 'ko', timeoutMs = AI_QUIZ_TIMEOUT_MS } = options;
   const cacheKey = getCacheKey(quizId, locale);
   const cached = !forceRefresh && typeof window !== 'undefined' ? readCachedQuiz(quizId, locale) : null;
   if (cached) {
@@ -143,7 +159,7 @@ export async function generateAiQuiz(quizId, options = {}) {
     }
   }
 
-  const request = fetchAiQuiz(quizId, { forceRefresh, locale }).finally(() => {
+  const request = fetchAiQuiz(quizId, { forceRefresh, locale, timeoutMs }).finally(() => {
     inflightRequests.delete(cacheKey);
   });
 
