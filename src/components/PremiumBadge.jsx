@@ -1,6 +1,6 @@
 import { Crown } from 'lucide-react';
 
-export default function PremiumBadge({ compact = false }) {
+export default function PremiumBadge({ compact = false, freeTrial = false }) {
   return (
     <span
       className={`inline-flex items-center gap-1 rounded-full border border-amber-300 bg-amber-100 text-amber-900 ${
@@ -8,7 +8,8 @@ export default function PremiumBadge({ compact = false }) {
       } font-bold`}
     >
       <Crown className={compact ? 'h-3 w-3' : 'h-3.5 w-3.5'} />
-      PREMIUM
+      <span>PREMIUM</span>
+      {freeTrial ? <span className="text-amber-700">· FREE TRIAL</span> : null}
     </span>
   );
 }

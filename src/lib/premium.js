@@ -46,6 +46,13 @@ export function getIsPremium(user) {
   return true;
 }
 
+export function getIsFreeTrialPremium(user) {
+  const metadata = user?.user_metadata || {};
+  const provider = String(metadata.premium_provider || user?.premium_provider || '').toLowerCase();
+  const plan = String(metadata.premium_plan || user?.premium_plan || '').toLowerCase();
+  return provider === 'free-trial' || plan === 'free_trial';
+}
+
 export function getAdsDisabled(user) {
   return getIsPremium(user);
 }

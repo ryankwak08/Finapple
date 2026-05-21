@@ -18,7 +18,7 @@ import PremiumBadge from '@/components/PremiumBadge';
 import { Switch } from '@/components/ui/switch';
 import useProgress from '../lib/useProgress';
 import { safeStorage } from '@/lib/safeStorage';
-import { arePaidProductsEnabled, isFreePremiumAccessEnabled, isNativeAndroidApp, isNativeIOSApp, isNativeStoreApp } from '@/lib/runtimePlatform';
+import { arePaidProductsEnabled, isFreePremiumAccessEnabled, isNativeAndroidApp, isNativeIOSApp, isNativeStoreApp, isPremiumFreeTrialCampaignEnabled } from '@/lib/runtimePlatform';
 import { PREMIUM_FEATURES } from '@/lib/premiumFeatures';
 
 const getUsageStorageKey = (email) => `totalUsageSeconds:${email || 'guest'}`;
@@ -74,6 +74,7 @@ export default function Profile() {
   const nativeStore = isNativeStoreApp();
   const paidProductsEnabled = arePaidProductsEnabled();
   const freePremiumAccess = isFreePremiumAccessEnabled();
+  const freeTrialCampaign = isPremiumFreeTrialCampaignEnabled();
   const premiumProvider = String(user?.user_metadata?.premium_provider || user?.premium_provider || '').toLowerCase();
   const canCancelPremiumOnWeb = premiumProvider === 'kcp';
   const schoolProfile = {
@@ -326,12 +327,12 @@ export default function Profile() {
     {
       id: 'premium',
       name: '프리미엄',
-      price: '₩5,500 / ₩55,000',
-      period: '월 / 연',
+      price: freeTrialCampaign ? '무료 체험' : '₩5,500 / ₩55,000',
+      period: freeTrialCampaign ? '2026.05.01~2026.06.01' : '월 / 연',
       features: PREMIUM_FEATURES.map((feature) => feature.title),
       current: isPremium,
       color: 'border-primary bg-primary/5',
-      badge: '인기',
+      badge: freeTrialCampaign ? null : '인기',
     },
   ];
 
@@ -686,7 +687,7 @@ export default function Profile() {
                 <div className="mb-3 flex items-start justify-between gap-3">
                   <div className="flex min-w-0 flex-wrap items-center gap-2">
                     <h3 className="font-bold text-foreground text-[15px]">{plan.name}</h3>
-                    {plan.badge && (
+                    {plan.badge && !freeTrialCampaign && (
                       <span className="text-[10px] font-bold bg-primary text-white px-2 py-0.5 rounded-full">
                         {plan.badge}
                       </span>
@@ -712,11 +713,11 @@ export default function Profile() {
                 </div>
                 {!isPremium && plan.id === 'premium' ? (
                    <button onClick={() => navigate('/premium')} className="w-full py-2.5 rounded-xl bg-primary text-white text-[13px] font-bold shadow shadow-primary/20 active:scale-[0.98] transition-all">
-                     프리미엄 시작하기
+                     {freeTrialCampaign ? '무료 체험 확인하기' : '프리미엄 시작하기'}
                    </button>
                 ) : plan.id === 'premium' && isPremium ? (
                    <div className="w-full py-2.5 rounded-xl bg-muted text-muted-foreground text-[13px] font-bold text-center">
-                     ✓ 구독 중
+                     {freeTrialCampaign ? '✓ 무료 체험 적용 중' : '✓ 구독 중'}
                    </div>
                 ) : null}
               </div>

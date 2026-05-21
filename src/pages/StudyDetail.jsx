@@ -1,11 +1,12 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { ArrowLeft, BookOpen, ChevronDown, ChevronUp, PlayCircle } from 'lucide-react';
+import { ArrowLeft, BookOpen, ChevronDown, ChevronUp, FileText, PlayCircle } from 'lucide-react';
 import { getStudyTopicById } from '../lib/studyData';
 import { getQuizUnitCatalogByStudyTopicId } from '../lib/quizCatalog';
 import ConceptTag from '../components/study/ConceptTag';
 import ConsumptionHabitTest from '../components/study/ConsumptionHabitTest';
 import InvestmentProfileTest from '../components/study/InvestmentProfileTest';
+import { fetchContentItems } from '@/api/contentClient';
 
 const TOSS_FEED_SOURCE_URL = 'https://toss.im/tossfeed';
 const TOSS_FEED_TOPIC_IDS = new Set([
@@ -67,7 +68,42 @@ export default function StudyDetail() {
   const course = new URLSearchParams(window.location.search).get('course') || '';
   const [showSummary, setShowSummary] = useState(false);
   const [showSourceViewer, setShowSourceViewer] = useState(false);
-  const topic = getStudyTopicById(topicId);
+  const localTopic = getStudyTopicById(topicId);
+  const [cloudTopic, setCloudTopic] = useState(null);
+  const [cloudLoading, setCloudLoading] = useState(!localTopic);
+  const topic = localTopic || cloudTopic;
+
+  useEffect(() => {
+    if (localTopic) {
+      setCloudTopic(null);
+      setCloudLoading(false);
+      return undefined;
+    }
+
+    let active = true;
+    setCloudLoading(true);
+    fetchContentItems()
+      .then((items) => {
+        if (active) {
+          setCloudTopic(items.find((item) => item.id === topicId) || null);
+        }
+      })
+      .catch(() => {
+        if (active) {
+          setCloudTopic(null);
+        }
+      })
+      .finally(() => {
+        if (active) {
+          setCloudLoading(false);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [localTopic, topicId]);
+
   const effectiveCourse = course || topic?.course || '';
   const linkedUnit = getQuizUnitCatalogByStudyTopicId(topicId, effectiveCourse);
   const buildQuizUrl = (quizId) => {
@@ -123,6 +159,14 @@ export default function StudyDetail() {
 
     return null;
   }, [topic]);
+
+  if (!topic && cloudLoading) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center px-6">
+        <p className="text-[15px] font-semibold text-muted-foreground">콘텐츠를 불러오는 중입니다</p>
+      </div>
+    );
+  }
 
   if (!topic) {
     return (
@@ -220,6 +264,82 @@ export default function StudyDetail() {
               />
             </div>
           ) : null}
+        </section>
+      ) : null}
+
+      {topic.videoUrl ? (
+        <section className="mb-6 rounded-2xl border border-border bg-card p-4">
+          <div className="mb-3 flex items-center gap-2">
+            <PlayCircle className="h-4 w-4 text-primary" />
+            <h2 className="text-[13px] font-bold uppercase tracking-wider text-muted-foreground">영상 콘텐츠</h2>
+          </div>
+          <video
+            src={topic.videoUrl}
+            controls
+            playsInline
+            preload="metadata"
+            className="w-full rounded-xl border border-border bg-black"
+          />
+        </section>
+      ) : null}
+
+      {topic.body ? (
+        <section className="mb-6 rounded-2xl border border-border bg-card p-4">
+          <div className="mb-3 flex items-center gap-2">
+            <FileText className="h-4 w-4 text-primary" />
+            <h2 className="text-[13px] font-bold uppercase tracking-wider text-muted-foreground">본문</h2>
+          </div>
+          <p className="whitespace-pre-line text-[13px] leading-7 text-foreground">{topic.body}</p>
+        </section>
+      ) : null}
+
+      {topic.mediaItems?.length ? (
+        <section className="mb-6 rounded-2xl border border-border bg-card p-4">
+          <h2 className="mb-3 text-[13px] font-bold uppercase tracking-wider text-muted-foreground">첨부 콘텐츠</h2>
+          <div className="space-y-3">
+            {topic.mediaItems.map((item, index) => {
+              const type = String(item.type || '').toLowerCase();
+              const url = item.url || item.src || '';
+              if (!url) return null;
+
+              if (type === 'video') {
+                return (
+                  <video
+                    key={`${url}-${index}`}
+                    src={url}
+                    controls
+                    playsInline
+                    preload="metadata"
+                    className="w-full rounded-xl border border-border bg-black"
+                  />
+                );
+              }
+
+              if (type === 'image') {
+                return (
+                  <img
+                    key={`${url}-${index}`}
+                    src={url}
+                    alt={item.alt || item.title || `${topic.title} 첨부 이미지 ${index + 1}`}
+                    className="w-full rounded-xl border border-border object-cover"
+                    loading="lazy"
+                  />
+                );
+              }
+
+              return (
+                <a
+                  key={`${url}-${index}`}
+                  href={url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="block rounded-xl border border-border bg-muted/30 px-4 py-3 text-[13px] font-semibold text-primary underline-offset-2 hover:underline"
+                >
+                  {item.title || item.label || url}
+                </a>
+              );
+            })}
+          </div>
         </section>
       ) : null}
 

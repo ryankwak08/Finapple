@@ -1,28 +1,21 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Ban, Check, Crown, Heart, Loader2, MessageCircle, NotebookPen, Palette, Sparkles } from 'lucide-react';
-import {
-  createPremiumOrderId,
-  createTossCheckoutSession,
-  getPremiumPlan,
-  PREMIUM_PLANS,
-} from '@/api/paymentClient';
+import { ArrowLeft, Ban, CalendarDays, Check, Crown, Heart, Loader2, MessageCircle, NotebookPen, Palette, Sparkles } from 'lucide-react';
 import { useAuth } from '@/lib/AuthContext';
+import { startPremiumFreeTrial } from '@/services/authService';
 import { getIsPremium } from '@/lib/premium';
-import { arePaidProductsEnabled, isNativeAndroidApp, isNativeIOSApp } from '@/lib/runtimePlatform';
+import { isPremiumFreeTrialCampaignEnabled } from '@/lib/runtimePlatform';
 import { PREMIUM_FEATURES } from '@/lib/premiumFeatures';
-
-const formatKrw = (value) => new Intl.NumberFormat('ko-KR').format(value);
 
 export default function Premium() {
   const navigate = useNavigate();
   const { user, isAuthenticated, navigateToLogin, checkAppState } = useAuth();
-  const [isStartingCheckout, setIsStartingCheckout] = useState(false);
-  const [checkoutError, setCheckoutError] = useState('');
-  const [selectedPlanCode, setSelectedPlanCode] = useState('monthly');
-  const paidProductsEnabled = arePaidProductsEnabled();
+  const [isStartingTrial, setIsStartingTrial] = useState(false);
+  const [trialError, setTrialError] = useState('');
+  const [trialSuccess, setTrialSuccess] = useState('');
+  const freeTrialActive = isPremiumFreeTrialCampaignEnabled();
   const isPremium = getIsPremium(user);
-  const selectedPlan = getPremiumPlan(selectedPlanCode);
+  const hasClaimedTrial = Boolean(user?.user_metadata?.premium_free_trial_claimed_at);
 
   useEffect(() => {
     void checkAppState();
@@ -52,36 +45,29 @@ export default function Premium() {
     navigate('/');
   };
 
-  const handleStartCheckout = async () => {
+  const handleStartFreeTrial = async () => {
     if (!isAuthenticated || !user?.email) {
       navigateToLogin();
       return;
     }
 
-    setIsStartingCheckout(true);
-    setCheckoutError('');
+    setIsStartingTrial(true);
+    setTrialError('');
+    setTrialSuccess('');
 
-    const orderId = createPremiumOrderId(selectedPlan.code);
-    const displayName =
-      user?.user_metadata?.nickname?.trim() ||
-      user?.user_metadata?.full_name?.trim() ||
-      user.email.split('@')[0];
-
-    const result = await createTossCheckoutSession({
-      amount: selectedPlan.price,
-      orderId,
-      orderName: selectedPlan.orderName,
-      customerName: displayName,
-      customerEmail: user.email,
-    });
-
-    if (!result.success) {
-      setCheckoutError(result.error || '결제창을 열지 못했습니다.');
-      setIsStartingCheckout(false);
-      return;
+    try {
+      const result = await startPremiumFreeTrial();
+      await checkAppState();
+      window.dispatchEvent(new CustomEvent('premiumTrialStarted', { detail: { user: result.user } }));
+      const expires = result.premiumExpiresAt
+        ? new Intl.DateTimeFormat('ko-KR', { dateStyle: 'medium' }).format(new Date(result.premiumExpiresAt))
+        : '1개월 뒤';
+      setTrialSuccess(`${expires}까지 프리미엄 무료체험이 적용됐어요.`);
+    } catch (error) {
+      setTrialError(error.message || '무료체험을 시작하지 못했습니다.');
+    } finally {
+      setIsStartingTrial(false);
     }
-
-    window.location.assign(result.url);
   };
 
   return (
@@ -107,38 +93,18 @@ export default function Premium() {
             </div>
           </div>
 
-          <div className="mt-5 grid gap-3">
-            {Object.values(PREMIUM_PLANS).map((plan) => {
-              const isSelected = selectedPlanCode === plan.code;
-              return (
-                <button
-                  key={plan.code}
-                  type="button"
-                  onClick={() => setSelectedPlanCode(plan.code)}
-                  className={`rounded-2xl border p-4 text-left transition-all ${
-                    isSelected
-                      ? 'border-primary/50 bg-primary/5 shadow-sm'
-                      : 'border-border bg-background hover:border-primary/30'
-                  }`}
-                >
-                  <div className="flex items-end justify-between gap-3">
-                    <div>
-                      <p className="text-sm font-bold text-foreground">{plan.label}</p>
-                      <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                        {plan.code === 'annual' ? '월간 대비 2개월 할인된 가격이에요.' : '매월 결제되는 기본 플랜이에요.'}
-                      </p>
-                    </div>
-                    <div className="shrink-0 text-right">
-                      <p className="text-2xl font-black text-foreground">₩{formatKrw(plan.price)}</p>
-                      <p className="text-xs font-semibold text-muted-foreground">{plan.code === 'annual' ? '연' : '월'}</p>
-                    </div>
-                  </div>
-                </button>
-              );
-            })}
-            <p className="px-1 text-xs leading-5 text-muted-foreground">
-              웹에서는 토스페이먼츠 카드 결제로 바로 활성화됩니다.
-            </p>
+          <div className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+            <div className="flex gap-3">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white">
+                <CalendarDays className="h-4 w-4 text-primary" />
+              </div>
+              <div>
+                <p className="text-sm font-black text-amber-950">5월 1일 ~ 6월 1일 프리미엄 무료체험 이벤트</p>
+                <p className="mt-1 text-xs leading-5 text-amber-900">
+                  이벤트 기간 동안 신청하면 계정에 1개월 프리미엄 무료체험이 적용됩니다.
+                </p>
+              </div>
+            </div>
           </div>
 
           <div className="mt-5 grid gap-3">
@@ -172,42 +138,48 @@ export default function Premium() {
             ))}
           </div>
 
-          {!paidProductsEnabled ? (
-            <div className="mt-5 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm leading-6 text-emerald-800">
-              {isNativeAndroidApp()
-                ? 'Android 앱에서는 현재 유료 상품을 열지 않습니다. 웹에서 결제를 진행해주세요.'
-                : isNativeIOSApp()
-                ? 'iOS 앱에서는 App Store 상품 설정 후 이용할 수 있습니다. 웹 결제를 이용해주세요.'
-                : '현재 환경에서는 결제를 시작할 수 없습니다.'}
+          {trialSuccess ? (
+            <div className="mt-5 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-bold leading-6 text-emerald-800">
+              {trialSuccess}
             </div>
-          ) : isPremium ? (
-            <button
-              type="button"
-              onClick={() => navigate('/profile')}
-              className="mt-6 w-full rounded-2xl bg-muted px-4 py-3 text-sm font-bold text-muted-foreground"
-            >
-              이미 프리미엄 이용 중
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={handleStartCheckout}
-              disabled={isStartingCheckout}
-              className="mt-6 flex w-full items-center justify-center gap-2 rounded-2xl bg-primary px-4 py-3 text-sm font-bold text-primary-foreground shadow shadow-primary/20 active:scale-[0.98] disabled:opacity-70"
-            >
-              {isStartingCheckout ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-              {isStartingCheckout ? '결제창 여는 중' : `${selectedPlan.label} 토스로 결제하기`}
-            </button>
-          )}
+          ) : null}
 
-          {checkoutError ? (
+          {trialError ? (
             <p className="mt-3 rounded-xl bg-destructive/10 px-3 py-2 text-sm font-semibold text-destructive">
-              {checkoutError}
+              {trialError}
             </p>
           ) : null}
 
+          {isPremium || trialSuccess ? (
+            <button
+              type="button"
+              onClick={() => navigate('/')}
+              className="mt-6 w-full rounded-2xl bg-primary px-4 py-3 text-sm font-bold text-primary-foreground shadow shadow-primary/20 active:scale-[0.98]"
+            >
+              {trialSuccess ? '무료 체험으로 프리미엄 이용하기' : '프리미엄 이용 중'}
+            </button>
+          ) : hasClaimedTrial ? (
+            <div className="mt-5 rounded-2xl border border-muted bg-muted/60 p-4 text-sm font-bold leading-6 text-muted-foreground">
+              이미 무료체험을 신청한 계정입니다.
+            </div>
+          ) : freeTrialActive ? (
+            <button
+              type="button"
+              onClick={handleStartFreeTrial}
+              disabled={isStartingTrial}
+              className="mt-6 flex w-full items-center justify-center gap-2 rounded-2xl bg-primary px-4 py-3 text-sm font-bold text-primary-foreground shadow shadow-primary/20 active:scale-[0.98] disabled:opacity-70"
+            >
+              {isStartingTrial ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+              {isStartingTrial ? '무료체험 등록 중' : '프리미엄 1개월 무료체험 시작하기'}
+            </button>
+          ) : (
+            <div className="mt-5 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-bold leading-6 text-emerald-800">
+              현재 무료체험 신청 기간이 아닙니다. 결제는 잠시 중단되었습니다.
+            </div>
+          )}
+
           <p className="mt-4 text-center text-xs leading-5 text-muted-foreground">
-            결제 완료 후 프리미엄 권한이 계정에 자동 반영됩니다.
+            1개월 무료 체험 후 카드 등록 시 자동 결제 됩니다.
           </p>
         </div>
       </div>

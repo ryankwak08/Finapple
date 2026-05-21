@@ -1,9 +1,9 @@
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { useEffect, useRef, useState } from 'react';
-import { BookOpen, ChevronDown, Gamepad2 } from 'lucide-react';
+import { BookOpen, ChevronDown, Gamepad2, Gift, X } from 'lucide-react';
 import { getCurrentUser } from '@/services/authService';
-import { getIsPremium } from '@/lib/premium';
-import { isFreePremiumAccessEnabled } from '@/lib/runtimePlatform';
+import { getIsFreeTrialPremium, getIsPremium } from '@/lib/premium';
+import { isFreePremiumAccessEnabled, isPremiumFreeTrialCampaignEnabled } from '@/lib/runtimePlatform';
 import { syncAdsenseForUser } from '@/lib/adsense';
 import { AnimatePresence } from 'framer-motion';
 import BottomNav, { getActiveTab, getAppTabs } from './BottomNav';
@@ -16,11 +16,19 @@ import { BUSINESS_INFO_ITEMS } from '@/lib/legalContent';
 import { TRACKS, useTrack } from '@/lib/trackContext';
 
 const getUsageStorageKey = (email) => `totalUsageSeconds:${email || 'guest'}`;
+const todayKey = () => new Intl.DateTimeFormat('en-CA', {
+  timeZone: 'Asia/Seoul',
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+}).format(new Date());
+const FREE_TRIAL_BANNER_DISMISSED_KEY = 'finapple:premium-free-trial-banner-dismissed-date';
 
 export default function AppShell() {
   const [user, setUser] = useState(null);
   const [isUserResolved, setIsUserResolved] = useState(false);
   const [trackMenuOpen, setTrackMenuOpen] = useState(false);
+  const [freeTrialBannerDismissed, setFreeTrialBannerDismissed] = useState(false);
   const trackMenuRef = useRef(null);
   const mainRef = useRef(null);
   const location = useLocation();
@@ -30,6 +38,12 @@ export default function AppShell() {
   const { locale, setLocale, t } = useLanguage();
   const { activeTrack, setActiveTrack, tracks, trackMeta } = useTrack();
   const freePremiumAccess = isFreePremiumAccessEnabled();
+  const freeTrialPremium = getIsFreeTrialPremium(user);
+  const showFreeTrialBanner = isPremiumFreeTrialCampaignEnabled()
+    && isUserResolved
+    && !getIsPremium(user)
+    && !freeTrialBannerDismissed
+    && !location.pathname.startsWith('/premium');
   const appTabs = getAppTabs(t);
   const availableTracks = tracks;
 
@@ -103,13 +117,22 @@ export default function AppShell() {
           : prev
       ));
     };
+    const handlePremiumTrialStarted = (e) => {
+      if (e.detail?.user) {
+        setUser(e.detail.user);
+      } else {
+        getCurrentUser().then(setUser).catch(() => {});
+      }
+    };
     window.addEventListener('profilePictureUpdated', handleProfileUpdate);
+    window.addEventListener('premiumTrialStarted', handlePremiumTrialStarted);
     return () => {
       const elapsed = Math.floor((Date.now() - start) / 1000);
       const usageKey = getUsageStorageKey(usageEmail);
       const prev = parseInt(safeStorage.getItem(usageKey) || '0');
       safeStorage.setItem(usageKey, String(prev + elapsed));
       window.removeEventListener('profilePictureUpdated', handleProfileUpdate);
+      window.removeEventListener('premiumTrialStarted', handlePremiumTrialStarted);
     };
   }, []);
 
@@ -122,6 +145,15 @@ export default function AppShell() {
       enabled: !getIsPremium(user) && !freePremiumAccess,
     });
   }, [freePremiumAccess, isUserResolved, user]);
+
+  useEffect(() => {
+    setFreeTrialBannerDismissed(safeStorage.getItem(FREE_TRIAL_BANNER_DISMISSED_KEY) === todayKey());
+  }, []);
+
+  const dismissFreeTrialBannerForToday = () => {
+    safeStorage.setItem(FREE_TRIAL_BANNER_DISMISSED_KEY, todayKey());
+    setFreeTrialBannerDismissed(true);
+  };
 
   return (
     <div
@@ -197,7 +229,7 @@ export default function AppShell() {
                     ) : null}
                   </div>
                   <div className="hidden min-[430px]:block">
-                    {getIsPremium(user) && !freePremiumAccess && <PremiumBadge compact />}
+                    {getIsPremium(user) && !freePremiumAccess && <PremiumBadge compact freeTrial={freeTrialPremium} />}
                   </div>
                   <Link to="/profile" className="md:hidden">
                     <div className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-xl bg-primary/10 ring-1 ring-primary/10 transition-transform active:scale-[0.97]">
@@ -267,6 +299,35 @@ export default function AppShell() {
                 </div>
               </div>
             </div>
+
+            {showFreeTrialBanner ? (
+              <div className="mx-2.5 mt-3 rounded-2xl border border-amber-200 bg-amber-50 p-3 shadow-sm md:mx-0">
+                <div className="flex gap-3">
+                  <button
+                    type="button"
+                    onClick={() => navigate('/premium')}
+                    className="flex min-w-0 flex-1 items-center gap-3 text-left"
+                  >
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white">
+                      <Gift className="h-5 w-5 text-primary" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-[13px] font-black text-amber-950">파격 이벤트! 파이내플 한 달 무료체험 받아가세요</p>
+                      <p className="mt-0.5 text-[11px] font-semibold leading-4 text-amber-900">5월 1일 ~ 6월 1일 신청 가능 · 등록 즉시 프리미엄 1개월 적용</p>
+                    </div>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={dismissFreeTrialBannerForToday}
+                    className="flex shrink-0 items-center gap-1 rounded-xl px-2 py-1 text-[10px] font-bold text-amber-900 hover:bg-white/70"
+                    aria-label="오늘 다시 보지 않기"
+                  >
+                    <span className="hidden sm:inline">오늘 다시 보지 않기</span>
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+            ) : null}
 
             <div className="flex min-h-0 flex-1 flex-col md:grid md:grid-cols-[240px_minmax(0,1fr)] md:gap-6 md:pt-6 xl:grid-cols-[260px_minmax(0,1fr)] xl:gap-8">
               <aside className="hidden md:block">

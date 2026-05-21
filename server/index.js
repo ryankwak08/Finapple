@@ -318,6 +318,17 @@ const isAdminAuthUser = (user) => {
   return Boolean(user.email && adminEmails.includes(String(user.email).toLowerCase()));
 };
 
+const FREE_PREMIUM_TRIAL_START = Date.parse('2026-05-01T00:00:00+09:00');
+const FREE_PREMIUM_TRIAL_END = Date.parse('2026-06-01T00:00:00+09:00');
+const FREE_PREMIUM_TRIAL_DAYS = 30;
+
+const isPremiumFreeTrialCampaignEnabled = (now = new Date()) => {
+  const timestamp = now instanceof Date ? now.getTime() : Date.parse(now);
+  return Number.isFinite(timestamp)
+    && timestamp >= FREE_PREMIUM_TRIAL_START
+    && timestamp < FREE_PREMIUM_TRIAL_END;
+};
+
 const getIsPremiumAuthUser = (user) => {
   if (isAdminAuthUser(user)) {
     return true;
@@ -1465,6 +1476,64 @@ app.get('/api/finance-chat/questions', (_req, res) => {
   res.json({ questions: getYouthCoreQuestions(locale) });
 });
 
+const normalizeContentJsonArray = (value) => (Array.isArray(value) ? value : []);
+
+const mapContentItemRow = (row) => ({
+  id: row.id,
+  icon: row.icon || '📰',
+  title: row.title || '',
+  subtitle: row.subtitle || '',
+  summary: row.summary || '',
+  category: row.category || '금융 상식',
+  badge: row.badge || '',
+  contentType: row.content_type || 'article',
+  sourceLabel: row.source_label || '',
+  sourceUrl: row.source_url || '',
+  thumbnailUrl: row.thumbnail_url || '',
+  videoUrl: row.video_url || '',
+  pdfUrl: row.pdf_url || '',
+  body: row.body || '',
+  readTime: row.read_time || '',
+  updatedAt: row.updated_at_label || '',
+  sortOrder: Number(row.sort_order || 0),
+  featured: Boolean(row.featured),
+  cardNews: normalizeContentJsonArray(row.card_news),
+  mediaItems: normalizeContentJsonArray(row.media_items),
+  goals: normalizeContentJsonArray(row.goals),
+  concepts: normalizeContentJsonArray(row.concepts),
+  learningPoints: normalizeContentJsonArray(row.learning_points),
+  quiz: normalizeContentJsonArray(row.quiz),
+  cloudContent: true,
+});
+
+app.get('/api/content/items', createRateLimiter({ key: 'content-items', limit: 120, windowMs: 60_000 }), async (_req, res) => {
+  if (!supabaseAdmin) {
+    return res.status(500).json({ error: 'Supabase admin is not configured' });
+  }
+
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('content_items')
+      .select('*')
+      .eq('published', true)
+      .order('sort_order', { ascending: false })
+      .order('updated_at', { ascending: false });
+
+    if (error) {
+      if (error.code === '42P01') {
+        return res.json({ items: [] });
+      }
+
+      throw error;
+    }
+
+    return res.json({ items: (data || []).map(mapContentItemRow) });
+  } catch (error) {
+    console.error('content items error', error.message);
+    return res.status(500).json({ error: error.message || 'Failed to load content items' });
+  }
+});
+
 app.post('/api/finance-chat', createRateLimiter({ key: 'finance-chat', limit: 60, windowMs: 60_000 }), async (req, res) => {
   const query = cleanText(req.body?.query, 800);
   const locale = cleanText(req.body?.locale || req.query?.locale || 'ko', 8);
@@ -1684,6 +1753,63 @@ app.post('/api/user-state/consume-heart', createRateLimiter({ key: 'user-state-c
   } catch (error) {
     console.error('user state consume heart error', error.message);
     return res.status(500).json({ error: error.message || 'Failed to consume heart' });
+  }
+});
+
+app.post('/api/premium/free-trial/start', createRateLimiter({ key: 'premium-free-trial-start', limit: 10, windowMs: 60_000 }), async (req, res) => {
+  if (!supabaseAdmin) {
+    return res.status(500).json({ error: 'Supabase admin is not configured' });
+  }
+
+  if (!isPremiumFreeTrialCampaignEnabled()) {
+    return res.status(403).json({ error: '프리미엄 무료체험 신청 기간이 아닙니다.' });
+  }
+
+  const accessToken = getRequestAccessToken(req);
+  if (!accessToken) {
+    return res.status(401).json({ error: '로그인 후 무료체험을 시작할 수 있어요.' });
+  }
+
+  try {
+    const { data: authData, error: authError } = await supabaseAdmin.auth.getUser(accessToken);
+    if (authError || !authData?.user) {
+      return res.status(401).json({ error: 'Invalid Supabase session' });
+    }
+
+    const metadata = authData.user.user_metadata || {};
+    if (getIsPremiumAuthUser(authData.user)) {
+      return res.status(409).json({ error: '이미 프리미엄을 이용 중입니다.' });
+    }
+
+    if (metadata.premium_free_trial_claimed_at) {
+      return res.status(409).json({ error: '이미 무료체험을 신청한 계정입니다.' });
+    }
+
+    const now = new Date();
+    const premiumExpiresAt = new Date(now.getTime() + FREE_PREMIUM_TRIAL_DAYS * 24 * 60 * 60 * 1000).toISOString();
+    await updatePremiumMetadata(authData.user.id, {
+      is_premium: true,
+      premium_plan: 'free_trial',
+      premium_provider: 'free-trial',
+      premium_status: 'active',
+      premium_updated_at: now.toISOString(),
+      premium_expires_at: premiumExpiresAt,
+      premium_free_trial_claimed_at: now.toISOString(),
+    });
+
+    const { data: refreshedUserData, error: refreshedUserError } = await supabaseAdmin.auth.admin.getUserById(authData.user.id);
+    if (refreshedUserError) {
+      throw refreshedUserError;
+    }
+
+    return res.json({
+      success: true,
+      premiumExpiresAt,
+      user: refreshedUserData?.user || null,
+    });
+  } catch (error) {
+    console.error('premium free trial start error', error.message);
+    return res.status(500).json({ error: error.message || '무료체험을 시작하지 못했습니다.' });
   }
 });
 

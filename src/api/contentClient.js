@@ -2,6 +2,8 @@ import { BACKEND_URL } from '@/lib/backendUrl';
 
 const contentCache = new Map();
 const CONTENT_CACHE_TTL_MS = 1000 * 60 * 60 * 24 * 7;
+const CONTENT_ITEMS_CACHE_KEY = 'finapple:content-items:v1';
+const CONTENT_ITEMS_CACHE_TTL_MS = 1000 * 60 * 5;
 
 const buildCacheKey = (type, locale, payload) => `${type}:${locale}:${JSON.stringify(payload)}`;
 
@@ -111,4 +113,31 @@ export function readCachedTranslatedContent(type, payload, locale = 'ko') {
   }
 
   return readPersistentCache(cacheKey);
+}
+
+export async function fetchContentItems() {
+  const cached = readPersistentCache(CONTENT_ITEMS_CACHE_KEY);
+  if (cached) {
+    return cached;
+  }
+
+  const response = await fetch(`${BACKEND_URL}/api/content/items`);
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(result?.error || '콘텐츠 목록을 불러오지 못했습니다.');
+  }
+
+  const items = Array.isArray(result?.items) ? result.items : [];
+  if (typeof window !== 'undefined') {
+    try {
+      window.localStorage.setItem(CONTENT_ITEMS_CACHE_KEY, JSON.stringify({
+        data: items,
+        expiresAt: Date.now() + CONTENT_ITEMS_CACHE_TTL_MS,
+      }));
+    } catch {
+      // Ignore cache write failures.
+    }
+  }
+
+  return items;
 }

@@ -1,10 +1,11 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { lifeStudyTopicsCatalog } from '../lib/studyData';
 import TopicCard from '../components/study/TopicCard';
 import useProgress from '../lib/useProgress';
 import { Globe2, Star, Flame, Snowflake } from 'lucide-react';
 import { useLanguage } from '@/lib/i18n';
+import { fetchContentItems } from '@/api/contentClient';
 
 function formatHistoryTime(value, locale) {
   if (!value) return '';
@@ -44,14 +45,50 @@ function getFreezerHistoryLabel(entry, isEnglish, locale) {
 export default function Study() {
   const { progress, loading, user, isPremium, getStreakStatus } = useProgress();
   const { locale, isEnglish } = useLanguage();
+  const [cloudTopics, setCloudTopics] = useState([]);
+  const [cloudTopicsError, setCloudTopicsError] = useState('');
+
+  useEffect(() => {
+    let active = true;
+    fetchContentItems()
+      .then((items) => {
+        if (active) {
+          setCloudTopics(items);
+          setCloudTopicsError('');
+        }
+      })
+      .catch((error) => {
+        if (active) {
+          setCloudTopicsError(error.message || '콘텐츠를 불러오지 못했습니다.');
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
   const groupedTopics = useMemo(() => {
-    const finance = lifeStudyTopicsCatalog.filter((topic) => topic.category === '금융 상식');
-    const issues = lifeStudyTopicsCatalog.filter((topic) => topic.category === '세계 이슈');
+    const mergedTopics = [
+      ...cloudTopics.filter((topic) => topic.category === '금융 상식' || topic.category === '세계 이슈'),
+      ...lifeStudyTopicsCatalog,
+    ];
+    const seenIds = new Set();
+    const uniqueTopics = mergedTopics.filter((topic) => {
+      if (seenIds.has(topic.id)) {
+        return false;
+      }
+
+      seenIds.add(topic.id);
+      return true;
+    });
+    const finance = uniqueTopics.filter((topic) => topic.category === '금융 상식');
+    const issues = uniqueTopics.filter((topic) => topic.category === '세계 이슈');
     const kiepIssues = issues.filter((topic) => {
       const sourceText = `${topic.sourceLabel || ''} ${topic.sourceUrl || ''}`.toLowerCase();
       return sourceText.includes('kiep') || sourceText.includes('대외경제정책연구원');
     });
-    const originalIssues = lifeStudyTopicsCatalog.filter((topic) => (topic.badge || '').toLowerCase() === 'finapple original');
+    const originalIssues = uniqueTopics.filter((topic) => (topic.badge || '').toLowerCase() === 'finapple original');
 
     const featuredKiepIssue = kiepIssues.find((topic) => topic.featured) || kiepIssues[0] || null;
     const compactKiepIssues = kiepIssues.filter((topic) => topic.id !== featuredKiepIssue?.id);
@@ -63,7 +100,7 @@ export default function Study() {
       compactKiepIssues,
       originalIssues,
     };
-  }, []);
+  }, [cloudTopics]);
   const streakStatus = getStreakStatus();
   const freezerHistory = streakStatus.freezerHistory.slice(0, 3);
   const displayName =
@@ -227,6 +264,11 @@ export default function Study() {
             </a>
             )
           </p>
+          {cloudTopicsError ? (
+            <p className="mt-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] font-semibold text-amber-800">
+              클라우드 콘텐츠를 잠시 불러오지 못했어요. 기본 콘텐츠는 계속 볼 수 있습니다.
+            </p>
+          ) : null}
         </div>
         <div className="grid gap-4 xl:grid-cols-2 2xl:grid-cols-3">
           {groupedTopics.finance.map((topic, i) => (

@@ -483,3 +483,28 @@ export const uploadProfilePicture = async (file) => {
 export const setPremiumStatus = async (isPremium) => {
   return updateUserProfile({ is_premium: isPremium });
 };
+
+export const startPremiumFreeTrial = async () => {
+  const { data, error } = await supabase.auth.getSession();
+  if (error || !data?.session?.access_token) {
+    throw new Error('로그인 후 무료체험을 시작할 수 있어요.');
+  }
+
+  const response = await fetch(`${BACKEND_URL}/api/premium/free-trial/start`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ accessToken: data.session.access_token }),
+  });
+
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(result?.error || '무료체험을 시작하지 못했습니다.');
+  }
+
+  await supabase.auth.refreshSession().catch(() => null);
+  const { data: userData } = await supabase.auth.getUser().catch(() => ({ data: null }));
+  return {
+    premiumExpiresAt: result.premiumExpiresAt,
+    user: userData?.user || result.user || null,
+  };
+};
