@@ -15,6 +15,21 @@ const todayKey = () => new Intl.DateTimeFormat('en-CA', {
   day: '2-digit',
 }).format(new Date());
 const getChatUsageKey = (email) => `finapple:finance-chat-usage:${String(email || 'guest').toLowerCase()}:${todayKey()}`;
+const getChatErrorMessage = (error, isEnglish) => {
+  if (error?.message === 'CHATBOT_TIMEOUT') {
+    return isEnglish
+      ? 'The chatbot server is taking too long to respond. Please try again in a moment.'
+      : '챗봇 서버 응답이 지연되고 있어요. 잠시 후 다시 시도해주세요.';
+  }
+
+  if (error?.message === 'CHATBOT_CONNECTION_FAILED') {
+    return isEnglish
+      ? 'Could not connect to the chatbot server. Please check the network or backend status.'
+      : '챗봇 서버에 연결하지 못했어요. 네트워크 또는 백엔드 상태를 확인해주세요.';
+  }
+
+  return error?.message || (isEnglish ? 'Something went wrong while processing your request.' : '요청 처리 중 오류가 발생했습니다.');
+};
 
 export default function FinanceChat() {
   const { locale, isEnglish } = useLanguage();
@@ -73,7 +88,7 @@ export default function FinanceChat() {
         setDailyUsage(nextUsage);
       }
     } catch (requestError) {
-      setError(requestError?.message || '요청 처리 중 오류가 발생했습니다.');
+      setError(getChatErrorMessage(requestError, isEnglish));
     } finally {
       setIsLoading(false);
     }

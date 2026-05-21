@@ -225,6 +225,7 @@ const allowedOrigins = new Set([
   'http://127.0.0.1:4173',
   'https://finapple.xyz',
   'https://www.finapple.xyz',
+  'https://finapple.vercel.app',
 ]);
 
 const isAllowedOrigin = (origin) => {

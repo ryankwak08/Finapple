@@ -38,10 +38,10 @@ async function fetchJsonWithFallback(path, options = {}) {
   }
 
   if (lastError?.name === 'AbortError') {
-    throw new Error('챗봇 서버 응답이 지연되고 있어요. 잠시 후 다시 시도해주세요.');
+    throw new Error('CHATBOT_TIMEOUT');
   }
 
-  throw new Error('챗봇 서버에 연결하지 못했어요. 네트워크 또는 백엔드 상태를 확인해주세요.');
+  throw new Error('CHATBOT_CONNECTION_FAILED');
 }
 
 export async function fetchFinanceChat(payload, locale = 'ko') {
