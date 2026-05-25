@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { fetchFinanceChat, fetchYouthCoreQuestions } from '@/api/financeChatClient';
 import { useLanguage } from '@/lib/i18n';
 import { getFinanceChatDisclaimer } from '@/lib/legalContent';
@@ -34,9 +34,10 @@ const getChatErrorMessage = (error, isEnglish) => {
 export default function FinanceChat() {
   const { locale, isEnglish } = useLanguage();
   const { user } = useAuth();
+  const [searchParams] = useSearchParams();
   const isPremium = getIsPremium(user);
   const disclaimer = getFinanceChatDisclaimer(isEnglish);
-  const [query, setQuery] = useState('');
+  const [query, setQuery] = useState(() => searchParams.get('query') || '');
   const [result, setResult] = useState(null);
   const [coreQuestions, setCoreQuestions] = useState({});
   const [isLoading, setIsLoading] = useState(false);

@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { lifeStudyTopicsCatalog } from '../lib/studyData';
 import TopicCard from '../components/study/TopicCard';
 import useProgress from '../lib/useProgress';
-import { Globe2, Star, Flame, Snowflake } from 'lucide-react';
+import { Bot, BrainCircuit, ChevronRight, Globe2, Star, Flame, Snowflake } from 'lucide-react';
 import { useLanguage } from '@/lib/i18n';
 import { fetchContentItems } from '@/api/contentClient';
 
@@ -196,20 +196,53 @@ export default function Study() {
       )}
 
       <section className="mb-6">
-        <div className="rounded-2xl border border-sky-200 bg-sky-50/70 p-3">
-          <p className="text-[11px] font-black uppercase tracking-[0.16em] text-sky-700">New</p>
-          <h2 className="mt-1 text-[16px] font-extrabold text-sky-900">{isEnglish ? 'Youth finance chatbot' : '청년 금융 챗봇'}</h2>
-          <p className="mt-1 text-[10px] leading-relaxed text-sky-800/85">
-            {isEnglish
-              ? 'Ask practical questions and get documents, next actions, and official links in one response.'
-              : '실전 질문을 입력하면 필요한 서류, 다음 단계, 공식 링크를 한 번에 안내해요.'}
-          </p>
-          <Link
-            to="/finance-chat"
-            className="mt-3 inline-flex rounded-xl bg-sky-700 px-3 py-1.5 text-[10px] font-bold text-white"
-          >
-            {isEnglish ? 'Open chatbot' : '챗봇 열기'}
-          </Link>
+        <div className="grid gap-3 lg:grid-cols-2">
+          <div className="rounded-2xl border border-emerald-200 bg-emerald-50/80 p-3">
+            <div className="flex items-start gap-3">
+              <div className="rounded-xl bg-emerald-700 p-2 text-white">
+                <BrainCircuit className="h-5 w-5" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-[11px] font-black uppercase tracking-[0.16em] text-emerald-700">AI Beta</p>
+                <h2 className="mt-1 text-[16px] font-extrabold text-emerald-950">{isEnglish ? 'Finapple AI' : 'Finapple AI'}</h2>
+                <p className="mt-1 text-[10px] leading-relaxed text-emerald-900/85">
+                  {isEnglish
+                    ? 'Match your profile with Gyeonggi public-service data using AI scoring.'
+                    : '내 조건과 경기도 공공서비스 데이터를 AI 점수로 매칭해 추천해요.'}
+                </p>
+              </div>
+            </div>
+            <Link
+              to="/money-pass"
+              className="mt-3 inline-flex items-center gap-1 rounded-xl bg-emerald-700 px-3 py-1.5 text-[10px] font-bold text-white"
+            >
+              {isEnglish ? 'Try Finapple AI' : 'Finapple AI 해보기'}
+              <ChevronRight className="h-3.5 w-3.5" />
+            </Link>
+          </div>
+
+          <div className="rounded-2xl border border-sky-200 bg-sky-50/70 p-3">
+            <div className="flex items-start gap-3">
+              <div className="rounded-xl bg-sky-700 p-2 text-white">
+                <Bot className="h-5 w-5" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-[11px] font-black uppercase tracking-[0.16em] text-sky-700">New</p>
+                <h2 className="mt-1 text-[16px] font-extrabold text-sky-900">{isEnglish ? 'Youth finance chatbot' : '청년 금융 챗봇'}</h2>
+                <p className="mt-1 text-[10px] leading-relaxed text-sky-800/85">
+                  {isEnglish
+                    ? 'Ask practical questions and get documents, next actions, and official links in one response.'
+                    : '실전 질문을 입력하면 필요한 서류, 다음 단계, 공식 링크를 한 번에 안내해요.'}
+                </p>
+              </div>
+            </div>
+            <Link
+              to="/finance-chat"
+              className="mt-3 inline-flex rounded-xl bg-sky-700 px-3 py-1.5 text-[10px] font-bold text-white"
+            >
+              {isEnglish ? 'Open chatbot' : '챗봇 열기'}
+            </Link>
+          </div>
         </div>
       </section>
 

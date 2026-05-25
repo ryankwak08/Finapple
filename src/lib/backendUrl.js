@@ -51,6 +51,10 @@ export const BACKEND_URL = (() => {
       }
     }
 
+    if (configuredUrl) {
+      return configuredUrl;
+    }
+
     return '';
   }
 
