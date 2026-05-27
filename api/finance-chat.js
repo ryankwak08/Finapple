@@ -50,6 +50,7 @@ export default async function handler(req, res) {
       openAiApiKey: process.env.OPENAI_API_KEY,
       model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
       locale,
+      vectorStoreId: process.env.OPENAI_VECTOR_STORE_ID || 'vs_6a16725acdec8191a7fb6b7f9a84cc30',
     });
     return res.status(200).json({
       ...response,

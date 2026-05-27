@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { buildMoneyPassProfileQuery } from '../moneyPassMl.js';
-import { getMoneyPassFamilyCenters, getMoneyPassRecommendations, normalizeMoneyPassProfile } from '../moneyPassMatcher.js';
+import {
+  buildMoneyPassChatPrompt,
+  getMoneyPassFamilyCenters,
+  getMoneyPassRecommendations,
+  normalizeMoneyPassProfile,
+} from '../moneyPassMatcher.js';
 
 describe('Money Pass natural-language profile', () => {
   it('uses free-form user context as semantic-search query text', () => {
@@ -109,5 +114,22 @@ describe('Money Pass natural-language profile', () => {
     });
 
     expect(centers).toEqual([]);
+  });
+
+  it('uses reviewed policy master data with document details in chat prompt', () => {
+    const profile = {
+      age: 30,
+      city: '용인시',
+      employmentStatus: '중소기업 재직',
+      householdSize: 1,
+      monthlyIncome: 2500000,
+      naturalLanguage: '청년 노동자 통장 서류가 궁금해요',
+    };
+    const recommendations = getMoneyPassRecommendations(profile, { limit: 3 });
+    const prompt = buildMoneyPassChatPrompt(profile, recommendations);
+
+    expect(recommendations.some((policy) => policy.sourceType === 'policy_master')).toBe(true);
+    expect(prompt).toContain('제출서류');
+    expect(prompt).toMatch(/주민등록초본|재직증명서/);
   });
 });

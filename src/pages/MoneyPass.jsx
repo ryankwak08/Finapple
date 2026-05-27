@@ -12,7 +12,6 @@ import {
   Sparkles,
 } from 'lucide-react';
 import {
-  buildMoneyPassChatPrompt,
   getIncomePercent,
   getMoneyPassFamilyCenters,
   getMedianIncomeThresholds,
@@ -29,7 +28,7 @@ const DEFAULT_PROFILE = {
   city: '성남시',
   gender: '',
   householdSize: 1,
-  monthlyIncome: 0,
+  monthlyIncome: '',
   employmentStatus: '미취업',
   livingArrangement: '자취/독립',
   housingCostType: '월세',
@@ -112,6 +111,34 @@ function formatWon(value) {
   return `${Math.round(Number(value || 0)).toLocaleString('ko-KR')}원`;
 }
 
+function applicationStatusLabel(status) {
+  return ({
+    open: '접수 중',
+    upcoming: '예정',
+    always: '상시',
+    closed: '마감',
+    unknown: '확인 필요',
+  })[status] || '';
+}
+
+function documentTypeLabel(type) {
+  return ({
+    required: '필수',
+    conditional: '조건부',
+    optional: '선택',
+    unknown: '확인',
+  })[type] || type;
+}
+
+function buildPolicyDocumentQuestion(policy) {
+  return [
+    `정책ID: ${policy.id}`,
+    `정책명: ${policy.title}`,
+    '이 정책 하나에 대해서만 신청 준비 서류, 조건부 서류, 발급처, 다음 단계를 알려줘.',
+    '다른 정책은 추천하거나 섞어서 설명하지 말아줘.',
+  ].join('\n');
+}
+
 export default function MoneyPass() {
   const { isEnglish } = useLanguage();
   const [profile, setProfile] = useState(DEFAULT_PROFILE);
@@ -122,8 +149,6 @@ export default function MoneyPass() {
   const jobPostings = useMemo(() => getMoneyPassJobPostings(profile, { limit: 5 }), [profile]);
   const incomePercent = useMemo(() => getIncomePercent(profile), [profile]);
   const incomeThresholds = useMemo(() => getMedianIncomeThresholds(profile.householdSize), [profile.householdSize]);
-  const chatPrompt = useMemo(() => buildMoneyPassChatPrompt(profile, recommendations), [profile, recommendations]);
-  const chatUrl = `/finance-chat?query=${encodeURIComponent(chatPrompt)}`;
 
   return (
     <div className="mx-auto w-full max-w-5xl px-3 pb-24 pt-5 sm:px-6 sm:pt-8">
@@ -218,7 +243,7 @@ export default function MoneyPass() {
                   min="0"
                   step="100000"
                   value={profile.monthlyIncome}
-                  onChange={(event) => setProfile((current) => ({ ...current, monthlyIncome: Number(event.target.value || 0) }))}
+                  onChange={(event) => setProfile((current) => ({ ...current, monthlyIncome: event.target.value }))}
                   placeholder="예: 2500000"
                   className="h-10 w-full rounded-xl border border-border bg-background px-3 text-[13px] font-bold outline-none focus:border-primary"
                 />
@@ -277,13 +302,6 @@ export default function MoneyPass() {
                 <p className="text-[11px] font-black uppercase tracking-[0.14em] text-primary">AI Recommendations</p>
                 <h2 className="mt-1 text-[17px] font-extrabold text-foreground">추천 정책 {recommendations.length}개</h2>
               </div>
-              <Link
-                to={chatUrl}
-                className="inline-flex w-fit items-center gap-1.5 rounded-xl bg-primary px-3 py-2 text-[12px] font-bold text-primary-foreground"
-              >
-                <Bot className="h-4 w-4" />
-                AI에게 서류 물어보기
-              </Link>
             </div>
 
             <div className="space-y-3">
@@ -299,6 +317,11 @@ export default function MoneyPass() {
                         <span className="rounded-full border border-border bg-card px-2 py-1 text-[10px] font-bold text-muted-foreground">
                           의미 점수 {policy.mlScore}
                         </span>
+                        {policy.applicationStatus ? (
+                          <span className="rounded-full border border-sky-200 bg-sky-50 px-2 py-1 text-[10px] font-black text-sky-800">
+                            {applicationStatusLabel(policy.applicationStatus)}
+                          </span>
+                        ) : null}
                       </div>
                       <h3 className="text-[15px] font-extrabold leading-snug text-foreground">{policy.title}</h3>
                       <p className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] font-bold text-muted-foreground">
@@ -307,23 +330,62 @@ export default function MoneyPass() {
                         {policy.supportType ? <span>· {policy.supportType}</span> : null}
                       </p>
                     </div>
-                    <a
-                      href={policy.url}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="inline-flex shrink-0 items-center gap-1 rounded-xl border border-border px-3 py-2 text-[11px] font-bold text-foreground hover:border-primary/40"
-                    >
-                      공식 링크
-                      <ExternalLink className="h-3.5 w-3.5" />
-                    </a>
+                    <div className="flex shrink-0 flex-wrap gap-2">
+                      <Link
+                        to={`/finance-chat?query=${encodeURIComponent(buildPolicyDocumentQuestion(policy))}`}
+                        className="inline-flex items-center gap-1 rounded-xl bg-primary px-3 py-2 text-[11px] font-bold text-primary-foreground"
+                      >
+                        <Bot className="h-3.5 w-3.5" />
+                        AI에게 서류 물어보기
+                      </Link>
+                      <a
+                        href={policy.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1 rounded-xl border border-border px-3 py-2 text-[11px] font-bold text-foreground hover:border-primary/40"
+                      >
+                        공식 링크
+                        <ExternalLink className="h-3.5 w-3.5" />
+                      </a>
+                    </div>
                   </div>
 
                   <p className="mt-3 text-[13px] leading-6 text-foreground">{policy.description}</p>
+                  {policy.benefitSummary || policy.benefitAmount ? (
+                    <div className="mt-3 rounded-xl border border-sky-200 bg-sky-50/70 p-3 text-[11px] leading-5 text-sky-950">
+                      {policy.benefitSummary ? <p><span className="font-black">혜택</span><br />{policy.benefitSummary}</p> : null}
+                      {policy.benefitAmount ? <p className="mt-2"><span className="font-black">금액/방식</span><br />{policy.benefitAmount}</p> : null}
+                    </div>
+                  ) : null}
                   {policy.eligibility || policy.announcementPeriod || policy.applicationMethod ? (
                     <div className="mt-3 grid gap-2 rounded-xl border border-emerald-200 bg-emerald-50/70 p-3 text-[11px] leading-5 text-emerald-950 sm:grid-cols-3">
                       {policy.eligibility ? <p><span className="font-black">대상</span><br />{policy.eligibility}</p> : null}
                       {policy.announcementPeriod ? <p><span className="font-black">공고</span><br />{policy.announcementPeriod}</p> : null}
                       {policy.applicationMethod ? <p><span className="font-black">신청</span><br />{policy.applicationMethod}</p> : null}
+                    </div>
+                  ) : null}
+                  {policy.documents?.length ? (
+                    <div className="mt-3 rounded-xl border border-border bg-card p-3">
+                      <p className="mb-2 flex items-center gap-1.5 text-[11px] font-black text-foreground">
+                        <FileCheck2 className="h-3.5 w-3.5 text-sky-600" />
+                        제출 서류
+                      </p>
+                      <div className="space-y-1.5">
+                        {policy.documents.slice(0, 4).map((document) => (
+                          <p key={`${policy.id}-${document.name}-${document.condition}`} className="text-[11px] leading-5 text-muted-foreground">
+                            <span className="font-black text-foreground">{document.name}</span>
+                            {document.type ? <span> · {documentTypeLabel(document.type)}</span> : null}
+                            {document.condition ? <span> · {document.condition}</span> : null}
+                            {document.issuer ? <span> · {document.issuer}</span> : null}
+                          </p>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
+                  {policy.importantWarnings || policy.commonRejectionReasons ? (
+                    <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] leading-5 text-amber-900">
+                      {policy.importantWarnings ? <p><span className="font-black">주의</span><br />{policy.importantWarnings}</p> : null}
+                      {policy.commonRejectionReasons ? <p className="mt-2"><span className="font-black">탈락 사유</span><br />{policy.commonRejectionReasons}</p> : null}
                     </div>
                   ) : null}
 

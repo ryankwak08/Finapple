@@ -1,5 +1,6 @@
 import { moneyPassInternCenters, moneyPassJobPostings, moneyPassPublicServices } from './moneyPassData.js';
 import { moneyPassFamilyCenters } from './moneyPassFamilyCenters.js';
+import { moneyPassPolicyMaster } from './moneyPassPolicyMaster.js';
 import { createMoneyPassTfIdfModel, scoreMoneyPassPoliciesWithMl } from './moneyPassMl.js';
 
 const CATEGORY_LABELS = {
@@ -37,6 +38,15 @@ const NATURAL_QUERY_INTENTS = [
     requireCategory: true,
   },
   {
+    name: '월세 지원',
+    queryKeywords: ['월세'],
+    policyKeywords: ['월세', '임차료', '월 임차료'],
+    excludedPolicyKeywords: ['기숙사', '학사'],
+    categories: ['housing'],
+    strict: true,
+    requireCategory: true,
+  },
+  {
     name: '취업 지원',
     queryKeywords: ['취업', '취준', '구직', '일자리', '인턴'],
     policyKeywords: ['취업', '구직', '일자리', '인턴', '직무', '역량', '교육훈련'],
@@ -47,12 +57,16 @@ const NATURAL_QUERY_INTENTS = [
     queryKeywords: ['월세', '전세', '보증금', '주거', '자취', '기숙사', '이사비'],
     policyKeywords: ['월세', '전세', '보증금', '주거', '주택', '기숙사', '이사비', '임차'],
     categories: ['housing'],
+    strict: true,
+    requireCategory: true,
   },
   {
     name: '금융 지원',
     queryKeywords: ['대출', '신용', '이자', '저축', '통장', '청년도약'],
     policyKeywords: ['대출', '신용', '이자', '저축', '통장', '금융', '상환'],
     categories: ['finance'],
+    strict: true,
+    requireCategory: true,
   },
   {
     name: '창업 지원',
@@ -96,7 +110,14 @@ const RECOMMENDATION_DATE = new Date(2026, 4, 26);
 
 const includesAny = (text, keywords) => keywords.some((keyword) => text.includes(keyword));
 const normalizeText = (value) => String(value || '').trim();
-const moneyPassTfIdfModel = createMoneyPassTfIdfModel(moneyPassPublicServices);
+const supplementalPublicServices = moneyPassPublicServices.filter((policy) => (
+  includesAny(`${policy.title} ${policy.description} ${policy.eligibility || ''}`, MULTICULTURAL_KEYWORDS)
+));
+const moneyPassRecommendationPolicies = [
+  ...moneyPassPolicyMaster,
+  ...supplementalPublicServices.filter((policy) => !moneyPassPolicyMaster.some((masterPolicy) => masterPolicy.id === policy.id)),
+];
+const moneyPassTfIdfModel = createMoneyPassTfIdfModel(moneyPassRecommendationPolicies);
 
 function policySearchText(policy) {
   return [
@@ -104,6 +125,10 @@ function policySearchText(policy) {
     policy.description,
     policy.supportType,
     policy.eligibility,
+    policy.benefitSummary,
+    policy.benefitAmount,
+    policy.employmentRequirement,
+    policy.importantWarnings,
   ].filter(Boolean).join(' ');
 }
 
@@ -118,7 +143,7 @@ function passesNaturalIntentFilter(policy, profile) {
   if (!strictIntents.length) return true;
   const text = policySearchText(policy);
   const categories = new Set(policy.categories || []);
-  return strictIntents.some((intent) => {
+  return strictIntents.every((intent) => {
     const hasDirectMatch = includesAny(text, intent.policyKeywords);
     const hasCategoryMatch = intent.categories.some((category) => categories.has(category));
     const hasExcludedMatch = intent.excludedPolicyKeywords?.length
@@ -197,6 +222,7 @@ function applyNaturalLanguageHints(profile) {
 }
 
 export const moneyPassCities = Array.from(new Set([
+  ...moneyPassPolicyMaster.map((item) => item.city).filter(Boolean),
   ...moneyPassPublicServices.map((item) => item.city).filter(Boolean),
   ...moneyPassInternCenters.map((item) => item.city).filter(Boolean),
   ...moneyPassFamilyCenters.map((item) => item.city).filter(Boolean),
@@ -274,6 +300,11 @@ function scorePolicy(policy, profile) {
   const reasons = [];
   let score = 0;
 
+  if (policy.sourceType === 'policy_master') {
+    score += 12;
+    reasons.push('검수된 정책 마스터 데이터');
+  }
+
   if (profile.age >= 19 && profile.age <= 39 && categories.has('youth')) {
     score += 30;
     reasons.push('청년 연령대와 맞는 정책');
@@ -336,8 +367,12 @@ function scorePolicy(policy, profile) {
 
   naturalIntents.forEach((intent) => {
     const hasDirectMatch = includesAny(text, intent.policyKeywords);
+    const hasTitleMatch = includesAny(policy.title || '', intent.policyKeywords);
     const hasCategoryMatch = intent.categories.some((category) => categories.has(category));
-    if (hasDirectMatch) {
+    if (hasTitleMatch) {
+      score += 86;
+      reasons.push(`${intent.name} 제목과 직접 연결`);
+    } else if (hasDirectMatch) {
       score += 56;
       reasons.push(`${intent.name} 표현과 직접 연결`);
     } else if (hasCategoryMatch) {
@@ -357,6 +392,7 @@ function scorePolicy(policy, profile) {
 
 function isAvailableForCity(policy, profile) {
   if (!profile.city) return true;
+  if ((policy.excludedCities || []).includes(profile.city)) return false;
   if (!policy.city || policy.city === '경기도') return true;
   return policy.city === profile.city;
 }
@@ -365,13 +401,18 @@ function passesSpecialEligibility(policy, profile) {
   const text = `${policy.title} ${policy.description} ${policy.eligibility || ''}`;
   const interests = new Set(profile.interests);
   const cityExcluded = profile.city ? new RegExp(`${profile.city}.{0,30}제외`).test(text) : false;
+  const workerOnly = includesAny(text, ['재직자', '재직 청년', '근로자', '노동자', '중소기업 재직', '중소기업 노동자']);
 
   if (profile.city && (
     cityExcluded ||
+    (policy.excludedCities || []).includes(profile.city) ||
     text.includes(`${profile.city} 제외`) ||
     text.includes(`${profile.city}는 자체사업`) ||
     text.includes(`${profile.city} 자체사업`)
   )) return false;
+  if (workerOnly && !['재직', '중소기업 재직', '근로자'].includes(profile.employmentStatus)) return false;
+  if (policy.ageMin && profile.age && profile.age < policy.ageMin) return false;
+  if (policy.ageMax && profile.age && profile.age > policy.ageMax) return false;
   if (text.includes('여성') && profile.gender !== '여성' && !interests.has('여성')) return false;
   if (includesAny(text, ['다자녀', '출산', '산모', '신생아', '임산부']) && !interests.has('출산/양육')) return false;
   if (text.includes('신혼부부') && !interests.has('신혼부부')) return false;
@@ -413,6 +454,8 @@ function extractScheduleDates(value) {
 }
 
 function isOpenOrUpcomingPolicy(policy) {
+  if (policy.applicationStatus === 'closed') return false;
+  if (['open', 'upcoming', 'always'].includes(policy.applicationStatus)) return true;
   if (!policy.announcementPeriod) return true;
   const dates = extractScheduleDates(policy.announcementPeriod);
   if (!dates.length || dates.includes('always')) return true;
@@ -428,7 +471,7 @@ export function getMoneyPassRecommendations(profileInput = {}, options = {}) {
   const profile = normalizeMoneyPassProfile(profileInput);
   const limit = options.limit || 8;
   const mlWeight = Number.isFinite(options.mlWeight) ? options.mlWeight : 45;
-  const eligiblePolicies = moneyPassPublicServices
+  const eligiblePolicies = moneyPassRecommendationPolicies
     .filter((policy) => isAvailableForCity(policy, profile))
     .filter((policy) => passesSpecialEligibility(policy, profile))
     .filter((policy) => passesNaturalIntentFilter(policy, profile))
@@ -505,7 +548,22 @@ export function buildMoneyPassChatPrompt(profileInput = {}, recommendations = []
   const incomePercent = getIncomePercent(profile);
   const policyLines = recommendations
     .slice(0, 5)
-    .map((policy) => `- ${policy.title} (${policy.agency})`)
+    .map((policy) => {
+      const documents = (policy.documents || [])
+        .slice(0, 6)
+        .map((document) => `${document.name}${document.type ? `(${document.type})` : ''}${document.condition ? `-${document.condition}` : ''}`)
+        .join(', ');
+      return [
+        `- ${policy.title} (${policy.agency})`,
+        policy.applicationStatus ? `  신청상태: ${policy.applicationStatus}` : '',
+        policy.announcementPeriod ? `  신청기간: ${policy.announcementPeriod}` : '',
+        policy.eligibility ? `  대상조건: ${policy.eligibility}` : '',
+        policy.benefitAmount ? `  혜택: ${policy.benefitAmount}` : '',
+        documents ? `  제출서류: ${documents}` : '',
+        policy.importantWarnings ? `  주의사항: ${policy.importantWarnings}` : '',
+        policy.commonRejectionReasons ? `  탈락사유: ${policy.commonRejectionReasons}` : '',
+      ].filter(Boolean).join('\n');
+    })
     .join('\n');
 
   return [

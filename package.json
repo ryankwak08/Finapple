@@ -18,6 +18,7 @@
     "lint": "eslint . --quiet",
     "lint:fix": "eslint . --fix",
     "check:ops": "node scripts/check-ops.mjs",
+    "export:money-pass-openai": "node scripts/export-money-pass-openai-knowledge.mjs",
     "create:test-user": "node scripts/create-test-user.mjs",
     "create:synthetic-users": "node scripts/create-synthetic-test-users.mjs",
     "rename:synthetic-nicknames": "node scripts/rename-synthetic-nicknames.mjs",

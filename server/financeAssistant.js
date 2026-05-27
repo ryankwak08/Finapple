@@ -1,3 +1,6 @@
+import { moneyPassFamilyCenters } from '../src/lib/moneyPassFamilyCenters.js';
+import { moneyPassPolicyMaster } from '../src/lib/moneyPassPolicyMaster.js';
+
 const INTENT_KEYWORDS_KO = {
   예산관리: ['월급', '가계부', '예산', '지출', '고정비', '소비'],
   신용점수관리: ['신용점수', '신용', '연체', '카드값', '카드대금'],
@@ -61,6 +64,198 @@ const FINANCE_CHAT_DISCLAIMER_EN = 'Finapple chatbot answers are general educati
 const getFinanceChatDisclaimer = (locale = 'ko') => (
   isEnglishLocale(locale) ? FINANCE_CHAT_DISCLAIMER_EN : FINANCE_CHAT_DISCLAIMER_KO
 );
+
+const DOCUMENT_TYPE_LABELS = {
+  required: '필수',
+  conditional: '조건부',
+  optional: '선택',
+  unknown: '확인 필요',
+};
+
+const MASTER_POLICY_QUERY_HINTS = ['서류', '준비물', '필요', '신청', '조건', '대상', '마감', '기간', '혜택', '탈락', '주의'];
+const MASTER_POLICY_TERMS = [
+  '정책', '지원', '지원금', '청년', '경기도', '경기', '면접', '수당', '통장', '저축', '계좌',
+  '복지포인트', '기회사다리', '기본소득', '학자금', '일자리', '채용', '기숙사', '학사',
+  '주거', '월세', '전세', '임차', '하우징', '다문화',
+  '돈', '벌고', '벌기',
+];
+const POLICY_QUERY_EXPANSIONS = [
+  {
+    triggers: ['전월세', '월세', '전세', '주거', '임대차'],
+    terms: ['주거', '임차', '월세', '전세', '임대차', '주택', '하우징'],
+  },
+  {
+    triggers: ['면접', '구직', '취업준비', '취준'],
+    terms: ['면접', '구직', '취업', '채용', '일자리'],
+  },
+  {
+    triggers: ['돈', '벌고', '소득', '알바', '일자리', '취업'],
+    terms: ['일자리', '채용', '취업', '근로', '노동'],
+  },
+  {
+    triggers: ['다문화', '가족지원센터', '가족 센터'],
+    terms: ['다문화', '가족', '센터'],
+  },
+];
+
+const tokenizePolicyQuery = (value = '') => normalize(value)
+  .split(/[\s·,./()\-_[\]{}:;!?]+/)
+  .map((token) => token.trim())
+  .filter((token) => token.length >= 2);
+
+const expandPolicyQueryTokens = (text = '') => {
+  const tokens = new Set(tokenizePolicyQuery(text));
+  POLICY_QUERY_EXPANSIONS.forEach(({ triggers, terms }) => {
+    if (triggers.some((trigger) => text.includes(trigger))) {
+      terms.forEach((term) => tokens.add(term));
+    }
+  });
+  return tokens;
+};
+
+const compactDocumentLabel = (document) => [
+  document.name,
+  document.type ? DOCUMENT_TYPE_LABELS[document.type] || document.type : '',
+  document.condition,
+  document.issuer,
+].filter(Boolean).join(' · ');
+
+const policyToFinanceDocument = (policy, score = 0.95) => ({
+  title: policy.title,
+  content: [
+    policy.description,
+    policy.benefitSummary ? `혜택: ${policy.benefitSummary}` : '',
+    policy.benefitAmount ? `지원금/방식: ${policy.benefitAmount}` : '',
+    policy.applicationStatus ? `신청상태: ${policy.applicationStatus}` : '',
+    policy.announcementPeriod ? `신청기간: ${policy.announcementPeriod}` : '',
+    policy.eligibility ? `대상조건: ${policy.eligibility}` : '',
+    policy.importantWarnings ? `주의사항: ${policy.importantWarnings}` : '',
+    policy.commonRejectionReasons ? `주요 탈락사유: ${policy.commonRejectionReasons}` : '',
+  ].filter(Boolean).join('\n'),
+  intent: '청년지원정책',
+  required_documents: (policy.documents || []).map(compactDocumentLabel),
+  next_actions: [
+    policy.applicationMethod || '공식 신청 페이지에서 신청 절차를 확인합니다.',
+    policy.screeningProcess ? `심사: ${policy.screeningProcess}` : '',
+    policy.resultAnnouncement ? `결과 발표: ${policy.resultAnnouncement}` : '',
+    policy.paymentSchedule ? `지급 일정: ${policy.paymentSchedule}` : '',
+  ].filter(Boolean),
+  links: [
+    policy.url ? { name: policy.title, url: policy.url } : null,
+  ].filter(Boolean),
+  score,
+  source: 'policy_master',
+  policy_id: policy.id,
+  application_status: policy.applicationStatus,
+  data_confidence: policy.dataConfidence,
+});
+
+const findPolicyMasterMatches = (query = '') => {
+  const text = normalize(query);
+  if (!text) return [];
+
+  const requestedPolicyId = query.match(/정책ID\s*:\s*([a-z0-9-]+)/i)?.[1];
+  if (requestedPolicyId) {
+    const exactPolicy = moneyPassPolicyMaster.find((policy) => policy.id === requestedPolicyId);
+    return exactPolicy ? [policyToFinanceDocument(exactPolicy, 0.99)] : [];
+  }
+
+  const queryTokens = expandPolicyQueryTokens(text);
+  const asksPolicyDetail = MASTER_POLICY_QUERY_HINTS.some((hint) => text.includes(hint));
+  const asksLeaseHousing = ['전월세', '전세', '월세', '임대차'].some((term) => text.includes(term))
+    && !['기숙사', '학사'].some((term) => text.includes(term));
+
+  return moneyPassPolicyMaster
+    .map((policy) => {
+      const policyText = [
+        policy.title,
+        policy.description,
+        policy.benefitSummary,
+        policy.benefitAmount,
+        policy.eligibility,
+      ].filter(Boolean).join(' ');
+      if (asksLeaseHousing && /기숙사|학사/.test(policyText)) {
+        return { policy, score: 0 };
+      }
+      if (asksLeaseHousing && !/임차|월세|전세|주택|하우징|화재|노후주택|주거환경/.test(policyText)) {
+        return { policy, score: 0 };
+      }
+
+      const haystack = normalize([
+        policy.title,
+        policy.description,
+        policy.benefitSummary,
+        policy.benefitAmount,
+        policy.eligibility,
+        policy.applicationMethod,
+        ...(policy.documents || []).map((document) => document.name),
+      ].filter(Boolean).join(' '));
+      const title = normalize(policy.title);
+      let score = 0;
+
+      if (title && text.includes(title)) score += 8;
+      title.split(/\s+/).forEach((token) => {
+        if (token.length >= 2 && text.includes(token)) score += 2;
+      });
+      queryTokens.forEach((token) => {
+        if (haystack.includes(token)) score += 1;
+      });
+      if (asksPolicyDetail && score > 0) score += 2;
+
+      return { policy, score };
+    })
+    .filter(({ score }) => score >= 3)
+    .sort((a, b) => b.score - a.score || a.policy.title.localeCompare(b.policy.title, 'ko'))
+    .slice(0, 3)
+    .map(({ policy, score }) => policyToFinanceDocument(policy, Math.min(0.99, 0.72 + score / 30)));
+};
+
+const findFamilyCenterMatches = (query = '') => {
+  const text = normalize(query);
+  if (!['다문화', '가족지원센터', '가족 센터', '센터'].some((term) => text.includes(term))) {
+    return [];
+  }
+
+  const scoredCenters = moneyPassFamilyCenters
+    .map((center) => {
+      const haystack = normalize([center.name, center.city, center.address, center.phone].filter(Boolean).join(' '));
+      let score = text.includes('다문화') ? 5 : 2;
+      tokenizePolicyQuery(text).forEach((token) => {
+        if (haystack.includes(token)) score += 2;
+      });
+      return { center, score };
+    })
+    .sort((a, b) => b.score - a.score || a.center.name.localeCompare(b.center.name, 'ko'))
+    .slice(0, 5);
+
+  return scoredCenters.map(({ center, score }) => ({
+    title: center.name,
+    content: [
+      `${center.city} 다문화가족지원센터 현황 데이터입니다.`,
+      center.address ? `주소: ${center.address}` : '',
+      center.phone ? `전화: ${center.phone}` : '',
+    ].filter(Boolean).join('\n'),
+    intent: '청년지원정책',
+    required_documents: [],
+    next_actions: [
+      center.phone ? `${center.phone}로 운영 여부와 상담 가능 시간을 확인합니다.` : '방문 전 운영 여부를 확인합니다.',
+      center.address ? `${center.address} 주소를 확인하고 방문/상담 일정을 잡습니다.` : '',
+    ].filter(Boolean),
+    links: [],
+    score: Math.min(0.99, 0.76 + score / 30),
+    source: 'family_center_master',
+    policy_id: center.id,
+    application_status: 'always',
+    data_confidence: 'medium',
+  }));
+};
+
+const isPolicyDataQuestion = (query = '') => {
+  const text = normalize(query);
+  if (!text) return false;
+  return MASTER_POLICY_QUERY_HINTS.some((hint) => text.includes(hint))
+    || MASTER_POLICY_TERMS.some((term) => text.includes(term));
+};
 
 const DOCUMENTS = [
   {
@@ -424,20 +619,22 @@ export const buildFinanceChatResponse = ({ query, ownedDocuments: _ownedDocument
   const { intent, score } = routeIntentByKeywords(query, locale);
   const intentCandidates = computeIntentCandidates(query, locale);
   const defaultIntent = isEnglishLocale(locale) ? '투자기초' : '연말정산세금';
-  const predictedIntent = intent || defaultIntent;
-  const confidence = score > 0 ? Math.min(0.86 + (score - 1) * 0.04, 0.98) : 0.4;
+  const policyMatches = findPolicyMasterMatches(query);
+  const familyCenterMatches = findFamilyCenterMatches(query);
+  const dataMatches = [...familyCenterMatches, ...policyMatches].slice(0, 5);
+  const asksPolicyData = isPolicyDataQuestion(query);
+  const requestsSinglePolicy = /정책ID\s*:\s*[a-z0-9-]+/i.test(String(query || ''));
+  const predictedIntent = dataMatches.length ? '청년지원정책' : (intent || defaultIntent);
+  const confidence = dataMatches.length ? Math.max(...dataMatches.map((doc) => doc.score || 0.9)) : (score > 0 ? Math.min(0.86 + (score - 1) * 0.04, 0.98) : 0.4);
 
   const matchedDocs = DOCUMENTS.filter((doc) => doc.intent === predictedIntent);
-  const docs = (matchedDocs.length ? matchedDocs : DOCUMENTS.slice(0, 3)).map((doc) => ({
+  const fallbackDocs = (matchedDocs.length ? matchedDocs : DOCUMENTS.slice(0, 3)).map((doc) => ({
     ...localizeDoc(doc, locale),
     score: confidence,
   }));
-
-  const clarificationQuestion = score <= 0 && intentCandidates[1]
-    ? (isEnglishLocale(locale)
-      ? `Is your question closer to '${intentCandidates[0].intent}' or '${intentCandidates[1].intent}'?`
-      : `'${intentCandidates[0].intent}' 관련 문의가 맞나요, 아니면 '${intentCandidates[1].intent}' 쪽이 더 가까운가요?`)
-    : null;
+  const docs = dataMatches.length
+    ? [...dataMatches, ...(requestsSinglePolicy ? [] : fallbackDocs.slice(0, 1))]
+    : (asksPolicyData ? [] : fallbackDocs);
 
   return {
     query,
@@ -445,12 +642,15 @@ export const buildFinanceChatResponse = ({ query, ownedDocuments: _ownedDocument
     disclaimer: getFinanceChatDisclaimer(locale),
     predicted_intent: predictedIntent,
     confidence,
-    route_source: 'keyword',
+    route_source: dataMatches.length ? 'policy_master' : 'keyword',
+    policy_match_count: dataMatches.length,
     model_predicted_intent: predictedIntent,
     model_confidence: confidence,
     intent_candidates: intentCandidates,
-    needs_clarification: score <= 0,
-    clarification_question: clarificationQuestion,
+    needs_clarification: false,
+    clarification_question: null,
     documents: docs,
+    policy_matches: dataMatches,
+    guide_documents: dataMatches.length && !requestsSinglePolicy ? fallbackDocs.slice(0, 1) : (asksPolicyData ? [] : fallbackDocs),
   };
 };

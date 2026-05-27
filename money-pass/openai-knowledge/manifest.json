@@ -1,0 +1,132 @@
+{
+  "generatedAt": "2026-05-27T04:22:26.336Z",
+  "source": "money-pass/경기도 공공데이터 정리 real.xlsx",
+  "policyCount": 25,
+  "files": [
+    {
+      "policyId": "youth-worker-account",
+      "title": "청년 노동자 통장",
+      "path": "policies/youth-worker-account-.md"
+    },
+    {
+      "policyId": "youth-tomorrow-savings",
+      "title": "청년내일저축계좌",
+      "path": "policies/youth-tomorrow-savings-.md"
+    },
+    {
+      "policyId": "youth-opportunity-finance",
+      "title": "경기청년 기회사다리 금융지원",
+      "path": "policies/youth-opportunity-finance-.md"
+    },
+    {
+      "policyId": "youth-basic-income",
+      "title": "경기도 청년기본소득",
+      "path": "policies/youth-basic-income-.md"
+    },
+    {
+      "policyId": "student-loan-interest",
+      "title": "경기도 대학생 학자금 대출이자 지원",
+      "path": "policies/student-loan-interest-.md"
+    },
+    {
+      "policyId": "youth-interview-allowance",
+      "title": "경기도 청년 면접수당",
+      "path": "policies/youth-interview-allowance-.md"
+    },
+    {
+      "policyId": "youth-skill-opportunity",
+      "title": "경기청년 역량강화 기회지원",
+      "path": "policies/youth-skill-opportunity-.md"
+    },
+    {
+      "policyId": "youth-custom-job-support",
+      "title": "경기청년 맞춤형 채용지원 서비스",
+      "path": "policies/youth-custom-job-support-.md"
+    },
+    {
+      "policyId": "youth-job-matchup",
+      "title": "경기청년 일자리 매치업 플러스",
+      "path": "policies/youth-job-matchup-.md"
+    },
+    {
+      "policyId": "youth-welfare-points",
+      "title": "청년 복지포인트",
+      "path": "policies/youth-welfare-points-.md"
+    },
+    {
+      "policyId": "sme-youth-worker-support",
+      "title": "중소기업 청년 노동자 지원사업",
+      "path": "policies/sme-youth-worker-support-.md"
+    },
+    {
+      "policyId": "worker-dorm-rent-support",
+      "title": "중소기업 노동자 기숙사 임차비 지원",
+      "path": "policies/worker-dorm-rent-support-.md"
+    },
+    {
+      "policyId": "employment-excellent-company",
+      "title": "일자리 우수기업/청년일하기좋은기업 관련 지원",
+      "path": "policies/employment-excellent-company-.md"
+    },
+    {
+      "policyId": "youth-labor-rights-support",
+      "title": "청년 노동/재직 관련 상담·지원",
+      "path": "policies/youth-labor-rights-support-.md"
+    },
+    {
+      "policyId": "gyeonggi-dormitory",
+      "title": "경기도기숙사 운영",
+      "path": "policies/gyeonggi-dormitory-.md"
+    },
+    {
+      "policyId": "songpa-dormitory",
+      "title": "송파학사 운영",
+      "path": "policies/songpa-dormitory-.md"
+    },
+    {
+      "policyId": "gyeonggi-blue-future-center",
+      "title": "경기푸른미래관 운영",
+      "path": "policies/gyeonggi-blue-future-center-.md"
+    },
+    {
+      "policyId": "housing-fire-insurance",
+      "title": "경기도 취약계층 주택화재 안심보험 지원",
+      "path": "policies/housing-fire-insurance-.md"
+    },
+    {
+      "policyId": "sunshine-housing",
+      "title": "햇살하우징 사업",
+      "path": "policies/sunshine-housing-.md"
+    },
+    {
+      "policyId": "youth-gap-year",
+      "title": "경기청년 갭이어 프로그램",
+      "path": "policies/youth-gap-year-.md"
+    },
+    {
+      "policyId": "youth-ladder",
+      "title": "경기청년 사다리 프로그램",
+      "path": "policies/youth-ladder-.md"
+    },
+    {
+      "policyId": "youth-participation-group",
+      "title": "경기도 청년참여기구 운영",
+      "path": "policies/youth-participation-group-.md"
+    },
+    {
+      "policyId": "youth-marriage-points",
+      "title": "경기청년 결혼축하 복지포인트 지원",
+      "path": "policies/youth-marriage-points-.md"
+    },
+    {
+      "policyId": "youth-medicare-plus",
+      "title": "경기청년 메디케어 플러스",
+      "path": "policies/youth-medicare-plus-.md"
+    },
+    {
+      "policyId": "military-youth-insurance",
+      "title": "군복무 경기청년 상해보험 가입지원",
+      "path": "policies/military-youth-insurance-.md"
+    }
+  ]
+}

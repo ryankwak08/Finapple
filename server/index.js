@@ -55,6 +55,7 @@ const openAiModel = process.env.OPENAI_MODEL || 'gpt-4o-mini';
 const openAiQuizModel = process.env.OPENAI_QUIZ_MODEL || 'gpt-4o-mini';
 const openAiTranslationModel = process.env.OPENAI_TRANSLATION_MODEL || 'gpt-4o-mini';
 const openAiQuizReviewModel = process.env.OPENAI_QUIZ_REVIEW_MODEL || 'gpt-4o-mini';
+const openAiVectorStoreId = process.env.OPENAI_VECTOR_STORE_ID || 'vs_6a16725acdec8191a7fb6b7f9a84cc30';
 const enableAiQuizReview = String(process.env.ENABLE_AI_QUIZ_REVIEW || 'false').trim().toLowerCase() === 'true';
 const neisApiKey = process.env.NEIS_API_KEY || process.env.VITE_NEIS_API_KEY || '';
 const PREMIUM_MONTHLY_PRICE = Number(process.env.PREMIUM_MONTHLY_PRICE || 5500);
@@ -94,6 +95,7 @@ const serverEnvChecklist = [
   { key: 'KCP_CERT_INFO', configured: Boolean(kcpCertInfo), level: paymentProvider === 'kcp' ? 'required' : 'recommended' },
   { key: 'KCP_STATE_SIGNING_SECRET', configured: Boolean(kcpStateSigningSecret), level: paymentProvider === 'kcp' ? 'required' : 'recommended' },
   { key: 'OPENAI_API_KEY', configured: Boolean(openAiApiKey), level: 'recommended' },
+  { key: 'OPENAI_VECTOR_STORE_ID', configured: Boolean(openAiVectorStoreId), level: 'recommended' },
 ];
 
 const quizResponseSchema = {
@@ -715,6 +717,7 @@ app.get('/api/health', (req, res) => {
     services: {
       openaiConfigured: Boolean(openAiApiKey),
       openaiModel: openAiModel,
+      openaiVectorStoreConfigured: Boolean(openAiVectorStoreId),
       openaiQuizModel: openAiQuizModel,
       openaiTranslationModel: openAiTranslationModel,
       openaiQuizReviewModel: openAiQuizReviewModel,
@@ -1564,6 +1567,7 @@ app.post('/api/finance-chat', createRateLimiter({ key: 'finance-chat', limit: 60
       openAiApiKey,
       model: openAiModel,
       locale,
+      vectorStoreId: openAiVectorStoreId,
     });
     return res.json({
       ...response,
