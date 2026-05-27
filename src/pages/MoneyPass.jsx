@@ -14,6 +14,7 @@ import {
 import {
   buildMoneyPassChatPrompt,
   getIncomePercent,
+  getMoneyPassFamilyCenters,
   getMedianIncomeThresholds,
   getMoneyPassInternCenters,
   getMoneyPassJobPostings,
@@ -32,14 +33,16 @@ const DEFAULT_PROFILE = {
   employmentStatus: '미취업',
   livingArrangement: '자취/독립',
   housingCostType: '월세',
-  interests: ['금융'],
+  specialStatus: '',
+  interests: [],
+  naturalLanguage: '',
 };
 
 const employmentOptions = ['미취업', '취업준비', '대학생', '재직', '중소기업 재직', '창업준비'];
 const householdOptions = [1, 2, 3, 4, 5, 6];
 const livingOptions = ['가족과 거주', '자취/독립', '기숙사', '신혼부부', '기타'];
 const housingCostOptions = ['월세', '전세', '보증부 월세', '자가', '무상 거주', '확인 필요'];
-const interestOptions = ['금융', '취업', '창업', '신혼부부', '출산/양육', '여성'];
+const specialStatusOptions = ['', '다문화 가족'];
 
 function Field({ label, children }) {
   return (
@@ -74,30 +77,24 @@ function SegmentedButtons({ value, options, onChange }) {
   );
 }
 
-function InterestToggle({ profile, setProfile }) {
-  const interests = new Set(profile.interests);
-
+function SpecialStatusButtons({ value, onChange }) {
   return (
     <div className="flex flex-wrap gap-2">
-      {interestOptions.map((option) => {
-        const selected = interests.has(option);
+      {specialStatusOptions.map((option) => {
+        const label = option || '해당 없음';
+        const selected = value === option;
         return (
           <button
-            key={option}
+            key={label}
             type="button"
-            onClick={() => {
-              const next = new Set(interests);
-              if (next.has(option)) next.delete(option);
-              else next.add(option);
-              setProfile((current) => ({ ...current, interests: Array.from(next) }));
-            }}
+            onClick={() => onChange(option)}
             className={`rounded-xl border px-3 py-2 text-[12px] font-bold transition ${
               selected
-                ? 'border-emerald-600 bg-emerald-600 text-white'
-                : 'border-border bg-background text-foreground hover:border-emerald-400'
+                ? 'border-primary bg-primary text-primary-foreground'
+                : 'border-border bg-background text-foreground hover:border-primary/40'
             }`}
           >
-            {option}
+            {label}
           </button>
         );
       })}
@@ -120,6 +117,7 @@ export default function MoneyPass() {
   const [profile, setProfile] = useState(DEFAULT_PROFILE);
 
   const recommendations = useMemo(() => getMoneyPassRecommendations(profile, { limit: 8 }), [profile]);
+  const familyCenters = useMemo(() => getMoneyPassFamilyCenters(profile, { limit: 3 }), [profile]);
   const internCenters = useMemo(() => getMoneyPassInternCenters(profile, { limit: 5 }), [profile]);
   const jobPostings = useMemo(() => getMoneyPassJobPostings(profile, { limit: 5 }), [profile]);
   const incomePercent = useMemo(() => getIncomePercent(profile), [profile]);
@@ -252,8 +250,22 @@ export default function MoneyPass() {
               />
             </Field>
 
-            <Field label="관심사">
-              <InterestToggle profile={profile} setProfile={setProfile} />
+            <Field label="해당 사항">
+              <SpecialStatusButtons
+                value={profile.specialStatus}
+                onChange={(value) => setProfile((current) => ({ ...current, specialStatus: value }))}
+              />
+            </Field>
+
+            <Field label="내 상황">
+              <textarea
+                value={profile.naturalLanguage}
+                onChange={(event) => setProfile((current) => ({ ...current, naturalLanguage: event.target.value }))}
+                rows={4}
+                maxLength={500}
+                placeholder="예: 성남시에 사는 24살 취준생이고 월세 자취 중이에요. 보증금 대출이나 면접 지원 정책이 궁금해요."
+                className="min-h-[104px] w-full resize-none rounded-xl border border-border bg-background px-3 py-3 text-[13px] font-semibold leading-6 outline-none focus:border-primary"
+              />
             </Field>
           </div>
         </section>
@@ -285,7 +297,7 @@ export default function MoneyPass() {
                           총점 {policy.matchScore}
                         </span>
                         <span className="rounded-full border border-border bg-card px-2 py-1 text-[10px] font-bold text-muted-foreground">
-                          AI 점수 {policy.mlScore}
+                          의미 점수 {policy.mlScore}
                         </span>
                       </div>
                       <h3 className="text-[15px] font-extrabold leading-snug text-foreground">{policy.title}</h3>
@@ -332,6 +344,30 @@ export default function MoneyPass() {
               ))}
             </div>
           </div>
+
+          {familyCenters.length ? (
+            <div className="rounded-2xl border border-border bg-card p-4 shadow-sm">
+              <div className="mb-3 flex items-center gap-2">
+                <Building2 className="h-4 w-4 text-emerald-600" />
+                <h2 className="text-[15px] font-extrabold text-foreground">다문화 가족지원센터</h2>
+              </div>
+              <div className="grid gap-3 md:grid-cols-2">
+                {familyCenters.map((center) => (
+                  <article key={center.id} className="rounded-2xl border border-border bg-background p-3">
+                    <p className="flex items-center gap-1.5 text-[13px] font-extrabold text-foreground">
+                      <Building2 className="h-4 w-4 text-emerald-600" />
+                      {center.name}
+                    </p>
+                    <p className="mt-1 text-[11px] font-bold text-muted-foreground">{center.city} · {center.phone}</p>
+                    <p className="mt-2 flex gap-1.5 text-[11px] leading-5 text-muted-foreground">
+                      <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                      {center.roadAddress || center.lotAddress}
+                    </p>
+                  </article>
+                ))}
+              </div>
+            </div>
+          ) : null}
 
           <div className="rounded-2xl border border-border bg-card p-4 shadow-sm">
             <div className="mb-3 flex items-center gap-2">

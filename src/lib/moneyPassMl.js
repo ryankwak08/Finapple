@@ -12,6 +12,8 @@ const PROFILE_EXPANSIONS = {
   금융: ['금융', '대출', '신용', '이자', '통장', '저축', '보증'],
   창업: ['창업', '소상공인', '예비창업', '초기창업', '교육'],
   취업: ['취업', '구직', '면접', '일자리', '인턴', '자격', '시험'],
+  다문화: ['다문화', '외국인', '이주배경', '가족센터', '한국어', '통번역'],
+  '다문화 가족': ['다문화', '외국인', '이주배경', '가족센터', '한국어', '통번역'],
 };
 
 const STOPWORDS = new Set([
@@ -139,6 +141,7 @@ export function createMoneyPassTfIdfModel(policies) {
 
 export function buildMoneyPassProfileQuery(profile) {
   const parts = [
+    profile.naturalLanguage,
     `${profile.age || ''}세 청년`,
     profile.city,
     profile.gender,
@@ -148,6 +151,7 @@ export function buildMoneyPassProfileQuery(profile) {
     profile.livingArrangement,
     profile.housingCostType,
     profile.housingStatus,
+    profile.specialStatus,
     ...(profile.interests || []),
   ].filter(Boolean);
 
@@ -156,6 +160,7 @@ export function buildMoneyPassProfileQuery(profile) {
     profile.livingArrangement,
     profile.housingCostType,
     profile.housingStatus,
+    profile.specialStatus,
     ...(profile.interests || []),
   ].forEach((key) => {
     if (PROFILE_EXPANSIONS[key]) {
