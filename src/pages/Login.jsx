@@ -841,7 +841,7 @@ export default function Login() {
                 <div className="space-y-2">
                   <div>
                     <p className="text-sm font-semibold text-black">학교 선택</p>
-                    <p className="mt-1 text-xs text-[#828282]">학교별 리더보드에 사용할 학교를 NEIS 목록에서 선택해주세요. 아직 학교가 없다면 비워둘 수 있어요.</p>
+                    <p className="mt-1 text-xs text-[#828282]">학교 정보를 입력해주세요. 현재 학교에 다니고 있지 않다면 비워둘 수 있어요.</p>
                   </div>
                   <SchoolSelector value={selectedSchool} onChange={setSelectedSchool} compact />
                 </div>

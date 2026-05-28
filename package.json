@@ -20,10 +20,7 @@
     "check:ops": "node scripts/check-ops.mjs",
     "export:money-pass-openai": "node scripts/export-money-pass-openai-knowledge.mjs",
     "create:test-user": "node scripts/create-test-user.mjs",
-    "create:synthetic-users": "node scripts/create-synthetic-test-users.mjs",
-    "rename:synthetic-nicknames": "node scripts/rename-synthetic-nicknames.mjs",
-    "rename:synthetic-game-nicknames": "node scripts/rename-synthetic-users-game-nicknames.mjs",
-    "update:synthetic-users": "node scripts/update-synthetic-test-users-batch.mjs",
+    "delete:synthetic-users": "node scripts/delete-synthetic-test-users.mjs",
     "randomize:all-season-points": "node scripts/randomize-all-user-season-points.mjs",
     "typecheck": "tsc -p ./jsconfig.json",
     "preview": "vite preview"

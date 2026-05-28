@@ -1,13 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Medal, Crown, Flame, Snowflake, Star, Loader2, ChartColumn, NotebookPen, GraduationCap, Users } from 'lucide-react';
+import { Medal, Crown, Flame, Snowflake, Star, Loader2, ChartColumn, NotebookPen } from 'lucide-react';
 import useProgress from '@/lib/useProgress';
 import { fetchLeaderboard, fetchLeaderboardProfile, syncLeaderboardEntry } from '@/api/leaderboardClient';
-import { getSchoolDisplayName } from '@/api/schoolClient';
 import { buildLeaderboardPayload, getLeagueRewardForRank } from '@/lib/leaderboard';
 import { getPreviousSeasonMeta, getSeasonProgressMeta } from '@/lib/season';
 import { getEntryTrackScores, readTrackLeaderboardScores } from '@/lib/leaderboardTrackScores';
 import { useTrack } from '@/lib/trackContext';
-import SchoolSelector from '@/components/SchoolSelector';
 import {
   Dialog,
   DialogContent,
@@ -198,7 +196,6 @@ export default function Leaderboard() {
   const [profileOpen, setProfileOpen] = useState(false);
   const [profileLoading, setProfileLoading] = useState(false);
   const [profileData, setProfileData] = useState(null);
-  const [selectedSchool, setSelectedSchool] = useState(null);
 
   const myEntry = useMemo(() => {
     const base = buildLeaderboardPayload({ user, progress, streakStatus });
@@ -215,25 +212,6 @@ export default function Leaderboard() {
     };
   }, [activeTrack, progress, streakStatus, user]);
   const currentSeasonKey = myEntry.seasonKey || streakStatus.leaderboardSeasonKey;
-  const mySchool = useMemo(() => (
-    myEntry.schoolCode && myEntry.educationOfficeCode
-      ? {
-          schoolName: myEntry.schoolName,
-          schoolCode: myEntry.schoolCode,
-          educationOfficeCode: myEntry.educationOfficeCode,
-          educationOfficeName: myEntry.educationOfficeName,
-          schoolType: myEntry.schoolType,
-          regionName: myEntry.schoolRegion,
-        }
-      : null
-  ), [
-    myEntry.educationOfficeCode,
-    myEntry.educationOfficeName,
-    myEntry.schoolCode,
-    myEntry.schoolName,
-    myEntry.schoolRegion,
-    myEntry.schoolType,
-  ]);
 
   useEffect(() => {
     if (loading || !progress) {
@@ -253,7 +231,7 @@ export default function Leaderboard() {
       setError(null);
 
       try {
-        const remoteEntries = await fetchLeaderboard(LEADERBOARD_LIMIT, currentSeasonKey, { includeAllUsers: true });
+        const remoteEntries = await fetchLeaderboard(LEADERBOARD_LIMIT, currentSeasonKey);
         if (active) {
           setEntries(remoteEntries);
         }
@@ -373,92 +351,6 @@ export default function Leaderboard() {
   const visibleEntries = useMemo(() => {
     return normalizedEntries.slice(0, 20);
   }, [normalizedEntries]);
-
-  const activeSchool = selectedSchool || mySchool;
-  const activeSchoolName = getSchoolDisplayName(activeSchool);
-  const isViewingMySchool = Boolean(
-    activeSchool?.schoolCode &&
-    mySchool?.schoolCode &&
-    activeSchool.schoolCode === mySchool.schoolCode &&
-    activeSchool.educationOfficeCode === mySchool.educationOfficeCode
-  );
-
-  const schoolCompetitionEntries = useMemo(() => {
-    const schools = new Map();
-
-    normalizedEntries.forEach((entry) => {
-      const schoolKey = entry.school_code && entry.education_office_code
-        ? `${entry.education_office_code}:${entry.school_code}`
-        : '';
-      if (!schoolKey) {
-        return;
-      }
-
-      const current = schools.get(schoolKey) || {
-        key: schoolKey,
-        schoolName: entry.school_name,
-        schoolCode: entry.school_code,
-        educationOfficeCode: entry.education_office_code,
-        educationOfficeName: entry.education_office_name,
-        schoolType: entry.school_type,
-        regionName: entry.school_region,
-        score: 0,
-        learnerCount: 0,
-        topScore: 0,
-        topLearner: '',
-        isMySchool: entry.school_code === mySchool?.schoolCode && entry.education_office_code === mySchool?.educationOfficeCode,
-      };
-
-      current.score += entry.score || 0;
-      current.learnerCount += 1;
-      if ((entry.score || 0) > current.topScore) {
-        current.topScore = entry.score || 0;
-        current.topLearner = entry.display_name || '';
-      }
-      if (entry.isMe) {
-        current.isMySchool = true;
-      }
-
-      schools.set(schoolKey, current);
-    });
-
-    return Array.from(schools.values())
-      .sort((left, right) => {
-        if (right.score !== left.score) {
-          return right.score - left.score;
-        }
-        return right.learnerCount - left.learnerCount;
-      })
-      .map((school, index) => ({ ...school, schoolRank: index + 1 }));
-  }, [mySchool?.educationOfficeCode, mySchool?.schoolCode, normalizedEntries]);
-
-  const visibleSchoolCompetitionEntries = useMemo(() => schoolCompetitionEntries.slice(0, 20), [schoolCompetitionEntries]);
-  const mySchoolRank = schoolCompetitionEntries.find((school) => school.isMySchool)?.schoolRank || null;
-
-  const selectedSchoolEntries = useMemo(() => {
-    if (!activeSchool?.schoolCode || !activeSchool?.educationOfficeCode) {
-      return [];
-    }
-
-    return normalizedEntries
-      .filter((entry) => (
-        entry.school_code === activeSchool.schoolCode &&
-        entry.education_office_code === activeSchool.educationOfficeCode
-      ))
-      .sort((left, right) => {
-        if (right.score !== left.score) {
-          return right.score - left.score;
-        }
-        return new Date(left.updated_at).getTime() - new Date(right.updated_at).getTime();
-      })
-      .map((entry, index) => ({ ...entry, schoolRank: index + 1 }));
-  }, [activeSchool?.educationOfficeCode, activeSchool?.schoolCode, normalizedEntries]);
-
-  const visibleSelectedSchoolEntries = useMemo(() => selectedSchoolEntries.slice(0, 10), [selectedSchoolEntries]);
-  const selectedSchoolRank = schoolCompetitionEntries.find((school) => (
-    school.schoolCode === activeSchool?.schoolCode &&
-    school.educationOfficeCode === activeSchool?.educationOfficeCode
-  ))?.schoolRank || null;
 
   const mySyncedEntry = useMemo(
     () => normalizedEntries.find((entry) => entry.isMe) || null,
@@ -749,194 +641,6 @@ export default function Leaderboard() {
                 </button>
               );
             })}
-            </section>
-
-            <section className="space-y-3">
-              <div className="flex items-center justify-between gap-3 px-1 text-[12px] text-muted-foreground">
-                <span className="inline-flex items-center gap-1.5 font-semibold text-foreground">
-                  <GraduationCap className="h-4 w-4 text-primary" />
-                  {isEnglish ? 'School competition' : '학교 대항전'}
-                </span>
-                <span>
-                  {mySchoolRank
-                    ? (isEnglish ? `My school #${mySchoolRank}` : `우리 학교 #${mySchoolRank}`)
-                    : (isEnglish ? `${schoolCompetitionEntries.length.toLocaleString()} schools` : `${schoolCompetitionEntries.length.toLocaleString()}개 학교`)}
-                </span>
-              </div>
-
-              <div className="rounded-2xl border border-primary/15 bg-primary/5 px-4 py-4">
-                <div className="mb-3 flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="text-[12px] font-semibold text-primary">{isEnglish ? 'Inspect school' : '학교 상세 보기'}</p>
-                    <p className="mt-1 text-[14px] font-bold text-foreground">
-                      {activeSchoolName || (isEnglish ? 'Search or tap a school' : '학교를 검색하거나 아래 학교를 눌러보세요')}
-                    </p>
-                    {selectedSchoolRank ? (
-                      <p className="mt-1 text-[12px] text-primary">
-                        {isEnglish ? `Competition rank #${selectedSchoolRank}` : `학교 대항전 #${selectedSchoolRank}`}
-                      </p>
-                    ) : null}
-                  </div>
-                  {mySchool && !isViewingMySchool ? (
-                    <button
-                      type="button"
-                      onClick={() => setSelectedSchool(null)}
-                      className="shrink-0 rounded-xl border border-primary/20 bg-background px-3 py-2 text-[11px] font-bold text-primary"
-                    >
-                      {isEnglish ? 'My school' : '우리 학교'}
-                    </button>
-                  ) : null}
-                </div>
-                <SchoolSelector
-                  value={selectedSchool}
-                  onChange={setSelectedSchool}
-                  compact
-                  placeholder={isEnglish ? 'Search school name' : '다른 학교 검색'}
-                />
-              </div>
-
-              {visibleSchoolCompetitionEntries.length > 0 ? (
-                visibleSchoolCompetitionEntries.map((school) => {
-                  const topRankStyle = TOP_RANK_STYLES[school.schoolRank];
-                  const schoolName = getSchoolDisplayName(school);
-
-                  return (
-                    <button
-                      type="button"
-                      key={school.key}
-                      onClick={() => setSelectedSchool(school)}
-                      className={`w-full rounded-2xl border p-4 text-left transition-all hover:shadow-md ${
-                        topRankStyle
-                          ? topRankStyle.cardClassName
-                          : school.isMySchool
-                          ? 'border-primary/20 bg-primary/5'
-                          : 'border-border bg-card'
-                      }`}
-                    >
-                      <div className="flex items-center gap-4">
-                        <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl font-extrabold shadow-sm ${
-                          topRankStyle ? topRankStyle.className : 'bg-muted text-foreground'
-                        }`}>
-                          {topRankStyle ? (
-                            <Medal className={`h-5 w-5 ${topRankStyle.iconClassName}`} />
-                          ) : `#${school.schoolRank}`}
-                        </div>
-                        <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-secondary ${
-                          topRankStyle ? topRankStyle.avatarRingClassName : ''
-                        }`}>
-                          <GraduationCap className="h-5 w-5 text-primary" />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <p className={`truncate text-[15px] font-bold ${topRankStyle ? topRankStyle.accentClassName : 'text-foreground'}`}>{schoolName}</p>
-                            {school.isMySchool ? (
-                              <span className="rounded-full bg-primary px-2 py-0.5 text-[10px] font-bold text-primary-foreground">
-                                {isEnglish ? 'My school' : '우리 학교'}
-                              </span>
-                            ) : null}
-                            <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-bold ${
-                              topRankStyle ? topRankStyle.scorePillClassName : 'bg-slate-900 text-white'
-                            }`}>
-                              <span>{topRankStyle?.label || `#${school.schoolRank}`}</span>
-                              <span className="text-white/75">·</span>
-                              <span>{school.score.toLocaleString()}P</span>
-                            </span>
-                          </div>
-                          <p className="mt-1 text-[11px] text-muted-foreground">
-                            {isEnglish
-                              ? `${school.learnerCount.toLocaleString()} learners · Top learner ${school.topLearner || '-'}`
-                              : `${school.learnerCount.toLocaleString()}명 참여 · 최고 점수 ${school.topLearner || '-'}`}
-                          </p>
-                          <p className="mt-1 flex items-center gap-1 text-[11px] text-muted-foreground">
-                            <Users className="h-3.5 w-3.5" />
-                            {isEnglish ? 'Tap to see learners in this school' : '눌러서 이 학교 학생 순위 보기'}
-                          </p>
-                        </div>
-                        {topRankStyle ? <Crown className={`h-5 w-5 shrink-0 ${topRankStyle.iconClassName}`} /> : null}
-                      </div>
-                    </button>
-                  );
-                })
-              ) : (
-                <div className="rounded-2xl border border-border bg-card px-4 py-6 text-center text-[13px] text-muted-foreground">
-                  {isEnglish ? 'School competition will appear after learners register their schools.' : '학교를 등록한 학습자가 생기면 학교 대항전 순위가 표시돼요.'}
-                </div>
-              )}
-
-              {activeSchool ? (
-                <div className="space-y-3 pt-3">
-                  <div className="flex items-center justify-between gap-3 px-1 text-[12px] text-muted-foreground">
-                    <span className="font-semibold text-foreground">{isEnglish ? 'Learners in selected school' : '선택한 학교 학생 순위'}</span>
-                    <span>{selectedSchoolEntries.length.toLocaleString()}{isEnglish ? ' learners' : '명'}</span>
-                  </div>
-
-                  {visibleSelectedSchoolEntries.length > 0 ? (
-                    visibleSelectedSchoolEntries.map((entry) => {
-                      const topRankStyle = TOP_RANK_STYLES[entry.schoolRank];
-
-                      return (
-                        <button
-                          type="button"
-                          key={`school-learner-${entry.user_id}`}
-                          onClick={() => openProfile(entry)}
-                          className={`w-full rounded-2xl border p-4 text-left transition-all hover:shadow-md ${
-                            topRankStyle
-                              ? topRankStyle.cardClassName
-                              : entry.isMe
-                              ? 'border-primary/20 bg-primary/5'
-                              : 'border-border bg-card'
-                          }`}
-                        >
-                          <div className="flex items-center gap-4">
-                            <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl font-extrabold shadow-sm ${
-                              topRankStyle ? topRankStyle.className : 'bg-muted text-foreground'
-                            }`}>
-                              {topRankStyle ? (
-                                <Medal className={`h-5 w-5 ${topRankStyle.iconClassName}`} />
-                              ) : `#${entry.schoolRank}`}
-                            </div>
-                            <div className={`h-12 w-12 shrink-0 overflow-hidden rounded-2xl bg-secondary flex items-center justify-center text-2xl ${
-                              topRankStyle ? topRankStyle.avatarRingClassName : ''
-                            }`}>
-                              {entry.avatar_url ? (
-                                <img src={entry.avatar_url} alt={entry.display_name} className="h-full w-full object-cover" />
-                              ) : (
-                                <span>{(entry.display_name || '?')[0] || '?'}</span>
-                              )}
-                            </div>
-                            <div className="min-w-0 flex-1">
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <p className={`truncate text-[15px] font-bold ${topRankStyle ? topRankStyle.accentClassName : 'text-foreground'}`}>{entry.display_name}</p>
-                                {entry.isMe ? (
-                                  <span className="rounded-full bg-primary px-2 py-0.5 text-[10px] font-bold text-primary-foreground">
-                                    {isEnglish ? 'Me' : '나'}
-                                  </span>
-                                ) : null}
-                                <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-bold ${
-                                  topRankStyle ? topRankStyle.scorePillClassName : 'bg-slate-900 text-white'
-                                }`}>
-                                  <span>{topRankStyle?.label || `#${entry.schoolRank}`}</span>
-                                  <span className="text-white/75">·</span>
-                                  <span>{entry.score.toLocaleString()}P</span>
-                                </span>
-                              </div>
-                              <p className="mt-1 text-[11px] text-muted-foreground">
-                                {isEnglish
-                                  ? `This week's XP ${entry.xp.toLocaleString()} · Streak ${entry.streak_count} days`
-                                  : `이번 주 XP ${entry.xp.toLocaleString()} · 스트릭 ${entry.streak_count}일`}
-                              </p>
-                            </div>
-                          </div>
-                        </button>
-                      );
-                    })
-                  ) : (
-                    <div className="rounded-2xl border border-border bg-card px-4 py-5 text-center text-[13px] text-muted-foreground">
-                      {isEnglish ? 'No learners from this school are on the leaderboard yet.' : '아직 이 학교 학생이 리더보드에 없어요.'}
-                    </div>
-                  )}
-                </div>
-              ) : null}
             </section>
           </div>
         )}
